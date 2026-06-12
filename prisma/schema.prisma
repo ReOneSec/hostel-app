@@ -1,0 +1,670 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String                    @id @default(cuid())
+  username              String                    @unique
+  email                 String                    @unique
+  passwordHash          String?
+  role                  Role
+  status                AccountStatus             @default(ACTIVE)
+  isProfileComplete     Boolean                   @default(false)
+  isFirstLogin          Boolean                   @default(true)
+  needsSelfieUpdate     Boolean                   @default(false)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  createdBy             String?
+  auditLogs             AuditLog[]
+  bedAssignments        BedAssignment[]
+  bills                 Bill[]
+  documents             Document[]
+  hostelAssignments     HostelAssignment[]
+  managedHostels        HostelManagerAssignment[]
+  managedHostelDirect   Hostel[]                  @relation("HostelManager")
+  lifecycleEvents       LifecycleEvent[]
+  messContributions     MessInitialContribution[]
+  messMarketExpenses    MessMarketExpense[]
+  messSettlements       MessSettlement[]
+  messStudentMealCounts MessStudentMealCount[]
+  messWaterExpenses     MessWaterExpense[]
+  monthlyManagerMonths  MonthlyManagerSession[]
+  notifications         Notification[]
+  payments              Payment[]
+  rentConfigs           RentConfig[]
+  roomAssignments       RoomAssignment[]
+  selfies               Selfie[]
+  studentProfile        StudentProfile?
+  profileEditRequests   ProfileEditRequest[] @relation("UserEditRequests")
+  reviewedEditRequests  ProfileEditRequest[] @relation("ReviewedEditRequests")
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model StudentProfile {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  fullName         String?
+  fatherName       String?
+  motherName       String?
+  mobile           String?
+  parentMobile     String
+  dateOfBirth      DateTime?
+  permanentAddress String?
+  emergencyContact String?
+  bloodGroup       String?
+  gender           String?
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id])
+
+  @@map("student_profiles")
+}
+
+model Document {
+  id              String         @id @default(cuid())
+  userId          String
+  documentType    DocumentType
+  fileUrl         String
+  fileName        String
+  fileSize        Int
+  uploadedAt      DateTime       @default(now())
+  uploadedBy      String
+  status          DocumentStatus @default(PENDING)
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  rejectionReason String?
+  currentHostelId String?
+  user            User           @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@index([status])
+  @@map("documents")
+}
+
+model Selfie {
+  id          String   @id @default(cuid())
+  userId      String
+  fileUrl     String
+  uploadedAt  DateTime @default(now())
+  capturedAt  DateTime
+  latitude    Float?
+  longitude   Float?
+  deviceInfo  String?
+  ipAddress   String?
+  isCurrent   Boolean  @default(true)
+  triggerType String
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, isCurrent])
+  @@map("selfies")
+}
+
+model Hostel {
+  id                  String                    @id @default(cuid())
+  name                String
+  address             String?
+  contactNumber       String?
+  totalCapacity       Int                       @default(0)
+  managerId           String?
+  isActive            Boolean                   @default(true)
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  createdBy           String
+  bedFees             BedFee[]
+  bills               Bill[]
+  establishmentFees   EstablishmentFee[]
+  hostelAssignments   HostelAssignment[]
+  managerAssignments  HostelManagerAssignment[]
+  manager             User?                     @relation("HostelManager", fields: [managerId], references: [id])
+  lifecycleEventsFrom LifecycleEvent[]          @relation("FromHostel")
+  lifecycleEventsTo   LifecycleEvent[]          @relation("ToHostel")
+  messConfigs         MessConfig[]
+  messSessions        MessSession[]
+  monthlyManagers     MonthlyManagerSession[]
+  rentConfigs         RentConfig[]
+  rooms               Room[]
+
+  @@map("hostels")
+}
+
+model Room {
+  id              String           @id @default(cuid())
+  hostelId        String
+  roomNumber      String
+  roomType        String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  bedFees         BedFee[]
+  beds            Bed[]
+  roomAssignments RoomAssignment[]
+  hostel          Hostel           @relation(fields: [hostelId], references: [id])
+
+  @@unique([hostelId, roomNumber])
+  @@map("rooms")
+}
+
+model Bed {
+  id             String          @id @default(cuid())
+  roomId         String
+  bedLabel       String
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  bedAssignments BedAssignment[]
+  bedFees        BedFee[]
+  room           Room            @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, bedLabel])
+  @@map("beds")
+}
+
+model HostelAssignment {
+  id            String           @id @default(cuid())
+  userId        String
+  hostelId      String
+  assignedAt    DateTime         @default(now())
+  assignedBy    String
+  status        AssignmentStatus @default(ACTIVE)
+  leftAt        DateTime?
+  transferredAt DateTime?
+  notes         String?
+  hostel        Hostel           @relation(fields: [hostelId], references: [id])
+  user          User             @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@index([hostelId, status])
+  @@map("hostel_assignments")
+}
+
+model RoomAssignment {
+  id         String           @id @default(cuid())
+  userId     String
+  roomId     String
+  assignedAt DateTime         @default(now())
+  assignedBy String
+  status     AssignmentStatus @default(ACTIVE)
+  leftAt     DateTime?
+  room       Room             @relation(fields: [roomId], references: [id])
+  user       User             @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@map("room_assignments")
+}
+
+model BedAssignment {
+  id         String           @id @default(cuid())
+  userId     String
+  bedId      String
+  assignedAt DateTime         @default(now())
+  assignedBy String
+  status     AssignmentStatus @default(ACTIVE)
+  leftAt     DateTime?
+  bed        Bed              @relation(fields: [bedId], references: [id])
+  user       User             @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@index([bedId, status])
+  @@map("bed_assignments")
+}
+
+model LifecycleEvent {
+  id                 String             @id @default(cuid())
+  userId             String
+  eventType          LifecycleEventType
+  eventDate          DateTime
+  hostelId           String?
+  notes              String?
+  recordedBy         String
+  createdAt          DateTime           @default(now())
+  fromHostelId       String?
+  toHostelId         String?
+  transferReason     String?
+  approvedBy         String?
+  coolingPeriodStart DateTime?
+  coolingPeriodEnd   DateTime?
+  fromHostel         Hostel?            @relation("FromHostel", fields: [fromHostelId], references: [id])
+  toHostel           Hostel?            @relation("ToHostel", fields: [toHostelId], references: [id])
+  user               User               @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("lifecycle_events")
+}
+
+model HostelManagerAssignment {
+  id         String    @id @default(cuid())
+  userId     String
+  hostelId   String
+  assignedAt DateTime  @default(now())
+  assignedBy String
+  isActive   Boolean   @default(true)
+  revokedAt  DateTime?
+  revokedBy  String?
+  hostel     Hostel    @relation(fields: [hostelId], references: [id])
+  user       User      @relation(fields: [userId], references: [id])
+
+  @@index([hostelId, isActive])
+  @@map("hostel_manager_assignments")
+}
+
+model MonthlyManagerSession {
+  id          String       @id @default(cuid())
+  userId      String
+  hostelId    String
+  month       Int
+  year        Int
+  appointedAt DateTime     @default(now())
+  appointedBy String
+  isActive    Boolean      @default(true)
+  revokedAt   DateTime?
+  messSession MessSession?
+  hostel      Hostel       @relation(fields: [hostelId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+
+  @@unique([hostelId, month, year])
+  @@map("monthly_manager_sessions")
+}
+
+model RentConfig {
+  id            String    @id @default(cuid())
+  userId        String
+  hostelId      String
+  amount        Decimal   @db.Decimal(10, 2)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  setBy         String
+  setAt         DateTime  @default(now())
+  notes         String?
+  hostel        Hostel    @relation(fields: [hostelId], references: [id])
+  user          User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, hostelId])
+  @@map("rent_configs")
+}
+
+model EstablishmentFee {
+  id            String    @id @default(cuid())
+  hostelId      String
+  amount        Decimal   @db.Decimal(10, 2)
+  feeType       FeeType   @default(RECURRING)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  setBy         String
+  setAt         DateTime  @default(now())
+  hostel        Hostel    @relation(fields: [hostelId], references: [id])
+
+  @@index([hostelId])
+  @@map("establishment_fees")
+}
+
+model BedFee {
+  id            String    @id @default(cuid())
+  bedId         String?
+  roomId        String?
+  hostelId      String
+  amount        Decimal   @db.Decimal(10, 2)
+  feeType       FeeType   @default(RECURRING)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  setBy         String
+  setAt         DateTime  @default(now())
+  bed           Bed?      @relation(fields: [bedId], references: [id])
+  hostel        Hostel    @relation(fields: [hostelId], references: [id])
+  room          Room?     @relation(fields: [roomId], references: [id])
+
+  @@index([hostelId])
+  @@map("bed_fees")
+}
+
+model Bill {
+  id               String          @id @default(cuid())
+  userId           String
+  hostelId         String
+  month            Int
+  year             Int
+  rentAmount       Decimal         @default(0) @db.Decimal(10, 2)
+  establishmentFee Decimal         @default(0) @db.Decimal(10, 2)
+  bedFee           Decimal         @default(0) @db.Decimal(10, 2)
+  messCharge       Decimal         @default(0) @db.Decimal(10, 2)
+  lateFee          Decimal         @default(0) @db.Decimal(10, 2)
+  totalAmount      Decimal         @db.Decimal(10, 2)
+  paidAmount       Decimal         @default(0) @db.Decimal(10, 2)
+  status           BillStatus      @default(GENERATED)
+  dueDate          DateTime
+  generatedAt      DateTime        @default(now())
+  generatedBy      String?
+  hostel           Hostel          @relation(fields: [hostelId], references: [id])
+  user             User            @relation(fields: [userId], references: [id])
+  lateFeeRecords   LateFeeRecord[]
+  payments         Payment[]
+
+  @@unique([userId, hostelId, month, year])
+  @@index([hostelId, month, year])
+  @@index([userId, status])
+  @@index([status])
+  @@map("bills")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  billId          String
+  userId          String
+  proofFileUrl    String?
+  transactionId   String?
+  utrNumber       String?
+  amount          Decimal       @db.Decimal(10, 2)
+  paymentDate     DateTime
+  status          PaymentStatus @default(PENDING_REVIEW)
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  rejectionReason String?
+  submittedAt     DateTime      @default(now())
+  bill            Bill          @relation(fields: [billId], references: [id])
+  user            User          @relation(fields: [userId], references: [id])
+
+  @@index([billId])
+  @@index([userId])
+  @@index([status])
+  @@map("payments")
+}
+
+model LateFeeRecord {
+  id           String   @id @default(cuid())
+  billId       String
+  userId       String
+  daysLate     Int
+  amount       Decimal  @db.Decimal(10, 2)
+  calculatedAt DateTime @default(now())
+  bill         Bill     @relation(fields: [billId], references: [id])
+
+  @@map("late_fee_records")
+}
+
+model MessConfig {
+  id             String    @id @default(cuid())
+  hostelId       String
+  cookPayment    Decimal   @default(0) @db.Decimal(10, 2)
+  cleanerPayment Decimal   @default(0) @db.Decimal(10, 2)
+  dustbinPayment Decimal   @default(0) @db.Decimal(10, 2)
+  guestMealRate  Decimal   @default(65) @db.Decimal(10, 2)
+  effectiveFrom  DateTime
+  effectiveTo    DateTime?
+  setBy          String
+  setAt          DateTime  @default(now())
+  hostel         Hostel    @relation(fields: [hostelId], references: [id])
+
+  @@index([hostelId])
+  @@map("mess_configs")
+}
+
+model MessSession {
+  id                      String                    @id @default(cuid())
+  hostelId                String
+  month                   Int
+  year                    Int
+  monthlyManagerSessionId String?                   @unique
+  status                  MessSessionStatus         @default(DRAFT)
+  totalMessCharge1        Decimal?                  @db.Decimal(10, 2)
+  totalGuestRecovery      Decimal?                  @db.Decimal(10, 2)
+  totalMessCharge2        Decimal?                  @db.Decimal(10, 2)
+  totalStudentMeals       Int?
+  universalMealCharge     Decimal?                  @db.Decimal(10, 2)
+  cookPayment             Decimal?                  @db.Decimal(10, 2)
+  cleanerPayment          Decimal?                  @db.Decimal(10, 2)
+  dustbinPayment          Decimal?                  @db.Decimal(10, 2)
+  guestMealRate           Decimal?                  @db.Decimal(10, 2)
+  createdAt               DateTime                  @default(now())
+  closedAt                DateTime?
+  closedBy                String?
+  documents               MessDocument[]
+  guestMeals              MessGuestMeal[]
+  initialContributions    MessInitialContribution[]
+  marketExpenses          MessMarketExpense[]
+  hostel                  Hostel                    @relation(fields: [hostelId], references: [id])
+  monthlyManagerSession   MonthlyManagerSession?    @relation(fields: [monthlyManagerSessionId], references: [id])
+  settlements             MessSettlement[]
+  studentMealCounts       MessStudentMealCount[]
+  waterExpenses           MessWaterExpense[]
+
+  @@unique([hostelId, month, year])
+  @@map("mess_sessions")
+}
+
+model MessInitialContribution {
+  id               String      @id @default(cuid())
+  messSessionId    String
+  userId           String
+  amount           Decimal     @db.Decimal(10, 2)
+  contributionDate DateTime
+  notes            String?
+  enteredBy        String
+  createdAt        DateTime    @default(now())
+  messSession      MessSession @relation(fields: [messSessionId], references: [id])
+  user             User        @relation(fields: [userId], references: [id])
+
+  @@index([messSessionId])
+  @@map("mess_initial_contributions")
+}
+
+model MessMarketExpense {
+  id            String      @id @default(cuid())
+  messSessionId String
+  userId        String
+  amount        Decimal     @db.Decimal(10, 2)
+  description   String?
+  expenseDate   DateTime
+  billFileUrl   String?
+  enteredBy     String
+  createdAt     DateTime    @default(now())
+  messSession   MessSession @relation(fields: [messSessionId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@index([messSessionId])
+  @@map("mess_market_expenses")
+}
+
+model MessWaterExpense {
+  id            String      @id @default(cuid())
+  messSessionId String
+  userId        String
+  amount        Decimal     @db.Decimal(10, 2)
+  expenseDate   DateTime
+  billFileUrl   String?
+  enteredBy     String
+  createdAt     DateTime    @default(now())
+  messSession   MessSession @relation(fields: [messSessionId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@index([messSessionId])
+  @@map("mess_water_expenses")
+}
+
+model MessGuestMeal {
+  id            String      @id @default(cuid())
+  messSessionId String
+  mealDate      DateTime
+  guestCount    Int
+  enteredBy     String
+  createdAt     DateTime    @default(now())
+  messSession   MessSession @relation(fields: [messSessionId], references: [id])
+
+  @@index([messSessionId])
+  @@map("mess_guest_meals")
+}
+
+model MessStudentMealCount {
+  id            String      @id @default(cuid())
+  messSessionId String
+  userId        String
+  mealCount     Int
+  enteredBy     String
+  createdAt     DateTime    @default(now())
+  messSession   MessSession @relation(fields: [messSessionId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@unique([messSessionId, userId])
+  @@map("mess_student_meal_counts")
+}
+
+model MessSettlement {
+  id                    String      @id @default(cuid())
+  messSessionId         String
+  userId                String
+  mealCount             Int
+  mealCost              Decimal     @db.Decimal(10, 2)
+  universalCommonCharge Decimal     @db.Decimal(10, 2)
+  initialContribution   Decimal     @default(0) @db.Decimal(10, 2)
+  marketSpending        Decimal     @default(0) @db.Decimal(10, 2)
+  waterSpending         Decimal     @default(0) @db.Decimal(10, 2)
+  totalContribution     Decimal     @db.Decimal(10, 2)
+  totalLiability        Decimal     @db.Decimal(10, 2)
+  netSettlement         Decimal     @db.Decimal(10, 2)
+  createdAt             DateTime    @default(now())
+  messSession           MessSession @relation(fields: [messSessionId], references: [id])
+  user                  User        @relation(fields: [userId], references: [id])
+
+  @@unique([messSessionId, userId])
+  @@map("mess_settlements")
+}
+
+model MessDocument {
+  id            String      @id @default(cuid())
+  messSessionId String
+  fileUrl       String
+  fileName      String
+  fileType      String
+  uploadedBy    String
+  uploadedAt    DateTime    @default(now())
+  messSession   MessSession @relation(fields: [messSessionId], references: [id])
+
+  @@index([messSessionId])
+  @@map("mess_documents")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  oldValues Json?
+  newValues Json?
+  ipAddress String?
+  userAgent String?
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity, entityId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  isRead    Boolean   @default(false)
+  sentAt    DateTime  @default(now())
+  readAt    DateTime?
+  emailSent Boolean   @default(false)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+enum Role {
+  SUPER_ADMIN
+  HOSTEL_MANAGER
+  MONTHLY_MANAGER
+  STUDENT
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum DocumentType {
+  AADHAAR
+  VOTER_CARD
+  PASSPORT
+  DRIVING_LICENCE
+  PAN_CARD
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  INACTIVE
+  TRANSFERRED
+}
+
+enum PaymentStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum MessSessionStatus {
+  DRAFT
+  UNDER_REVIEW
+  CLOSED
+}
+
+enum LifecycleEventType {
+  JOINED
+  LEFT
+  REJOINED
+  TRANSFERRED_OUT
+  TRANSFERRED_IN
+}
+
+enum FeeType {
+  RECURRING
+  ONE_TIME
+}
+
+enum BillStatus {
+  GENERATED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+}
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ProfileEditRequest {
+  id               String        @id @default(cuid())
+  userId           String
+  requestedChanges Json
+  status           RequestStatus @default(PENDING)
+  rejectionReason  String?
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  createdAt        DateTime      @default(now())
+
+  user             User          @relation("UserEditRequests", fields: [userId], references: [id])
+  reviewer         User?         @relation("ReviewedEditRequests", fields: [reviewedBy], references: [id])
+
+  @@map("profile_edit_requests")
+}
