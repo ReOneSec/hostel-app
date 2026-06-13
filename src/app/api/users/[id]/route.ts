@@ -59,9 +59,8 @@ export async function GET(
           }
         },
         hostelAssignments: {
-          where: { status: "ACTIVE" },
           include: {
-            hostel: true,
+            hostel: true
           }
         },
         roomAssignments: {

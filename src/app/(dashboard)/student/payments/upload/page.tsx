@@ -8,6 +8,8 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Upload, Loader2, IndianRupee, ReceiptText, FileUp, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -17,6 +19,7 @@ const paymentSchema = z.object({
   transactionId: z.string().optional(),
   utrNumber: z.string().min(1, "UTR/Reference number is required"),
   paymentDate: z.string().min(1, "Payment date is required"),
+  categories: z.array(z.enum(["RENT", "ESTABLISHMENT_FEE", "BED_FEE", "MESS_CHARGE", "LATE_FEE", "ALL", "OTHER"])).min(1, "Select at least one option"),
 });
 
 type PaymentFormData = z.infer<typeof paymentSchema>;
@@ -41,6 +44,7 @@ export default function PaymentUploadPage() {
     resolver: zodResolver(paymentSchema),
     defaultValues: {
       amount: searchParams.get("amount") || "",
+      categories: ["ALL"],
     }
   });
 
@@ -93,6 +97,7 @@ export default function PaymentUploadPage() {
       formData.append("transactionId", data.transactionId || "");
       formData.append("utrNumber", data.utrNumber);
       formData.append("paymentDate", new Date(data.paymentDate).toISOString());
+      formData.append("categories", JSON.stringify(data.categories));
       formData.append("file", file);
 
       const res = await fetch("/api/payments", {
@@ -170,6 +175,38 @@ export default function PaymentUploadPage() {
                 />
                 {errors.paymentDate && <p className="text-sm text-destructive">{errors.paymentDate.message}</p>}
               </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label>Payment For</Label>
+              <div className="grid grid-cols-2 gap-4 border rounded-lg p-4 bg-muted/20">
+                {[
+                  { id: "ALL", label: "Total Bill Amount" },
+                  { id: "RENT", label: "Rent Only" },
+                  { id: "ESTABLISHMENT_FEE", label: "Establishment Fee" },
+                  { id: "BED_FEE", label: "Bed Fee" },
+                  { id: "MESS_CHARGE", label: "Mess Charge" },
+                  { id: "LATE_FEE", label: "Late Fee" },
+                  { id: "OTHER", label: "Other Partial Amount" }
+                ].map((item) => (
+                  <div key={item.id} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={item.id}
+                      checked={watch("categories")?.includes(item.id as any)}
+                      onCheckedChange={(checked) => {
+                        const current = watch("categories") || [];
+                        if (checked) {
+                          setValue("categories", [...current, item.id as any]);
+                        } else {
+                          setValue("categories", current.filter(c => c !== item.id));
+                        }
+                      }}
+                    />
+                    <Label htmlFor={item.id} className="font-normal cursor-pointer">{item.label}</Label>
+                  </div>
+                ))}
+              </div>
+              {errors.categories && <p className="text-sm text-destructive">{errors.categories.message}</p>}
             </div>
 
             <div className="space-y-2">

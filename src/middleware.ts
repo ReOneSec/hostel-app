@@ -121,7 +121,7 @@ function getDashboardRoute(role: string): string {
     case "SUPER_ADMIN":
       return "/admin";
     case "HOSTEL_MANAGER":
-      return "/manager";
+      return "/manager/mess";
     case "MONTHLY_MANAGER":
       return "/monthly-manager/mess";
     case "STUDENT":

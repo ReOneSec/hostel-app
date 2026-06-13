@@ -184,7 +184,7 @@ export default function DocumentVerificationPage() {
                     
                     <div className="flex items-center gap-2 pt-2">
                       <Button 
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" 
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" 
                         size="sm"
                         disabled={isSubmitting}
                         onClick={() => {
@@ -199,7 +199,7 @@ export default function DocumentVerificationPage() {
                       <Button 
                         variant="destructive" 
                         size="sm" 
-                        className="w-full"
+                        className="flex-1"
                         disabled={isSubmitting}
                         onClick={() => {
                           setSelectedDoc(doc);

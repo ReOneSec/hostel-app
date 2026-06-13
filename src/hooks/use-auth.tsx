@@ -12,6 +12,30 @@ export function useSession() {
     const fetchSession = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        // Fetch fresh data from our DB to ensure role and completion status are accurate
+        try {
+          const res = await fetch('/api/users/me');
+          if (res.ok) {
+            const dbUser = await res.json();
+            setData({
+              user: {
+                id: dbUser.data.id,
+                email: dbUser.data.email,
+                role: dbUser.data.role,
+                isFirstLogin: dbUser.data.isFirstLogin,
+                isProfileComplete: dbUser.data.isProfileComplete,
+                needsSelfieUpdate: dbUser.data.needsSelfieUpdate,
+                username: dbUser.data.username || dbUser.data.email.split('@')[0],
+              }
+            });
+            setStatus("authenticated");
+            return;
+          }
+        } catch (e) {
+          console.error("Failed to fetch fresh user data", e);
+        }
+        
+        // Fallback to supabase metadata if API fails
         setData({
           user: {
             id: user.id,
@@ -35,6 +59,30 @@ export function useSession() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
+          // Fetch fresh data from our DB to ensure role and completion status are accurate
+          try {
+            const res = await fetch('/api/users/me');
+            if (res.ok) {
+              const dbUser = await res.json();
+              setData({
+                user: {
+                  id: dbUser.data.id,
+                  email: dbUser.data.email,
+                  role: dbUser.data.role,
+                  isFirstLogin: dbUser.data.isFirstLogin,
+                  isProfileComplete: dbUser.data.isProfileComplete,
+                  needsSelfieUpdate: dbUser.data.needsSelfieUpdate,
+                  username: dbUser.data.username || dbUser.data.email.split('@')[0],
+                }
+              });
+              setStatus("authenticated");
+              return;
+            }
+          } catch (e) {
+            console.error("Failed to fetch fresh user data on auth change", e);
+          }
+
+          // Fallback to supabase metadata
           setData({
             user: {
               id: session.user.id,

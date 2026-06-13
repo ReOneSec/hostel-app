@@ -360,6 +360,7 @@ model Payment {
   utrNumber       String?
   amount          Decimal       @db.Decimal(10, 2)
   paymentDate     DateTime
+  categories      PaymentCategory[] @default([])
   status          PaymentStatus @default(PENDING_REVIEW)
   verifiedBy      String?
   verifiedAt      DateTime?
@@ -620,6 +621,16 @@ enum PaymentStatus {
   PENDING_REVIEW
   APPROVED
   REJECTED
+}
+
+enum PaymentCategory {
+  RENT
+  ESTABLISHMENT_FEE
+  BED_FEE
+  MESS_CHARGE
+  LATE_FEE
+  ALL
+  OTHER
 }
 
 enum MessSessionStatus {

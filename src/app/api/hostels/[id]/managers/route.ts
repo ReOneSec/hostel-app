@@ -1,0 +1,134 @@
+import { NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { successResponse, errorResponse } from "@/lib/api-response";
+import { createAuditLog, getIpAddress, getUserAgent } from "@/lib/audit";
+import { createAdminClient } from "@/utils/supabase/admin";
+import { z } from "zod";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
+      return errorResponse("Unauthorized. Super Admin access required.", 403);
+    }
+
+    const { id } = await params;
+
+    const assignments = await prisma.hostelManagerAssignment.findMany({
+      where: { hostelId: id },
+      orderBy: { assignedAt: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            studentProfile: { select: { fullName: true } }
+          }
+        }
+      }
+    });
+
+    return successResponse(assignments);
+  } catch (error) {
+    console.error("[HostelManagers GET]", error);
+    return errorResponse("Internal server error", 500);
+  }
+}
+
+const assignManagerSchema = z.object({
+  userId: z.string().cuid(),
+});
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
+      return errorResponse("Unauthorized. Super Admin access required.", 403);
+    }
+
+    const { id } = await params;
+    const body = await req.json();
+    const { userId } = assignManagerSchema.parse(body);
+
+    const hostel = await prisma.hostel.findUnique({ where: { id } });
+    if (!hostel) return errorResponse("Hostel not found", 404);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return errorResponse("User not found", 404);
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Mark existing active managers for this hostel as inactive
+      await tx.hostelManagerAssignment.updateMany({
+        where: { hostelId: id, isActive: true },
+        data: { isActive: false, revokedAt: new Date(), revokedBy: session.user.id }
+      });
+
+      // 2. Create new assignment
+      const newAssignment = await tx.hostelManagerAssignment.create({
+        data: {
+          userId,
+          hostelId: id,
+          assignedBy: session.user.id,
+          isActive: true
+        }
+      });
+
+      // 3. Update hostel's managerId reference
+      await tx.hostel.update({
+        where: { id },
+        data: { managerId: userId }
+      });
+
+      // 4. Update the user's role to HOSTEL_MANAGER
+      // Don't downgrade a SUPER_ADMIN
+      if (user.role !== "SUPER_ADMIN") {
+        await tx.user.update({
+          where: { id: userId },
+          data: { role: "HOSTEL_MANAGER" }
+        });
+      }
+
+      return newAssignment;
+    });
+
+    // 5. Update Supabase Auth user_metadata
+    if (user.role !== "SUPER_ADMIN") {
+      try {
+        const supabaseAdmin = createAdminClient();
+        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+        const authUser = users.find(u => u.email === user.email);
+        if (authUser) {
+          await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
+            user_metadata: { role: "HOSTEL_MANAGER" }
+          });
+        }
+      } catch (err) {
+        console.error("Failed to update Supabase metadata", err);
+      }
+    }
+
+    await createAuditLog({
+      userId: session.user.id,
+      action: "HOSTEL_MANAGER_ASSIGNED",
+      entity: "Hostel",
+      entityId: id,
+      newValues: { managerId: userId },
+      ipAddress: getIpAddress(req.headers),
+      userAgent: getUserAgent(req.headers),
+    });
+
+    return successResponse(result, 201);
+  } catch (error) {
+    if (error instanceof z.ZodError) return errorResponse("Validation error", 400);
+    console.error("[HostelManagers POST]", error);
+    return errorResponse("Internal server error", 500);
+  }
+}

@@ -25,6 +25,13 @@ export async function POST(req: NextRequest) {
     const transactionId = formData.get("transactionId") as string;
     const utrNumber = formData.get("utrNumber") as string;
     const paymentDate = formData.get("paymentDate") as string;
+    const categoriesString = formData.get("categories") as string;
+    let categories = ["ALL"];
+    if (categoriesString) {
+      try {
+        categories = JSON.parse(categoriesString);
+      } catch (e) {}
+    }
 
     if (!billId || !amount || !paymentDate || !file) {
       return NextResponse.json({ error: "Missing required fields including proof image" }, { status: 400 });
@@ -78,6 +85,7 @@ export async function POST(req: NextRequest) {
         utrNumber: utrNumber || null,
         proofFileUrl,
         paymentDate: new Date(paymentDate),
+        categories: categories as any[],
         status: "PENDING_REVIEW"
       }
     });

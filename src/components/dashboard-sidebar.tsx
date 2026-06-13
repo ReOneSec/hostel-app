@@ -72,6 +72,18 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["SUPER_ADMIN"],
   },
   {
+    label: "Payments",
+    href: "/admin/payments",
+    icon: CreditCard,
+    roles: ["SUPER_ADMIN", "HOSTEL_MANAGER"],
+  },
+  {
+    label: "Documents",
+    href: "/admin/documents",
+    icon: Shield,
+    roles: ["SUPER_ADMIN", "HOSTEL_MANAGER"],
+  },
+  {
     label: "Reports",
     href: "/admin/reports",
     icon: BarChart3,
@@ -86,22 +98,10 @@ const NAV_ITEMS: NavItem[] = [
 
   // Manager
   {
-    label: "Students",
-    href: "/manager/students",
-    icon: Users,
-    roles: ["HOSTEL_MANAGER", "SUPER_ADMIN"],
-  },
-  {
-    label: "Rooms",
-    href: "/manager/rooms",
-    icon: BedDouble,
-    roles: ["HOSTEL_MANAGER", "SUPER_ADMIN"],
-  },
-  {
     label: "Payments",
     href: "/manager/payments",
     icon: Wallet,
-    roles: ["HOSTEL_MANAGER", "SUPER_ADMIN"],
+    roles: ["HOSTEL_MANAGER"],
   },
   {
     label: "Mess",
@@ -113,7 +113,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Documents",
     href: "/manager/documents",
     icon: FileText,
-    roles: ["HOSTEL_MANAGER", "SUPER_ADMIN"],
+    roles: ["HOSTEL_MANAGER"],
   },
 
   // Monthly Manager

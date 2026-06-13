@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, FileText, Camera, CheckCircle, XCircle, Clock, Download } from "lucide-react";
+import { format } from "date-fns";
 
 export default function StudentProfilePage() {
   const { data: session } = useSession();
@@ -193,6 +194,72 @@ export default function StudentProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Camera className="w-5 h-5 text-muted-foreground" />
+              Current Selfie
+            </CardTitle>
+            <CardDescription>Your verified profile photo</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {userData?.selfies?.length > 0 ? (
+              <div className="aspect-square relative rounded-xl overflow-hidden border">
+                <img 
+                  src={userData.selfies[0].fileUrl} 
+                  alt="Profile Selfie" 
+                  className="object-cover w-full h-full"
+                />
+              </div>
+            ) : (
+              <div className="aspect-square flex items-center justify-center bg-muted rounded-xl border border-dashed">
+                <p className="text-muted-foreground text-sm">No selfie uploaded</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-muted-foreground" />
+              Uploaded Documents
+            </CardTitle>
+            <CardDescription>Your identification documents</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {userData?.documents?.length > 0 ? (
+              userData.documents.map((doc: any) => (
+                <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="p-2 bg-primary/10 rounded-md shrink-0">
+                      <FileText className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{doc.documentType.replace(/_/g, ' ')}</p>
+                      <p className="text-xs text-muted-foreground truncate">{doc.fileName}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 ml-2 shrink-0">
+                    {doc.status === "VERIFIED" && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                    {doc.status === "PENDING" && <Clock className="w-4 h-4 text-amber-500" />}
+                    {doc.status === "REJECTED" && <XCircle className="w-4 h-4 text-destructive" />}
+                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-muted rounded-md transition-colors">
+                      <Download className="w-4 h-4 text-muted-foreground" />
+                    </a>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-8 text-center border rounded-lg border-dashed text-muted-foreground">
+                <p className="text-sm">No documents uploaded yet</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
