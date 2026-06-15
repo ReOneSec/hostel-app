@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { sendEmail, paymentStatusEmail } from "@/lib/email";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -22,7 +23,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
-      include: { bill: true }
+      include: { 
+        bill: true,
+        user: {
+          include: { studentProfile: true }
+        }
+      }
     });
 
     if (!payment) {
@@ -79,6 +85,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         entityId: paymentId,
         newValues: { status, rejectionReason }
       }
+    });
+
+    // Send email notification
+    const studentName = payment.user.studentProfile?.fullName || payment.user.username;
+    await sendEmail({
+      to: payment.user.email,
+      subject: `Payment ${status === "APPROVED" ? "Approved" : "Rejected"} - Mirror Hostels`,
+      html: paymentStatusEmail(studentName, status as "APPROVED" | "REJECTED", payment.amount.toString(), rejectionReason),
+      userId: payment.user.id,
+      type: "PAYMENT_STATUS",
     });
 
     return NextResponse.json({ data: updatedPayment });

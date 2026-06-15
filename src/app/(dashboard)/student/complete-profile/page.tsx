@@ -23,6 +23,7 @@ export interface ProfileFormData {
   bloodGroup: string;
   mobile: string;
   parentMobile: string;
+  personalEmail: string;
   // Step 2: Address
   permanentAddress: string;
   emergencyContact: string;
@@ -54,6 +55,7 @@ export default function CompleteProfilePage() {
     bloodGroup: "",
     mobile: "",
     parentMobile: "",
+    personalEmail: "",
     permanentAddress: "",
     emergencyContact: "",
   });

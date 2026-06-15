@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { sendEmail, documentStatusEmail } from "@/lib/email";
 
 export async function PATCH(
   req: Request,
@@ -40,9 +41,22 @@ export async function PATCH(
         verifiedAt: new Date(),
         rejectionReason: status === "REJECTED" ? reason : null,
       },
+      include: {
+        user: {
+          include: { studentProfile: true }
+        }
+      }
     });
 
-    // We can trigger emails here later if required (Phase 10)
+    // Send email notification
+    const studentName = updatedDocument.user.studentProfile?.fullName || updatedDocument.user.username;
+    await sendEmail({
+      to: updatedDocument.user.email,
+      subject: `Document ${status === "APPROVED" ? "Approved" : "Rejected"} - Mirror Hostels`,
+      html: documentStatusEmail(studentName, status as "APPROVED" | "REJECTED", updatedDocument.documentType, reason),
+      userId: updatedDocument.user.id,
+      type: "DOCUMENT_STATUS",
+    });
 
     // Log the audit event
     await prisma.auditLog.create({

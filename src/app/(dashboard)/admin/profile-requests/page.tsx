@@ -176,7 +176,7 @@ export default function ProfileRequestsPage() {
           setRejectionReason("");
         }
       }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Review Profile Edit Request</DialogTitle>
             <DialogDescription>
@@ -186,13 +186,13 @@ export default function ProfileRequestsPage() {
 
           {selectedRequest && (
             <div className="py-4">
-              <div className="border rounded-md overflow-hidden">
-                <Table>
+              <div className="border rounded-md overflow-x-auto w-full">
+                <Table className="min-w-full table-fixed">
                   <TableHeader className="bg-muted/50">
                     <TableRow>
-                      <TableHead>Field</TableHead>
-                      <TableHead>Current Value</TableHead>
-                      <TableHead className="bg-primary/5">Requested Value</TableHead>
+                      <TableHead className="w-[30%]">Field</TableHead>
+                      <TableHead className="w-[35%]">Current Value</TableHead>
+                      <TableHead className="w-[35%] bg-primary/5">Requested Value</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -204,9 +204,9 @@ export default function ProfileRequestsPage() {
                       
                       return (
                         <TableRow key={key}>
-                          <TableCell className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</TableCell>
-                          <TableCell className="text-muted-foreground line-through decoration-destructive/50">{oldVal || "N/A"}</TableCell>
-                          <TableCell className="text-emerald-600 font-medium bg-primary/5">{newVal || "N/A"}</TableCell>
+                          <TableCell className="font-medium capitalize align-top break-words">{key.replace(/([A-Z])/g, ' $1').trim()}</TableCell>
+                          <TableCell className="text-muted-foreground line-through decoration-destructive/50 align-top break-words">{oldVal || "N/A"}</TableCell>
+                          <TableCell className="text-emerald-600 font-medium bg-primary/5 align-top break-words">{newVal || "N/A"}</TableCell>
                         </TableRow>
                       );
                     })}
@@ -228,27 +228,27 @@ export default function ProfileRequestsPage() {
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="ghost" onClick={() => setSelectedRequest(null)} disabled={isProcessing}>
+          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+            <Button variant="ghost" onClick={() => setSelectedRequest(null)} disabled={isProcessing} className="w-full sm:w-auto">
               Cancel
             </Button>
             
             {isRejecting ? (
-              <Button variant="destructive" onClick={() => handleProcess("REJECT")} disabled={isProcessing}>
+              <Button variant="destructive" onClick={() => handleProcess("REJECT")} disabled={isProcessing} className="w-full sm:w-auto">
                 {isProcessing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <X className="w-4 h-4 mr-2" />}
                 Confirm Rejection
               </Button>
             ) : (
-              <>
-                <Button variant="destructive" onClick={() => setIsRejecting(true)} disabled={isProcessing}>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button variant="destructive" onClick={() => setIsRejecting(true)} disabled={isProcessing} className="flex-1 sm:flex-none">
                   <X className="w-4 h-4 mr-2" />
                   Reject
                 </Button>
-                <Button variant="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleProcess("APPROVE")} disabled={isProcessing}>
+                <Button variant="default" className="bg-emerald-600 hover:bg-emerald-700 flex-1 sm:flex-none" onClick={() => handleProcess("APPROVE")} disabled={isProcessing}>
                   {isProcessing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                  Approve Changes
+                  Approve
                 </Button>
-              </>
+              </div>
             )}
           </DialogFooter>
         </DialogContent>

@@ -288,6 +288,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                           <p className="font-medium">{user.studentProfile.mobile}</p>
                         </div>
                         <div>
+                          <p className="text-sm text-muted-foreground flex items-center gap-2 mb-1"><Mail className="w-3 h-3" /> Personal Email</p>
+                          <p className="font-medium">{user.studentProfile.personalEmail || "N/A"}</p>
+                        </div>
+                        <div>
                           <p className="text-sm text-muted-foreground flex items-center gap-2 mb-1"><Phone className="w-3 h-3" /> Alt Mobile</p>
                           <p className="font-medium">{user.studentProfile.parentMobile || "N/A"}</p>
                         </div>

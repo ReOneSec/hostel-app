@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { calculateMessSettlements } from "@/lib/mess-calculator";
+import { sendEmail, messSettlementEmail } from "@/lib/email";
 import { Decimal } from "decimal.js";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -150,6 +151,38 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       // The Phase 7 bill generation logic probably uses the closed MessSession to populate bills later.
       // Or we can create bills right now if needed. The plan states "Bills reference messCharge which is only set when the mess session closes".
     });
+
+    // 7. Send email notifications asynchronously
+    const monthName = new Date(messSession.year, messSession.month - 1).toLocaleString('default', { month: 'long' });
+    
+    // Fetch all users to get names and emails
+    const userIds = result.settlements.map(s => s.userId);
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      include: { studentProfile: true }
+    });
+
+    for (const settlement of result.settlements) {
+      const studentUser = users.find(u => u.id === settlement.userId);
+      if (studentUser) {
+        const studentName = studentUser.studentProfile?.fullName || studentUser.username;
+        sendEmail({
+          to: studentUser.email,
+          subject: `Mess Settlement for ${monthName} ${messSession.year} - Mirror Hostels`,
+          html: messSettlementEmail(
+            studentName,
+            monthName,
+            messSession.year,
+            settlement.mealCount,
+            settlement.totalLiability.toFixed(2),
+            settlement.totalContribution.toFixed(2),
+            settlement.netSettlement.toFixed(2)
+          ),
+          userId: studentUser.id,
+          type: "MESS_SETTLEMENT"
+        }).catch(err => console.error("Failed to send mess settlement email to", studentUser.email, err));
+      }
+    }
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {

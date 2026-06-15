@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { sendEmail, billGeneratedEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   try {
@@ -20,6 +21,7 @@ export async function POST(req: Request) {
       include: {
         user: {
           include: {
+            studentProfile: true,
             rentConfigs: { where: { effectiveTo: null } },
             bedAssignments: { where: { status: "ACTIVE" }, include: { bed: true } },
             roomAssignments: { where: { status: "ACTIVE" } }
@@ -101,6 +103,17 @@ export async function POST(req: Request) {
           generatedBy: user.id
         }
       });
+
+      // Send email notification
+      const studentName = student.studentProfile?.fullName || student.username;
+      const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
+      sendEmail({
+        to: student.email,
+        subject: `Monthly Bill Generated: ${monthName} ${year} - Mirror Hostels`,
+        html: billGeneratedEmail(studentName, monthName, year, totalAmount.toFixed(2)),
+        userId: student.id,
+        type: "BILL_GENERATED"
+      }).catch(err => console.error("Failed to send bill email to", student.email, err));
 
       generatedCount++;
     }

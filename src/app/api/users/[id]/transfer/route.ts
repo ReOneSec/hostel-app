@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { createAuditLog, getIpAddress, getUserAgent } from "@/lib/audit";
+import { sendEmail, transferEmail } from "@/lib/email";
 import { z } from "zod";
 
 const transferSchema = z.object({
@@ -26,7 +27,10 @@ export async function POST(
     const body = await req.json();
     const data = transferSchema.parse(body);
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({ 
+      where: { id: userId },
+      include: { studentProfile: true }
+    });
     if (!user || user.role !== "STUDENT") {
       return errorResponse("User not found or not a student", 404);
     }
@@ -172,6 +176,22 @@ export async function POST(
       ipAddress: getIpAddress(req.headers),
       userAgent: getUserAgent(req.headers),
     });
+
+    // Send email notification
+    const studentName = user.studentProfile?.fullName || user.username;
+    const newHostel = await prisma.hostel.findUnique({ where: { id: data.newHostelId } });
+    const newRoom = await prisma.room.findUnique({ where: { id: data.newRoomId } });
+    const newBed = await prisma.bed.findUnique({ where: { id: data.newBedId } });
+    
+    if (newHostel && newRoom && newBed) {
+      await sendEmail({
+        to: user.email,
+        subject: "Hostel Transfer Complete - Mirror Hostels",
+        html: transferEmail(studentName, newHostel.name, newRoom.roomNumber, newBed.bedLabel),
+        userId: user.id,
+        type: "TRANSFER",
+      });
+    }
 
     return successResponse(result);
   } catch (error) {

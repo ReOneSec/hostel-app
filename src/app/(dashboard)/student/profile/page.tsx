@@ -123,6 +123,10 @@ export default function StudentProfilePage() {
                   <Label>Mobile</Label>
                   <Input name="mobile" value={formData.mobile || ""} onChange={handleChange} required />
                 </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Personal Email</Label>
+                  <Input name="personalEmail" type="email" value={formData.personalEmail || ""} onChange={handleChange} required />
+                </div>
                 <div className="space-y-2">
                   <Label>Father's Name</Label>
                   <Input name="fatherName" value={formData.fatherName || ""} onChange={handleChange} />
@@ -165,6 +169,10 @@ export default function StudentProfilePage() {
               <div>
                 <Label className="text-muted-foreground">Mobile</Label>
                 <p className="font-medium mt-1">{profile?.mobile}</p>
+              </div>
+              <div className="md:col-span-2">
+                <Label className="text-muted-foreground">Personal Email</Label>
+                <p className="font-medium mt-1">{profile?.personalEmail || "N/A"}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Father's Name</Label>

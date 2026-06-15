@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "@/hooks/use-auth";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -9,10 +10,30 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Users, BedDouble, CreditCard, BarChart3, TrendingUp } from "lucide-react";
+import { Building2, Users, BedDouble, CreditCard, BarChart3, TrendingUp, Loader2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 export default function AdminDashboardPage() {
   const { data: session } = useSession();
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch("/api/admin/dashboard");
+        const json = await res.json();
+        if (json.success) {
+          setData(json.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch dashboard stats", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchStats();
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -24,126 +45,144 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {[
-          {
-            title: "Total Hostels",
-            value: "—",
-            change: "Active",
-            icon: Building2,
-            color: "text-blue-500",
-            bgColor: "bg-blue-500/10",
-          },
-          {
-            title: "Total Students",
-            value: "—",
-            change: "Enrolled",
-            icon: Users,
-            color: "text-emerald-500",
-            bgColor: "bg-emerald-500/10",
-          },
-          {
-            title: "Beds Occupied",
-            value: "—",
-            change: "Occupancy",
-            icon: BedDouble,
-            color: "text-amber-500",
-            bgColor: "bg-amber-500/10",
-          },
-          {
-            title: "Pending Payments",
-            value: "—",
-            change: "This month",
-            icon: CreditCard,
-            color: "text-purple-500",
-            bgColor: "bg-purple-500/10",
-          },
-        ].map((stat) => (
-          <Card
-            key={stat.title}
-            className="border-border/50 hover:shadow-md transition-shadow"
-          >
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                <stat.icon className={`w-4 h-4 ${stat.color}`} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
-                {stat.change}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Placeholder sections */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-primary" />
-              Recent Activity
-            </CardTitle>
-            <CardDescription>Latest system events</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-4 p-3 rounded-lg bg-muted/50"
-                >
-                  <div className="w-2 h-2 rounded-full bg-primary/60" />
-                  <div className="flex-1">
-                    <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
-                    <div className="h-3 w-1/2 bg-muted rounded animate-pulse mt-2" />
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : !data ? (
+        <p className="text-center text-muted-foreground py-12">Failed to load data.</p>
+      ) : (
+        <>
+          {/* Stats Grid */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                title: "Total Hostels",
+                value: data.stats.totalHostels,
+                change: "Active",
+                icon: Building2,
+                color: "text-blue-500",
+                bgColor: "bg-blue-500/10",
+              },
+              {
+                title: "Total Students",
+                value: data.stats.totalStudents,
+                change: "Enrolled",
+                icon: Users,
+                color: "text-emerald-500",
+                bgColor: "bg-emerald-500/10",
+              },
+              {
+                title: "Beds Occupied",
+                value: data.stats.bedsOccupied,
+                change: "Occupancy",
+                icon: BedDouble,
+                color: "text-amber-500",
+                bgColor: "bg-amber-500/10",
+              },
+              {
+                title: "Pending Payments",
+                value: `₹${Number(data.stats.pendingPayments).toLocaleString("en-IN")}`,
+                change: "This month",
+                icon: CreditCard,
+                color: "text-purple-500",
+                bgColor: "bg-purple-500/10",
+              },
+            ].map((stat) => (
+              <Card
+                key={stat.title}
+                className="border-border/50 hover:shadow-md transition-shadow"
+              >
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                    <stat.icon className={`w-4 h-4 ${stat.color}`} />
                   </div>
-                  <Badge variant="outline" className="text-[10px]">
-                    Pending
-                  </Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3" />
+                    {stat.change}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Detailed sections */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Recent Activity
+                </CardTitle>
+                <CardDescription>Latest system events</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {data.recentActivity.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center mt-4">
+                    No recent activity found.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {data.recentActivity.map((activity: any, i: number) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-4 p-3 rounded-lg border bg-card/50 shadow-sm"
+                      >
+                        <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{activity.text}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {formatDistanceToNow(new Date(activity.date), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-primary" />
+                  Payment Overview
+                </CardTitle>
+                <CardDescription>This month&apos;s collection status</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {[
+                    { label: "Total Billed", value: data.payments.totalBilled },
+                    { label: "Collected", value: data.payments.totalCollected },
+                    { label: "Pending", value: data.payments.totalPending },
+                    { label: "Overdue", value: data.payments.totalOverdue },
+                  ].map((item) => (
+                    <div key={item.label} className="flex justify-between items-center p-3 rounded-lg border bg-card/50">
+                      <span className="text-sm text-muted-foreground font-medium">
+                        {item.label}
+                      </span>
+                      <span className={`text-sm font-bold ${
+                        item.label === 'Collected' ? 'text-emerald-600' :
+                        item.label === 'Pending' ? 'text-amber-600' :
+                        item.label === 'Overdue' ? 'text-destructive' : ''
+                      }`}>
+                        ₹{Number(item.value).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground text-center mt-4">
-              Activity data will populate once the system is connected to a database.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-primary" />
-              Payment Overview
-            </CardTitle>
-            <CardDescription>This month&apos;s collection status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {["Total Billed", "Collected", "Pending", "Overdue"].map(
-                (label) => (
-                  <div key={label} className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      {label}
-                    </span>
-                    <span className="text-sm font-medium">₹—</span>
-                  </div>
-                )
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground text-center mt-4">
-              Connect to database to see live data.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   );
 }

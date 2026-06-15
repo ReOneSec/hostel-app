@@ -41,6 +41,7 @@ export function ProfileCompletionModal() {
     bloodGroup: "",
     mobile: "",
     parentMobile: "",
+    personalEmail: "",
     permanentAddress: "",
     emergencyContact: "",
   });

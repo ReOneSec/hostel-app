@@ -14,6 +14,7 @@ const profileSchema = z.object({
   bloodGroup: z.string(),
   mobile: z.string().regex(/^[6-9]\d{9}$/),
   parentMobile: z.string().min(10, "Parent mobile must be at least 10 characters"),
+  personalEmail: z.string().email(),
   permanentAddress: z.string().min(10),
   emergencyContact: z.string().regex(/^[6-9]\d{9}$/),
 });
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
         bloodGroup: data.bloodGroup,
         mobile: data.mobile,
         parentMobile: data.parentMobile,
+        personalEmail: data.personalEmail,
         permanentAddress: data.permanentAddress,
         emergencyContact: data.emergencyContact,
       },
@@ -53,6 +55,7 @@ export async function POST(req: NextRequest) {
         bloodGroup: data.bloodGroup,
         mobile: data.mobile,
         parentMobile: data.parentMobile,
+        personalEmail: data.personalEmail,
         permanentAddress: data.permanentAddress,
         emergencyContact: data.emergencyContact,
       },

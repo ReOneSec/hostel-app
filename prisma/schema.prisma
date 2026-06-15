@@ -56,6 +56,7 @@ model StudentProfile {
   motherName       String?
   mobile           String?
   parentMobile     String
+  personalEmail    String?
   dateOfBirth      DateTime?
   permanentAddress String?
   emergencyContact String?

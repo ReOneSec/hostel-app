@@ -23,6 +23,7 @@ const personalInfoSchema = z.object({
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   gender: z.string().min(1, "Gender is required"),
   bloodGroup: z.string().min(1, "Blood group is required"),
+  personalEmail: z.string().email("Please enter a valid personal email address"),
   mobile: z
     .string()
     .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"),
@@ -58,6 +59,7 @@ export function PersonalInfoStep({
       bloodGroup: data.bloodGroup,
       mobile: data.mobile,
       parentMobile: data.parentMobile,
+      personalEmail: data.personalEmail,
     },
   });
 
@@ -186,6 +188,20 @@ export function PersonalInfoStep({
           />
           {errors.mobile && (
             <p className="text-xs text-destructive">{errors.mobile.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="personalEmail">Personal Email Address *</Label>
+          <Input
+            id="personalEmail"
+            type="email"
+            placeholder="Enter your real email address to receive notifications"
+            {...register("personalEmail")}
+          />
+          <p className="text-xs text-muted-foreground">We need this since your login email is just a proxy (@mirror.std)</p>
+          {errors.personalEmail && (
+            <p className="text-xs text-destructive">{errors.personalEmail.message}</p>
           )}
         </div>
 
