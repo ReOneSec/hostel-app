@@ -27,6 +27,7 @@ export async function GET(
             id: true,
             username: true,
             email: true,
+            role: true,
             studentProfile: { select: { fullName: true } }
           }
         }
@@ -64,6 +65,12 @@ export async function POST(
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return errorResponse("User not found", 404);
 
+    // Find old active managers BEFORE deactivating them (so we can downgrade their roles)
+    const oldActiveManagers = await prisma.hostelManagerAssignment.findMany({
+      where: { hostelId: id, isActive: true },
+      include: { user: true }
+    });
+
     const result = await prisma.$transaction(async (tx) => {
       // 1. Mark existing active managers for this hostel as inactive
       await tx.hostelManagerAssignment.updateMany({
@@ -71,7 +78,29 @@ export async function POST(
         data: { isActive: false, revokedAt: new Date(), revokedBy: session.user.id }
       });
 
-      // 2. Create new assignment
+      // 2. Downgrade old managers' roles back to STUDENT
+      // (only if they have no other active manager assignments elsewhere)
+      for (const oldAssignment of oldActiveManagers) {
+        if (oldAssignment.userId === userId) continue; // skip if re-assigning same user
+        if (oldAssignment.user.role === "SUPER_ADMIN") continue; // never downgrade super admins
+
+        const otherActiveAssignments = await tx.hostelManagerAssignment.count({
+          where: {
+            userId: oldAssignment.userId,
+            isActive: true,
+            hostelId: { not: id } // assignments on OTHER hostels
+          }
+        });
+
+        if (otherActiveAssignments === 0) {
+          await tx.user.update({
+            where: { id: oldAssignment.userId },
+            data: { role: "STUDENT" }
+          });
+        }
+      }
+
+      // 3. Create new assignment
       const newAssignment = await tx.hostelManagerAssignment.create({
         data: {
           userId,
@@ -81,13 +110,13 @@ export async function POST(
         }
       });
 
-      // 3. Update hostel's managerId reference
+      // 4. Update hostel's managerId reference
       await tx.hostel.update({
         where: { id },
         data: { managerId: userId }
       });
 
-      // 4. Update the user's role to HOSTEL_MANAGER
+      // 5. Update the new user's role to HOSTEL_MANAGER
       // Don't downgrade a SUPER_ADMIN
       if (user.role !== "SUPER_ADMIN") {
         await tx.user.update({
@@ -99,20 +128,41 @@ export async function POST(
       return newAssignment;
     });
 
-    // 5. Update Supabase Auth user_metadata
-    if (user.role !== "SUPER_ADMIN") {
-      try {
-        const supabaseAdmin = createAdminClient();
-        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
-        const authUser = users.find(u => u.email === user.email);
+    // 6. Sync Supabase Auth metadata for all affected users
+    try {
+      const supabaseAdmin = createAdminClient();
+      const { data: { users: allAuthUsers } } = await supabaseAdmin.auth.admin.listUsers();
+
+      // Downgrade old managers in Supabase
+      for (const oldAssignment of oldActiveManagers) {
+        if (oldAssignment.userId === userId) continue;
+        if (oldAssignment.user.role === "SUPER_ADMIN") continue;
+
+        const otherActive = await prisma.hostelManagerAssignment.count({
+          where: { userId: oldAssignment.userId, isActive: true }
+        });
+
+        if (otherActive === 0) {
+          const authUser = allAuthUsers.find((u: any) => u.email === oldAssignment.user.email);
+          if (authUser) {
+            await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
+              user_metadata: { ...authUser.user_metadata, role: "STUDENT" }
+            });
+          }
+        }
+      }
+
+      // Promote new manager in Supabase
+      if (user.role !== "SUPER_ADMIN") {
+        const authUser = allAuthUsers.find((u: any) => u.email === user.email);
         if (authUser) {
           await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
-            user_metadata: { role: "HOSTEL_MANAGER" }
+            user_metadata: { ...authUser.user_metadata, role: "HOSTEL_MANAGER" }
           });
         }
-      } catch (err) {
-        console.error("Failed to update Supabase metadata", err);
       }
+    } catch (err) {
+      console.error("Failed to update Supabase metadata", err);
     }
 
     await createAuditLog({

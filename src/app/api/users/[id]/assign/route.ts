@@ -10,6 +10,7 @@ const assignSchema = z.object({
   roomId: z.string().cuid(),
   bedId: z.string().cuid(),
   notes: z.string().optional(),
+  joinedDate: z.string().optional(),
 });
 
 export async function POST(
@@ -55,6 +56,9 @@ export async function POST(
       return errorResponse("Student already has an active assignment. Use the transfer endpoint instead.", 400);
     }
 
+    // Use custom join date if provided, otherwise default to now
+    const assignedDate = data.joinedDate ? new Date(data.joinedDate) : new Date();
+
     // Transaction for assignment
     const result = await prisma.$transaction(async (tx) => {
       // 1. Create Hostel Assignment
@@ -62,6 +66,7 @@ export async function POST(
         data: {
           userId,
           hostelId: data.hostelId,
+          assignedAt: assignedDate,
           assignedBy: session.user.id,
           status: "ACTIVE",
           notes: data.notes,
@@ -73,6 +78,7 @@ export async function POST(
         data: {
           userId,
           roomId: data.roomId,
+          assignedAt: assignedDate,
           assignedBy: session.user.id,
           status: "ACTIVE",
         }
@@ -83,6 +89,7 @@ export async function POST(
         data: {
           userId,
           bedId: data.bedId,
+          assignedAt: assignedDate,
           assignedBy: session.user.id,
           status: "ACTIVE",
         }
@@ -93,7 +100,7 @@ export async function POST(
         data: {
           userId,
           eventType: "JOINED",
-          eventDate: new Date(),
+          eventDate: assignedDate,
           hostelId: data.hostelId,
           recordedBy: session.user.id,
           notes: data.notes,

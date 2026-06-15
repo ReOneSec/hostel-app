@@ -34,6 +34,7 @@ export async function GET(
         role: true,
         status: true,
         isProfileComplete: true,
+        privacyConsentAt: true,
         createdAt: true,
         studentProfile: true, // gets all fields from StudentProfile
         documents: {

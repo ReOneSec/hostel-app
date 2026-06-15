@@ -17,6 +17,7 @@ model User {
   isProfileComplete     Boolean                   @default(false)
   isFirstLogin          Boolean                   @default(true)
   needsSelfieUpdate     Boolean                   @default(false)
+  privacyConsentAt      DateTime?
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
   createdBy             String?

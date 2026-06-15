@@ -34,7 +34,7 @@ export async function DELETE(
       // 1. Mark assignment as inactive
       const updatedAssignment = await tx.monthlyManagerSession.update({
         where: { id: assignmentId },
-        data: { isActive: false, revokedAt: new Date(), revokedBy: session.user.id }
+        data: { isActive: false, revokedAt: new Date() }
       });
 
       // 2. Downgrade user role to STUDENT (if they are MONTHLY_MANAGER)

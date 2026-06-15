@@ -5,9 +5,10 @@ import { updateSession } from "@/utils/supabase/middleware";
 // Route protection matrix
 const ROLE_ROUTES: Record<string, string[]> = {
   "/admin": ["SUPER_ADMIN"],
+  "/manager/mess": ["SUPER_ADMIN", "HOSTEL_MANAGER", "MONTHLY_MANAGER"],
   "/manager": ["SUPER_ADMIN", "HOSTEL_MANAGER"],
   "/monthly-manager": ["MONTHLY_MANAGER"],
-  "/student": ["STUDENT"],
+  "/student": ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"],
 };
 
 // Public routes that don't require authentication
@@ -73,15 +74,7 @@ export async function middleware(request: NextRequest) {
   const isProfileComplete = user.user_metadata?.isProfileComplete ?? true;
   const needsSelfieUpdate = user.user_metadata?.needsSelfieUpdate ?? false;
 
-  // Student profile completion gate
-  if (role === "STUDENT" && !isProfileComplete) {
-    if (!pathname.startsWith("/student/complete-profile")) {
-      return NextResponse.redirect(
-        new URL("/student/complete-profile", baseUrl)
-      );
-    }
-    return supabaseResponse;
-  }
+  // Removed Profile Completion Gate. Handled by global persistent Modal now.
 
   // Student selfie update gate (after transfer)
   if (role === "STUDENT" && needsSelfieUpdate) {

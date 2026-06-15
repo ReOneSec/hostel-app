@@ -7,7 +7,7 @@ export async function GET(req: Request) {
     const session = await auth();
     const user = session?.user;
     
-    if (!user || user.role !== "STUDENT") {
+    if (!user || !["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"].includes(user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

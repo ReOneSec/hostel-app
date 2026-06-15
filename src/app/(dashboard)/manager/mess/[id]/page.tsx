@@ -184,7 +184,7 @@ export default function MessSessionDetails() {
           </div>
         </div>
         <div className="ml-auto">
-          {!isClosed && session?.user?.role === "HOSTEL_MANAGER" && (
+          {!isClosed && ["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role) && (
             <Button onClick={closeSession} variant="destructive">
               <CheckCircle2 className="w-4 h-4 mr-2" />
               Close Session & Settle
@@ -199,7 +199,11 @@ export default function MessSessionDetails() {
           <TabsTrigger value="guests">Guest Meals</TabsTrigger>
           <TabsTrigger value="initial">Initial Contributions</TabsTrigger>
           <TabsTrigger value="meals">Student Meal Counts</TabsTrigger>
-          {isClosed && <TabsTrigger value="settlements">Final Settlements</TabsTrigger>}
+          {isClosed ? (
+            <TabsTrigger value="settlements">Final Settlements</TabsTrigger>
+          ) : (
+            <TabsTrigger value="live-estimates">Live Estimates</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="expenses">
@@ -428,7 +432,7 @@ export default function MessSessionDetails() {
                 <CardTitle>Student Meal Counts</CardTitle>
                 <CardDescription>Enter the total number of meals eaten by each student</CardDescription>
               </div>
-              {!isClosed && session?.user?.role === "HOSTEL_MANAGER" && (
+              {!isClosed && ["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role) && (
                 <Button onClick={saveMealCounts} disabled={isSavingMeals}>
                   {isSavingMeals ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Save Meal Counts"}
                 </Button>
@@ -452,7 +456,7 @@ export default function MessSessionDetails() {
                         <Input 
                           type="number" 
                           min="0"
-                          disabled={isClosed || session?.user?.role !== "HOSTEL_MANAGER"}
+                          disabled={isClosed || !["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role)}
                           className="w-[100px] ml-auto"
                           value={mealCounts[s.id] || 0}
                           onChange={(e) => setMealCounts({...mealCounts, [s.id]: parseInt(e.target.value) || 0})}
@@ -497,6 +501,77 @@ export default function MessSessionDetails() {
                           {parseFloat(s.netSettlement) > 0 
                             ? <span className="text-red-500">Owes ₹{s.netSettlement}</span> 
                             : <span className="text-green-500">Refund ₹{Math.abs(parseFloat(s.netSettlement))}</span>}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {!isClosed && data.session.liveEstimate && (
+          <TabsContent value="live-estimates">
+            <Card className="border-primary mb-6">
+              <CardHeader className="bg-primary/5 pb-4">
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="w-5 h-5" /> 
+                  Live Mess Rate Estimate
+                </CardTitle>
+                <CardDescription>Mathematical breakdown of current estimated metrics based on data entered so far</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="grid md:grid-cols-4 gap-6 text-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Student Meals</p>
+                    <p className="text-2xl font-bold">{data.session.liveEstimate.totalStudentMeals}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Est. Meal Cost</p>
+                    <p className="text-2xl font-bold text-primary">₹{data.session.liveEstimate.universalMealCharge}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Fixed Overhead</p>
+                    <p className="text-2xl font-bold">₹{data.session.liveEstimate.perStudentCommonCharge}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Consumables</p>
+                    <p className="text-2xl font-bold">₹{data.session.liveEstimate.totalMessCharge1}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Live Settlements Estimate</CardTitle>
+                <CardDescription>What each student owes or is owed right now</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead className="text-center">Meals</TableHead>
+                      <TableHead className="text-right">Total Contributions</TableHead>
+                      <TableHead className="text-right">Est. Liability</TableHead>
+                      <TableHead className="text-right">Est. Net Settlement</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.session.liveEstimate.settlements.map((s: any) => (
+                      <TableRow key={s.userId}>
+                        <TableCell className="font-medium">
+                          {data.mealCounts?.find((x: any) => x.userId === s.userId)?.user?.fullName || "Student"}
+                        </TableCell>
+                        <TableCell className="text-center">{s.mealCount}</TableCell>
+                        <TableCell className="text-right">₹{s.totalContribution}</TableCell>
+                        <TableCell className="text-right">₹{s.totalLiability}</TableCell>
+                        <TableCell className={`text-right font-bold ${parseFloat(s.netSettlement) > 0 ? "text-red-500" : "text-green-500"}`}>
+                          {parseFloat(s.netSettlement) > 0 
+                            ? `Owes ₹${s.netSettlement}` 
+                            : `Refund ₹${Math.abs(parseFloat(s.netSettlement))}`}
                         </TableCell>
                       </TableRow>
                     ))}

@@ -84,31 +84,31 @@ export async function POST(
         }
       });
 
+      let assignment;
       if (existing) {
-        if (existing.userId === userId) {
-            return existing; // Already assigned
-        }
-        // Update existing
-        return await tx.monthlyManagerSession.update({
+        // Update existing regardless of whether it's the same user or a different user
+        // so that isActive becomes true again if they were previously removed
+        assignment = await tx.monthlyManagerSession.update({
           where: { id: existing.id },
           data: {
             userId,
             appointedBy: session.user.id,
             appointedAt: new Date(),
+            isActive: true,
+          }
+        });
+      } else {
+        assignment = await tx.monthlyManagerSession.create({
+          data: {
+            userId,
+            hostelId: id,
+            month,
+            year,
+            appointedBy: session.user.id,
+            isActive: true
           }
         });
       }
-
-      const newAssignment = await tx.monthlyManagerSession.create({
-        data: {
-          userId,
-          hostelId: id,
-          month,
-          year,
-          appointedBy: session.user.id,
-          isActive: true
-        }
-      });
 
       // Update the user's role to MONTHLY_MANAGER
       // Don't downgrade a SUPER_ADMIN or HOSTEL_MANAGER
@@ -119,7 +119,7 @@ export async function POST(
         });
       }
 
-      return newAssignment;
+      return assignment;
     });
 
     // Update Supabase Auth user_metadata

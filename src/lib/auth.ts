@@ -10,6 +10,7 @@ export interface Session {
     isFirstLogin: boolean;
     isProfileComplete: boolean;
     needsSelfieUpdate: boolean;
+    privacyConsentAt: Date | null;
     username: string;
   };
 }
@@ -47,6 +48,7 @@ export async function auth(): Promise<Session | null> {
       isFirstLogin: dbUser.isFirstLogin,
       isProfileComplete: dbUser.isProfileComplete,
       needsSelfieUpdate: dbUser.needsSelfieUpdate,
+      privacyConsentAt: dbUser.privacyConsentAt,
       username: dbUser.username,
     },
   };

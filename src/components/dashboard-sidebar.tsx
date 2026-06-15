@@ -57,7 +57,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Profile Requests",
     href: "/admin/profile-requests",
     icon: Users, // Can use UserCog or UserCheck if imported, but Users is fine
-    roles: ["SUPER_ADMIN", "HOSTEL_MANAGER"],
+    roles: ["SUPER_ADMIN"],
   },
   {
     label: "Hostels",
@@ -75,13 +75,13 @@ const NAV_ITEMS: NavItem[] = [
     label: "Payments",
     href: "/admin/payments",
     icon: CreditCard,
-    roles: ["SUPER_ADMIN", "HOSTEL_MANAGER"],
+    roles: ["SUPER_ADMIN"],
   },
   {
     label: "Documents",
     href: "/admin/documents",
     icon: Shield,
-    roles: ["SUPER_ADMIN", "HOSTEL_MANAGER"],
+    roles: ["SUPER_ADMIN"],
   },
   {
     label: "Reports",
@@ -129,37 +129,37 @@ const NAV_ITEMS: NavItem[] = [
     label: "Dashboard",
     href: "/student/dashboard",
     icon: Home,
-    roles: ["STUDENT"],
+    roles: ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"],
   },
   {
     label: "My Profile",
     href: "/student/profile",
     icon: User,
-    roles: ["STUDENT"],
+    roles: ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"],
   },
   {
     label: "My Bills",
     href: "/student/bills",
     icon: Receipt,
-    roles: ["STUDENT"],
+    roles: ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"],
   },
   {
     label: "Payments",
     href: "/student/payments",
     icon: Wallet,
-    roles: ["STUDENT"],
+    roles: ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"],
   },
   {
-    label: "Mess",
+    label: "My Mess",
     href: "/student/mess",
     icon: UtensilsCrossed,
-    roles: ["STUDENT"],
+    roles: ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"],
   },
   {
     label: "Documents",
     href: "/student/documents",
     icon: ClipboardList,
-    roles: ["STUDENT"],
+    roles: ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"],
   },
 ];
 

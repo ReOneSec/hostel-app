@@ -7,7 +7,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const session = await auth();
     const user = session?.user;
     
-    if (!user || user.role !== "HOSTEL_MANAGER") {
+    if (!user || !["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

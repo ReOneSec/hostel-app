@@ -46,8 +46,8 @@ export async function POST(req: Request) {
     const session = await auth();
     const user = session?.user;
     
-    if (!user || !["HOSTEL_MANAGER", "SUPER_ADMIN"].includes(user.role)) {
-      return NextResponse.json({ error: "Unauthorized. Only Hostel Managers and Admins can start a session." }, { status: 403 });
+    if (!user || !["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(user.role)) {
+      return NextResponse.json({ error: "Unauthorized. Managers can start a session." }, { status: 403 });
     }
 
     const body = await req.json();
@@ -75,23 +75,54 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Please close the currently active Draft session before starting a new one." }, { status: 400 });
     }
 
-    // Handle Monthly Manager Assignment if provided
+    // Handle Monthly Manager Assignment linking
     let monthlyManagerSessionId = null;
-    if (monthlyManagerUserId) {
-      // Create a monthly manager session
+
+    // Check if there is already a MonthlyManagerSession for this month and year
+    const existingMMSession = await prisma.monthlyManagerSession.findUnique({
+      where: {
+        hostelId_month_year: {
+          hostelId,
+          month: parseInt(month),
+          year: parseInt(year)
+        }
+      }
+    });
+
+    if (existingMMSession) {
+      monthlyManagerSessionId = existingMMSession.id;
+      
+      // If a specific user was requested, update it (only if role is admin/manager)
+      if (monthlyManagerUserId && existingMMSession.userId !== monthlyManagerUserId && ["HOSTEL_MANAGER", "SUPER_ADMIN"].includes(user.role)) {
+        await prisma.monthlyManagerSession.update({
+          where: { id: existingMMSession.id },
+          data: { userId: monthlyManagerUserId }
+        });
+        
+        // Update new user's role to MONTHLY_MANAGER if they are a STUDENT
+        const targetUser = await prisma.user.findUnique({ where: { id: monthlyManagerUserId }});
+        if (targetUser && targetUser.role === "STUDENT") {
+          await prisma.user.update({
+            where: { id: monthlyManagerUserId },
+            data: { role: "MONTHLY_MANAGER" }
+          });
+        }
+      }
+    } else if (monthlyManagerUserId && ["HOSTEL_MANAGER", "SUPER_ADMIN"].includes(user.role)) {
+      // Create a monthly manager session if none exists and user is admin/manager
       const mmSession = await prisma.monthlyManagerSession.create({
         data: {
           userId: monthlyManagerUserId,
           hostelId,
           month: parseInt(month),
           year: parseInt(year),
-          appointedBy: user.id
+          appointedBy: user.id,
+          isActive: true
         }
       });
       monthlyManagerSessionId = mmSession.id;
 
       // Update the user's role to MONTHLY_MANAGER only if they are currently a STUDENT
-      // We don't want to downgrade a HOSTEL_MANAGER or SUPER_ADMIN
       const targetUser = await prisma.user.findUnique({ where: { id: monthlyManagerUserId }});
       if (targetUser && targetUser.role === "STUDENT") {
         await prisma.user.update({

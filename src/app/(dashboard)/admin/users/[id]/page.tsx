@@ -117,10 +117,16 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                 <Badge variant="outline" className="border-slate-500/30 text-slate-600 bg-slate-500/5">{user.status}</Badge>
               )}
             </div>
-            <p className="text-muted-foreground mt-1 flex items-center gap-2">
-              <Mail className="w-3.5 h-3.5" />
-              {user.email}
-            </p>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-muted-foreground flex items-center gap-2">
+                <Mail className="w-3.5 h-3.5" />
+                {user.email}
+              </p>
+              <span className="text-muted-foreground">•</span>
+              <Badge variant="secondary" className="text-xs">
+                {user.role.replace(/_/g, ' ')}
+              </Badge>
+            </div>
           </div>
         </div>
 

@@ -112,8 +112,8 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
         fetch(`/api/hostels/${resolvedParams.id}/occupancy`),
         fetch(`/api/hostels/${resolvedParams.id}/managers`),
         fetch(`/api/hostels/${resolvedParams.id}/monthly-managers`),
-        fetch(`/api/users?role=HOSTEL_MANAGER`),
-        fetch(`/api/users?role=STUDENT`)
+        fetch(`/api/users?role=HOSTEL_MANAGER,SUPER_ADMIN`),
+        fetch(`/api/users?role=STUDENT,MONTHLY_MANAGER`)
       ]);
       
       if (!hostelRes.ok) throw new Error("Failed to fetch hostel");
@@ -545,9 +545,31 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                               </Button>
                             </>
                           ) : (
-                            <span className="text-xs font-semibold px-2 py-1 bg-muted text-muted-foreground rounded-full">
-                              Inactive
-                            </span>
+                            <>
+                              <span className="text-xs font-semibold px-2 py-1 bg-muted text-muted-foreground rounded-full">
+                                Inactive
+                              </span>
+                              {assignment.user.role === "HOSTEL_MANAGER" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-xs px-2 border-amber-500 text-amber-600 hover:bg-amber-50"
+                                  onClick={async () => {
+                                    if (!confirm(`Downgrade ${assignment.user.studentProfile?.fullName || assignment.user.username} back to Student?`)) return;
+                                    try {
+                                      const res = await fetch(`/api/users/${assignment.user.id}/downgrade`, { method: "POST" });
+                                      if (!res.ok) { const j = await res.json(); throw new Error(j.error); }
+                                      toast.success("User downgraded to Student");
+                                      fetchData();
+                                    } catch (e: any) {
+                                      toast.error(e.message);
+                                    }
+                                  }}
+                                >
+                                  Downgrade to Student
+                                </Button>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>

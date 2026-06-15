@@ -24,6 +24,7 @@ export default function AssignStudentPage({ params }: { params: Promise<{ id: st
   const [selectedRoom, setSelectedRoom] = useState("");
   const [selectedBed, setSelectedBed] = useState("");
   const [notes, setNotes] = useState("");
+  const [joinedDate, setJoinedDate] = useState(new Date().toISOString().split("T")[0]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -110,7 +111,7 @@ export default function AssignStudentPage({ params }: { params: Promise<{ id: st
       
     const payload = hasActiveAssignment 
       ? { newHostelId: selectedHostel, newRoomId: selectedRoom, newBedId: selectedBed, transferReason: notes }
-      : { hostelId: selectedHostel, roomId: selectedRoom, bedId: selectedBed, notes };
+      : { hostelId: selectedHostel, roomId: selectedRoom, bedId: selectedBed, notes, joinedDate };
 
     setIsSubmitting(true);
     try {
@@ -231,6 +232,20 @@ export default function AssignStudentPage({ params }: { params: Promise<{ id: st
                 className="resize-none"
               />
             </div>
+
+            {!hasActiveAssignment && (
+              <div className="space-y-2">
+                <Label>Joined Date</Label>
+                <Input
+                  type="date"
+                  value={joinedDate}
+                  onChange={e => setJoinedDate(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Set the actual date the student joined the hostel. Defaults to today.
+                </p>
+              </div>
+            )}
             
           </CardContent>
           <CardFooter className="flex justify-end gap-3">

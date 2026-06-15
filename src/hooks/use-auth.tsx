@@ -25,6 +25,9 @@ export function useSession() {
                 isFirstLogin: dbUser.data.isFirstLogin,
                 isProfileComplete: dbUser.data.isProfileComplete,
                 needsSelfieUpdate: dbUser.data.needsSelfieUpdate,
+                privacyConsentAt: dbUser.data.privacyConsentAt !== undefined 
+                  ? (dbUser.data.privacyConsentAt ? new Date(dbUser.data.privacyConsentAt) : null) 
+                  : (user.user_metadata?.privacyConsentAt ? new Date(user.user_metadata.privacyConsentAt) : null),
                 username: dbUser.data.username || dbUser.data.email.split('@')[0],
               }
             });
@@ -44,6 +47,7 @@ export function useSession() {
             isFirstLogin: user.user_metadata?.isFirstLogin ?? false,
             isProfileComplete: user.user_metadata?.isProfileComplete ?? false,
             needsSelfieUpdate: user.user_metadata?.needsSelfieUpdate ?? false,
+            privacyConsentAt: user.user_metadata?.privacyConsentAt ? new Date(user.user_metadata.privacyConsentAt) : null,
             username: user.user_metadata?.username ?? user.email!.split('@')[0],
           }
         });
@@ -72,6 +76,9 @@ export function useSession() {
                   isFirstLogin: dbUser.data.isFirstLogin,
                   isProfileComplete: dbUser.data.isProfileComplete,
                   needsSelfieUpdate: dbUser.data.needsSelfieUpdate,
+                  privacyConsentAt: dbUser.data.privacyConsentAt !== undefined 
+                    ? (dbUser.data.privacyConsentAt ? new Date(dbUser.data.privacyConsentAt) : null) 
+                    : (session.user.user_metadata?.privacyConsentAt ? new Date(session.user.user_metadata.privacyConsentAt) : null),
                   username: dbUser.data.username || dbUser.data.email.split('@')[0],
                 }
               });
@@ -91,6 +98,7 @@ export function useSession() {
               isFirstLogin: session.user.user_metadata?.isFirstLogin ?? false,
               isProfileComplete: session.user.user_metadata?.isProfileComplete ?? false,
               needsSelfieUpdate: session.user.user_metadata?.needsSelfieUpdate ?? false,
+              privacyConsentAt: session.user.user_metadata?.privacyConsentAt ? new Date(session.user.user_metadata.privacyConsentAt) : null,
               username: session.user.user_metadata?.username ?? session.user.email!.split('@')[0],
             }
           });
