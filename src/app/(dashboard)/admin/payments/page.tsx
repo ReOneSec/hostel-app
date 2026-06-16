@@ -110,7 +110,7 @@ export default function PaymentVerificationPage() {
           <p className="text-muted-foreground mt-1">Review student payments and match UTR numbers.</p>
         </div>
         <div className="w-full sm:w-48">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(val) => { if (val) setStatusFilter(val); }}>
             <SelectTrigger>
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
@@ -213,10 +213,12 @@ export default function PaymentVerificationPage() {
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             {payment.proofFileUrl && (
-                              <Button variant="outline" size="sm" asChild>
-                                <a href={payment.proofFileUrl} target="_blank" rel="noopener noreferrer">
-                                  <Eye className="w-4 h-4 mr-2" /> Proof
-                                </a>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => window.open(payment.proofFileUrl!, "_blank", "noopener,noreferrer")}
+                              >
+                                <Eye className="w-4 h-4 mr-2" /> Proof
                               </Button>
                             )}
                             

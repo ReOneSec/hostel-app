@@ -161,8 +161,8 @@ export default function MessManagerDashboard() {
         </div>
         <div className="flex gap-2">
           <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline"><Settings className="w-4 h-4 mr-2" /> Settings</Button>
+            <DialogTrigger render={<Button variant="outline" />}>
+              <Settings className="w-4 h-4 mr-2" /> Settings
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -191,8 +191,8 @@ export default function MessManagerDashboard() {
           </Dialog>
 
           <Dialog open={isNewSessionOpen} onOpenChange={setIsNewSessionOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="w-4 h-4 mr-2" /> Start New Session</Button>
+            <DialogTrigger render={<Button />}>
+              <Plus className="w-4 h-4 mr-2" /> Start New Session
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>

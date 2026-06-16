@@ -208,7 +208,9 @@ export default function AdminBillingPage() {
         <Label className="text-muted-foreground shrink-0">Select Hostel:</Label>
         <Select value={selectedHostel} onValueChange={(val) => setSelectedHostel(val || "")}>
           <SelectTrigger className="w-[280px]">
-            <SelectValue placeholder="Select a hostel" />
+            <SelectValue placeholder="Select a hostel">
+              {hostels.find(h => h.id === selectedHostel)?.name}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {hostels.map((h) => (
@@ -265,7 +267,13 @@ export default function AdminBillingPage() {
                     <Label>Student</Label>
                     <Select value={selectedStudent} onValueChange={(val) => setSelectedStudent(val || "")}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select student" />
+                        <SelectValue placeholder="Select student">
+                          {(() => {
+                            if (!selectedStudent || !configData?.activeStudents) return null;
+                            const student = configData.activeStudents.find((s: any) => s.id === selectedStudent);
+                            return student ? (student.studentProfile?.fullName || student.username) : null;
+                          })()}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {configData.activeStudents?.map((s: any) => (
@@ -379,7 +387,13 @@ export default function AdminBillingPage() {
                         <Label>Room</Label>
                         <Select value={selectedRoomId} onValueChange={(val) => setSelectedRoomId(val || "")}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select Room" />
+                            <SelectValue placeholder="Select Room">
+                              {(() => {
+                                if (!selectedRoomId || !configData?.rooms) return null;
+                                const room = configData.rooms.find((r: any) => r.id === selectedRoomId);
+                                return room ? `Room ${room.roomNumber}` : null;
+                              })()}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {configData.rooms?.map((r: any) => (
@@ -395,7 +409,14 @@ export default function AdminBillingPage() {
                         <Label>Bed</Label>
                         <Select value={selectedBedId} onValueChange={(val) => setSelectedBedId(val || "")}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select Bed" />
+                            <SelectValue placeholder="Select Bed">
+                              {(() => {
+                                if (!selectedBedId || !selectedRoomId || !configData?.rooms) return null;
+                                const room = configData.rooms.find((r: any) => r.id === selectedRoomId);
+                                const bed = room?.beds.find((b: any) => b.id === selectedBedId);
+                                return bed ? `Bed ${bed.bedLabel}` : null;
+                              })()}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {configData.rooms?.find((r: any) => r.id === selectedRoomId)?.beds.map((b: any) => (

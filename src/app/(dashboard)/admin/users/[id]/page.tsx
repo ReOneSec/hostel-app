@@ -15,7 +15,11 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Clock, FileText, Image as ImageIcon, Loader2, MapPin, Phone, Shield, User, KeyRound, Building2, Mail } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Clock, FileText, Image as ImageIcon, Loader2, MapPin, Phone, Shield, User, KeyRound, Building2, Mail, Pencil, CheckCircle2, XCircle, Calendar, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 
 export default function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,6 +29,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [newRemark, setNewRemark] = useState("");
+  const [isSubmittingRemark, setIsSubmittingRemark] = useState(false);
+  const [isEditJoiningDateOpen, setIsEditJoiningDateOpen] = useState(false);
+  const [newJoiningDate, setNewJoiningDate] = useState("");
+  const [isUpdatingJoiningDate, setIsUpdatingJoiningDate] = useState(false);
 
   useEffect(() => {
     fetchUser();
@@ -32,7 +41,9 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
   async function fetchUser() {
     try {
-      const res = await fetch(`/api/users/${resolvedParams.id}`);
+      const res = await fetch(`/api/users/${resolvedParams.id}?_t=${Date.now()}`, {
+        cache: "no-store"
+      });
       if (!res.ok) throw new Error("Failed to fetch user");
       const { data } = await res.json();
       setUser(data);
@@ -78,6 +89,49 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       toast.error(error.message || "Failed to update status");
     } finally {
       setIsUpdatingStatus(false);
+    }
+  }
+
+  async function handleAddRemark() {
+    if (!newRemark.trim()) return;
+    setIsSubmittingRemark(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}/remarks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: newRemark.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      
+      toast.success("Remark added");
+      setNewRemark("");
+      fetchUser();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add remark");
+    } finally {
+      setIsSubmittingRemark(false);
+    }
+  }
+
+  async function handleUpdateJoiningDate() {
+    setIsUpdatingJoiningDate(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}/joining-date`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ joiningDate: newJoiningDate ? new Date(newJoiningDate).toISOString() : null }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      
+      toast.success("Joining date updated");
+      setIsEditJoiningDateOpen(false);
+      fetchUser();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update joining date");
+    } finally {
+      setIsUpdatingJoiningDate(false);
     }
   }
 
@@ -162,22 +216,72 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               <CardTitle className="text-lg">Account Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-y-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground font-medium mb-1">Role</p>
-                  <div className="flex items-center gap-1.5">
-                    <Shield className="w-4 h-4 text-primary" />
-                    <span className="font-medium">{user.role}</span>
+              <div className="flex flex-col gap-4 text-sm">
+                
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-md">
+                      <Shield className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium mb-0.5">Role</p>
+                      <span className="font-semibold">{user.role.replace(/_/g, ' ')}</span>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <p className="text-muted-foreground font-medium mb-1">Profile Complete</p>
-                  <span className="font-medium">{user.isProfileComplete ? "Yes" : "No"}</span>
+
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+                  <div className="flex items-center gap-3">
+                    <div className={user.isProfileComplete ? "p-2 bg-emerald-500/10 rounded-md" : "p-2 bg-amber-500/10 rounded-md"}>
+                      {user.isProfileComplete ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-amber-600" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium mb-0.5">Profile Status</p>
+                      <span className="font-semibold">{user.isProfileComplete ? "Complete" : "Incomplete"}</span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-muted-foreground font-medium mb-1">Created At</p>
-                  <span className="font-medium">{format(new Date(user.createdAt), "MMM d, yyyy")}</span>
+
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-md">
+                      <CalendarPlus className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium mb-0.5">Created At</p>
+                      <span className="font-semibold">{format(new Date(user.createdAt), "MMM d, yyyy")}</span>
+                    </div>
+                  </div>
                 </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 group">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-500/10 rounded-md">
+                      <Calendar className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium mb-0.5">
+                        Joining Date
+                        {!user.joiningDate && <span className="text-[10px] text-muted-foreground ml-1 font-normal">(Default)</span>}
+                      </p>
+                      <span className="font-semibold">
+                        {format(new Date(user.joiningDate || user.studentProfile?.completedAt || user.createdAt), "MMM d, yyyy")}
+                      </span>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
+                    const dateToEdit = user.joiningDate || user.studentProfile?.completedAt || user.createdAt;
+                    setNewJoiningDate(dateToEdit ? new Date(dateToEdit).toISOString().split('T')[0] : "");
+                    setIsEditJoiningDateOpen(true);
+                  }}>
+                    <Pencil className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                  </Button>
+                </div>
+
               </div>
             </CardContent>
           </Card>
@@ -243,10 +347,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
         {/* Right Column - Details Tabs */}
         <div className="md:col-span-2">
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="profile">Personal Details</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="timeline">Lifecycle</TabsTrigger>
+              <TabsTrigger value="remarks">Remarks</TabsTrigger>
             </TabsList>
             
             <TabsContent value="profile" className="mt-4 space-y-4">
@@ -397,9 +502,77 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="remarks" className="mt-4 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>User Remarks</CardTitle>
+                  <CardDescription>Internal notes and remarks about this user. Only visible to admins and managers.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <Textarea 
+                      placeholder="Type your remark here..."
+                      value={newRemark}
+                      onChange={(e) => setNewRemark(e.target.value)}
+                      className="min-h-[100px]"
+                    />
+                    <Button onClick={handleAddRemark} disabled={isSubmittingRemark || !newRemark.trim()}>
+                      {isSubmittingRemark && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      Add Remark
+                    </Button>
+                  </div>
+                  
+                  {(user.remarks?.length ?? 0) > 0 && <Separator />}
+
+                  <div className="space-y-4">
+                    {user.remarks?.map((remark: any) => (
+                      <div key={remark.id} className="border rounded-md p-4 bg-muted/50">
+                        <p className="text-sm whitespace-pre-wrap">{remark.content}</p>
+                        <p className="text-xs text-muted-foreground mt-3">
+                          {format(new Date(remark.createdAt), "MMM d, yyyy HH:mm")} • Added by {remark.createdBy}
+                        </p>
+                      </div>
+                    ))}
+                    {(user.remarks?.length ?? 0) === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No remarks yet.</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </div>
+
+      <Dialog open={isEditJoiningDateOpen} onOpenChange={setIsEditJoiningDateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Joining Date</DialogTitle>
+            <DialogDescription>
+              Set a manual joining date for this user. This overrides the default profile completion date.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="joiningDate">Joining Date</Label>
+              <Input
+                id="joiningDate"
+                type="date"
+                value={newJoiningDate}
+                onChange={(e) => setNewJoiningDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditJoiningDateOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateJoiningDate} disabled={isUpdatingJoiningDate}>
+              {isUpdatingJoiningDate && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save Date
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

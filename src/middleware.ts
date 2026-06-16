@@ -4,6 +4,7 @@ import { updateSession } from "@/utils/supabase/middleware";
 
 // Route protection matrix
 const ROLE_ROUTES: Record<string, string[]> = {
+  "/admin/users": ["SUPER_ADMIN", "HOSTEL_MANAGER"],
   "/admin": ["SUPER_ADMIN"],
   "/manager/mess": ["SUPER_ADMIN", "HOSTEL_MANAGER", "MONTHLY_MANAGER"],
   "/manager": ["SUPER_ADMIN", "HOSTEL_MANAGER"],
@@ -33,17 +34,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  console.log(`[MIDDLEWARE] Processing ${pathname}`);
-  console.log(`[MIDDLEWARE] Headers Host:`, request.headers.get("host"));
-  console.log(`[MIDDLEWARE] Cookies received:`, request.cookies.getAll().map(c => c.name));
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[MIDDLEWARE] Processing ${pathname}`);
+    console.log(`[MIDDLEWARE] Headers Host:`, request.headers.get("host"));
+    console.log(`[MIDDLEWARE] Cookies received:`, request.cookies.getAll().map(c => c.name));
+  }
 
   // Update Supabase session
   const { supabaseResponse, user } = await updateSession(request);
   
-  if (!user) {
-    console.log(`[MIDDLEWARE] User is NULL for ${pathname}`);
-  } else {
-    console.log(`[MIDDLEWARE] User found: ${user.email}`);
+  if (process.env.NODE_ENV === "development") {
+    if (!user) {
+      console.log(`[MIDDLEWARE] User is NULL for ${pathname}`);
+    } else {
+      console.log(`[MIDDLEWARE] User found: ${user.email}`);
+    }
   }
 
   // Allow public routes

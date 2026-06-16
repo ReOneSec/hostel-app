@@ -30,19 +30,32 @@ const input = {
 const result = calculateMessSettlements(input);
 console.log(JSON.stringify(result, null, 2));
 
-// Mathematical test: 
-// Common Charge = 7500. Per student = 3750.
-// Consumable = 11000. Guest Recovery = 650. Net Consumable = 10350.
-// Total student meals = 100. Universal Meal Charge = 103.5.
-// User A Liability = 60 * 103.5 + 3750 = 6210 + 3750 = 9960.
-// User A Contribution = 1000 + 6000 + 1000 = 8000.
-// User A Net Settlement = 9960 - 8000 = +1960 (owes 1960).
-
-// User B Liability = 40 * 103.5 + 3750 = 4140 + 3750 = 7890.
-// User B Contribution = 2000 + 4000 + 0 = 6000.
-// User B Net Settlement = 7890 - 6000 = +1890 (owes 1890).
-
-// Total collected from both = 1960 + 1890 = 3850.
-// Initial contributions = 3000. Market spending = 10000. Water = 1000. Guest = 650.
-// Total money in pool = Initial(3000) + Guest(650) + Collected(3850) = 7500.
-// Which exactly pays the Cook, Cleaner, Dustbin (7500)! Perfect zero-sum.
+// Updated Mathematical Test (Water is now in Common Charges):
+//
+// Common Charge = cook(5000) + cleaner(2000) + dustbin(500) + water(1000) = 8500
+// Per student common = 8500 / 2 = 4250
+//
+// Consumable (market only) = 10000
+// Guest Recovery = 10 × 65 = 650
+// Net Consumable = 10000 - 650 = 9350
+// Total student meals = 60 + 40 = 100
+// Universal Meal Charge = 9350 / 100 = 93.5
+//
+// User A:
+//   Meal Cost = 60 × 93.5 = 5610
+//   Liability = 5610 + 4250 = 9860
+//   Contribution = 1000 (initial) + 6000 (market) + 1000 (water) = 8000
+//   Net Settlement = 9860 - 8000 = +1860 (owes 1860)
+//
+// User B:
+//   Meal Cost = 40 × 93.5 = 3740
+//   Liability = 3740 + 4250 = 7990
+//   Contribution = 2000 (initial) + 4000 (market) + 0 (water) = 6000
+//   Net Settlement = 7990 - 6000 = +1990 (owes 1990)
+//
+// Verification (zero-sum check):
+//   Total collected = 1860 + 1990 = 3850
+//   Initial contributions = 3000. Guest recovery = 650.
+//   Money in pool = Initial(3000) + Guest(650) + Collected(3850) = 7500
+//   This pays cook(5000) + cleaner(2000) + dustbin(500) = 7500. ✓
+//   Water(1000) is paid from the students who spent it (User A), already tracked. ✓

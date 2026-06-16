@@ -8,11 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, ArrowLeft, CheckCircle2 } from "lucide-react";
-import { toast } from "sonner";
+import { 
+  Loader2, Plus, ArrowLeft, Calendar, User, 
+  CheckCircle2, AlertTriangle, AlertCircle, TrendingUp, TrendingDown, RefreshCcw, HandCoins, Receipt
+} from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 export default function MessSessionDetails() {
   const params = useParams();
@@ -184,7 +187,7 @@ export default function MessSessionDetails() {
           </div>
         </div>
         <div className="ml-auto">
-          {!isClosed && ["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role) && (
+          {!isClosed && ["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role as string) && (
             <Button onClick={closeSession} variant="destructive">
               <CheckCircle2 className="w-4 h-4 mr-2" />
               Close Session & Settle
@@ -215,8 +218,8 @@ export default function MessSessionDetails() {
               </div>
               {!isClosed && (
                 <Dialog open={isExpenseOpen} onOpenChange={setIsExpenseOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm"><Plus className="w-4 h-4 mr-2" /> Add Expense</Button>
+                  <DialogTrigger render={<Button size="sm" />}>
+                    <Plus className="w-4 h-4 mr-2" /> Add Expense
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
@@ -304,8 +307,8 @@ export default function MessSessionDetails() {
               </div>
               {!isClosed && (
                 <Dialog open={isGuestOpen} onOpenChange={setIsGuestOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm"><Plus className="w-4 h-4 mr-2" /> Add Guest Meal</Button>
+                  <DialogTrigger render={<Button size="sm" />}>
+                    <Plus className="w-4 h-4 mr-2" /> Add Guest Meal
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
@@ -361,8 +364,8 @@ export default function MessSessionDetails() {
               </div>
               {!isClosed && (
                 <Dialog>
-                  <DialogTrigger asChild>
-                    <Button size="sm"><Plus className="w-4 h-4 mr-2" /> Add Advance</Button>
+                  <DialogTrigger render={<Button size="sm" />}>
+                    <Plus className="w-4 h-4 mr-2" /> Add Advance
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
@@ -432,7 +435,7 @@ export default function MessSessionDetails() {
                 <CardTitle>Student Meal Counts</CardTitle>
                 <CardDescription>Enter the total number of meals eaten by each student</CardDescription>
               </div>
-              {!isClosed && ["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role) && (
+              {!isClosed && ["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role as string) && (
                 <Button onClick={saveMealCounts} disabled={isSavingMeals}>
                   {isSavingMeals ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Save Meal Counts"}
                 </Button>
@@ -456,7 +459,7 @@ export default function MessSessionDetails() {
                         <Input 
                           type="number" 
                           min="0"
-                          disabled={isClosed || !["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role)}
+                          disabled={isClosed || !["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role as string)}
                           className="w-[100px] ml-auto"
                           value={mealCounts[s.id] || 0}
                           onChange={(e) => setMealCounts({...mealCounts, [s.id]: parseInt(e.target.value) || 0})}

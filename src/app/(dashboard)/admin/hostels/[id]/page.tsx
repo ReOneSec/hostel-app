@@ -484,9 +484,15 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
-                  <Select value={selectedHostelManager} onValueChange={setSelectedHostelManager}>
+                  <Select value={selectedHostelManager} onValueChange={(val) => { if (val) setSelectedHostelManager(val); }}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select staff or student..." />
+                      <SelectValue placeholder="Select staff or student...">
+                        {(() => {
+                          if (!selectedHostelManager) return null;
+                          const user = [...staffUsers, ...studentUsers].find(u => u.id === selectedHostelManager);
+                          return user ? `${user.studentProfile?.fullName || user.username} (${user.email})` : null;
+                        })()}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none" disabled className="font-semibold text-muted-foreground">Staff</SelectItem>
@@ -592,7 +598,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <Label className="text-xs">Month</Label>
-                    <Select value={selectedMonth.toString()} onValueChange={v => setSelectedMonth(parseInt(v))}>
+                    <Select value={selectedMonth.toString()} onValueChange={v => { if (v) setSelectedMonth(parseInt(v)) }}>
                       <SelectTrigger>
                         <SelectValue placeholder="Month" />
                       </SelectTrigger>
@@ -605,7 +611,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Year</Label>
-                    <Select value={selectedYear.toString()} onValueChange={v => setSelectedYear(parseInt(v))}>
+                    <Select value={selectedYear.toString()} onValueChange={v => { if (v) setSelectedYear(parseInt(v)) }}>
                       <SelectTrigger>
                         <SelectValue placeholder="Year" />
                       </SelectTrigger>
@@ -620,9 +626,15 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                 </div>
                 
                 <div className="flex gap-2 pt-2">
-                  <Select value={selectedMonthlyManager} onValueChange={setSelectedMonthlyManager}>
+                  <Select value={selectedMonthlyManager} onValueChange={(val) => { if (val) setSelectedMonthlyManager(val); }}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select student..." />
+                      <SelectValue placeholder="Select student...">
+                        {(() => {
+                          if (!selectedMonthlyManager) return null;
+                          const user = studentUsers.find(u => u.id === selectedMonthlyManager);
+                          return user ? `${user.studentProfile?.fullName || user.username} (${user.email})` : null;
+                        })()}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {studentUsers.map(user => (

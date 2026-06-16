@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     const user = session?.user;
     
-    if (!user || !["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"].includes(user.role)) {
+    if (!user || user.role !== "STUDENT") {
       return NextResponse.json({ error: "Unauthorized. Students only." }, { status: 403 });
     }
 

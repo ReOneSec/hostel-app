@@ -39,7 +39,11 @@ type UserData = {
   } | null;
   hostelAssignments: Array<{
     hostel: { name: string };
+  }>;
+  roomAssignments: Array<{
     room: { roomNumber: string };
+  }>;
+  bedAssignments: Array<{
     bed: { bedLabel: string };
   }>;
 };

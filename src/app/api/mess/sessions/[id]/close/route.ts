@@ -147,9 +147,36 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         }
       });
       
-      // Bonus Step: Add the `netSettlement` to the Monthly Bill? 
-      // The Phase 7 bill generation logic probably uses the closed MessSession to populate bills later.
-      // Or we can create bills right now if needed. The plan states "Bills reference messCharge which is only set when the mess session closes".
+      // Update each student's Bill with the mess charge from their settlement
+      for (const settlement of result.settlements) {
+        // netSettlement > 0 means student owes, < 0 means student gets refund
+        const messChargeForBill = settlement.netSettlement.toNumber();
+
+        const existingBill = await tx.bill.findFirst({
+          where: {
+            userId: settlement.userId,
+            hostelId: messSession.hostelId,
+            month: messSession.month,
+            year: messSession.year,
+          }
+        });
+
+        if (existingBill) {
+          const newTotal = existingBill.rentAmount.toNumber()
+            + existingBill.establishmentFee.toNumber()
+            + existingBill.bedFee.toNumber()
+            + messChargeForBill
+            + existingBill.lateFee.toNumber();
+
+          await tx.bill.update({
+            where: { id: existingBill.id },
+            data: {
+              messCharge: messChargeForBill,
+              totalAmount: Math.max(newTotal, 0),
+            }
+          });
+        }
+      }
     });
 
     // 7. Send email notifications asynchronously

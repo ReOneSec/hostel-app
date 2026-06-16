@@ -111,7 +111,7 @@ export default function DocumentVerificationPage() {
           <p className="text-muted-foreground mt-1">Review and approve student KYC documents.</p>
         </div>
         <div className="w-full sm:w-48">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(val) => { if (val) setStatusFilter(val); }}>
             <SelectTrigger>
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
@@ -181,10 +181,12 @@ export default function DocumentVerificationPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button variant="outline" size="sm" asChild>
-                              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
-                                <Eye className="w-4 h-4 mr-2" /> View
-                              </a>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => window.open(doc.fileUrl, "_blank", "noopener,noreferrer")}
+                            >
+                              <Eye className="w-4 h-4 mr-2" /> View
                             </Button>
                             
                             {doc.status === "PENDING" && (

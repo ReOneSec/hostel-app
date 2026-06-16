@@ -24,6 +24,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
+    // Security: Students can only view mess sessions for their assigned hostel
+    if (user.role === "STUDENT") {
+      const studentAssignment = await prisma.hostelAssignment.findFirst({
+        where: { userId: user.id, hostelId: messSession.hostelId, status: "ACTIVE" }
+      });
+      if (!studentAssignment) {
+        return NextResponse.json({ error: "You do not have access to this mess session" }, { status: 403 });
+      }
+    }
+
     // Fetch related data
     const [marketExpensesRaw, waterExpensesRaw, guestMeals, initialContributionsRaw, mealCountsRaw, settlementsRaw] = await Promise.all([
       prisma.messMarketExpense.findMany({ where: { messSessionId: sessionId }, include: { user: { select: { email: true, studentProfile: { select: { fullName: true } } } } } }),

@@ -11,8 +11,8 @@ import type { Role } from "@prisma/client";
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
-      return errorResponse("Unauthorized. Super Admin access required.", 403);
+    if (!session?.user?.id || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "HOSTEL_MANAGER")) {
+      return errorResponse("Unauthorized. Admin or Manager access required.", 403);
     }
 
     const { searchParams } = new URL(req.url);
@@ -93,12 +93,16 @@ const createUserSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
-      return errorResponse("Unauthorized. Super Admin access required.", 403);
+    if (!session?.user?.id || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "HOSTEL_MANAGER")) {
+      return errorResponse("Unauthorized. Admin or Manager access required.", 403);
     }
 
     const body = await req.json();
     const data = createUserSchema.parse(body);
+
+    if (session.user.role === "HOSTEL_MANAGER" && !["STUDENT", "MONTHLY_MANAGER"].includes(data.role)) {
+      return errorResponse("Managers can only create STUDENT or MONTHLY_MANAGER accounts.", 403);
+    }
 
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email },

@@ -98,8 +98,8 @@ export default function MonthlyManagerMessDashboard() {
           <p className="text-muted-foreground mt-1">Manage expenses and guest meals for your assigned month.</p>
         </div>
         <Dialog open={isNewSessionOpen} onOpenChange={setIsNewSessionOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" /> Start New Session</Button>
+          <DialogTrigger render={<Button />}>
+            <Plus className="w-4 h-4 mr-2" /> Start New Session
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>

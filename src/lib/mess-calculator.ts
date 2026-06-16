@@ -43,26 +43,26 @@ export interface MessCalculationResult {
 }
 
 /**
- * Implements the Mess Cooperative Accounting Logic (Option A - Fixed Overhead)
+ * Implements the Mess Cooperative Accounting Logic
  * 
- * 1. commonCharge = cook + cleaner + dustbin
- * 2. consumableExpenses = market + water
- * 3. netConsumableExpenses = consumableExpenses - guestRecovery
+ * 1. commonCharge = cook + cleaner + dustbin + water (split equally)
+ * 2. consumableExpenses = market only (split by meals eaten)
+ * 3. netConsumableExpenses = consumableExpenses - guestRecovery (floor at 0)
  * 4. universalMealCharge = netConsumableExpenses / totalStudentMeals
  * 5. perStudentCommonCharge = commonCharge / numberOfStudents
  */
 export function calculateMessSettlements(input: MessCalculatorInput): MessCalculationResult {
-  // Common fixed charges (salaries)
-  const commonCharge = input.cookPayment.plus(input.cleanerPayment).plus(input.dustbinPayment);
+  // Common fixed charges (salaries + water)
+  const commonCharge = input.cookPayment.plus(input.cleanerPayment).plus(input.dustbinPayment).plus(input.waterExpenses);
   
-  // Consumable expenses
-  const totalConsumableExpenses = input.marketExpenses.plus(input.waterExpenses);
+  // Consumable expenses (market only)
+  const totalConsumableExpenses = input.marketExpenses;
   
   // Guest recovery
   const totalGuestRecovery = input.guestMealRate.times(input.totalGuestMeals);
   
-  // Net consumable expenses that students need to pay for
-  const netConsumableExpenses = totalConsumableExpenses.minus(totalGuestRecovery);
+  // Net consumable expenses that students need to pay for (floor at 0 to prevent negative meal charges)
+  const netConsumableExpenses = Decimal.max(totalConsumableExpenses.minus(totalGuestRecovery), new Decimal(0));
   
   // Total student meals
   const totalStudentMeals = input.students.reduce((sum, s) => sum + s.mealCount, 0);
@@ -102,10 +102,15 @@ export function calculateMessSettlements(input: MessCalculatorInput): MessCalcul
     };
   });
 
+  // totalMessCharge1 = all expenses (market + common)
+  // totalMessCharge2 = totalMessCharge1 - guest recovery
+  const totalMessCharge1 = totalConsumableExpenses.plus(commonCharge);
+  const totalMessCharge2 = totalMessCharge1.minus(totalGuestRecovery);
+
   return {
-    totalMessCharge1: totalConsumableExpenses.plus(commonCharge).toDecimalPlaces(2),
+    totalMessCharge1: totalMessCharge1.toDecimalPlaces(2),
     totalGuestRecovery: totalGuestRecovery.toDecimalPlaces(2),
-    totalMessCharge2: netConsumableExpenses.toDecimalPlaces(2),
+    totalMessCharge2: totalMessCharge2.toDecimalPlaces(2),
     totalStudentMeals,
     universalMealCharge: universalMealCharge.toDecimalPlaces(2),
     perStudentCommonCharge: perStudentCommonCharge.toDecimalPlaces(2),

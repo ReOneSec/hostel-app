@@ -199,8 +199,8 @@ export default function StudentMessSessionDetails() {
                 </div>
                 {!isClosed && (
                   <Dialog open={isExpenseOpen} onOpenChange={setIsExpenseOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm"><Plus className="w-4 h-4 mr-2" /> Add Expense</Button>
+                    <DialogTrigger render={<Button size="sm" />}>
+                      <Plus className="w-4 h-4 mr-2" /> Add Expense
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>

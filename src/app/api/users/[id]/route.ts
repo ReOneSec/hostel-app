@@ -35,8 +35,12 @@ export async function GET(
         status: true,
         isProfileComplete: true,
         privacyConsentAt: true,
+        joiningDate: true,
         createdAt: true,
         studentProfile: true, // gets all fields from StudentProfile
+        remarks: {
+          orderBy: { createdAt: "desc" },
+        },
         documents: {
           select: {
             id: true,

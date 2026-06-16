@@ -51,7 +51,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Users",
     href: "/admin/users",
     icon: Users,
-    roles: ["SUPER_ADMIN"],
+    roles: ["SUPER_ADMIN", "HOSTEL_MANAGER"],
   },
   {
     label: "Profile Requests",
