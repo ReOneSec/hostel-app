@@ -27,7 +27,11 @@ export async function DELETE(
     }
 
     if (!assignment.isActive) {
-      return errorResponse("Assignment is already inactive", 400);
+      // If already inactive, permanently delete the record to remove it from history
+      const result = await prisma.monthlyManagerSession.delete({
+        where: { id: assignmentId }
+      });
+      return successResponse(result, 200);
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -69,11 +73,11 @@ export async function DELETE(
     if (otherActiveAssignmentsCheck === 0 && assignment.user.role === "MONTHLY_MANAGER") {
       try {
         const supabaseAdmin = createAdminClient();
-        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 10000 });
         const authUser = users.find((u: any) => u.email === assignment.user.email);
         if (authUser) {
           await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
-            user_metadata: { role: "STUDENT" }
+            user_metadata: { ...authUser.user_metadata, role: "STUDENT" }
           });
         }
       } catch (err) {

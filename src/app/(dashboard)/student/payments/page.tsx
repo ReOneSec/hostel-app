@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, Receipt, CreditCard } from "lucide-react";
+import { Loader2, ExternalLink, Receipt, CreditCard, Download } from "lucide-react";
 import { toast } from "sonner";
+import { generateReceiptPDF } from "@/lib/pdf-generator";
 
 type PaymentData = {
   id: string;
@@ -24,11 +25,13 @@ type PaymentData = {
   utrNumber: string | null;
   proofFileUrl: string | null;
   rejectionReason: string | null;
+  billId: string;
   bill: {
     month: number;
     year: number;
     totalAmount: string;
   };
+  user: any;
 };
 
 export default function StudentPaymentsPage() {
@@ -132,16 +135,28 @@ export default function StudentPaymentsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    {payment.proofFileUrl ? (
+                    {payment.status === "APPROVED" && (
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => window.open(payment.proofFileUrl!, '_blank')}
+                        className="text-primary hover:text-primary/80"
+                        onClick={() => generateReceiptPDF(payment)}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Receipt
+                      </Button>
+                    )}
+                    {payment.proofFileUrl && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => window.open(payment.proofFileUrl as string, '_blank')}
                       >
                         <ExternalLink className="w-4 h-4 mr-2" />
-                        View
+                        View Proof
                       </Button>
-                    ) : (
+                    )}
+                    {!payment.proofFileUrl && payment.status !== "APPROVED" && (
                       <span className="text-xs text-muted-foreground">No proof</span>
                     )}
                   </TableCell>

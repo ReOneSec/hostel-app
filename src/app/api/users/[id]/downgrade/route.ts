@@ -42,7 +42,7 @@ export async function POST(
     // Update role in Supabase Auth
     try {
       const supabaseAdmin = createAdminClient();
-      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 10000 });
       const authUser = users.find((u: any) => u.email === user.email);
       if (authUser) {
         await supabaseAdmin.auth.admin.updateUserById(authUser.id, {

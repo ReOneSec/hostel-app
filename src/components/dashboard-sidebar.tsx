@@ -187,6 +187,7 @@ function getRoleBadgeVariant(
     case "HOSTEL_MANAGER":
       return "default";
     case "MONTHLY_MANAGER":
+    case "STUDENT":
       return "secondary";
     default:
       return "outline";

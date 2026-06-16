@@ -63,6 +63,11 @@ export async function GET(
             longitude: true,
           }
         },
+        bills: {
+          where: { status: { in: ["GENERATED", "PARTIALLY_PAID", "OVERDUE"] } },
+          orderBy: { generatedAt: "desc" },
+          take: 1
+        },
         hostelAssignments: {
           include: {
             hostel: true

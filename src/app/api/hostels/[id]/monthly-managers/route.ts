@@ -126,11 +126,11 @@ export async function POST(
     if (user.role === "STUDENT") {
       try {
         const supabaseAdmin = createAdminClient();
-        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
-        const authUser = users.find(u => u.email === user.email);
+        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 10000 });
+        const authUser = users.find((u: any) => u.email === user.email);
         if (authUser) {
           await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
-            user_metadata: { role: "MONTHLY_MANAGER" }
+            user_metadata: { ...authUser.user_metadata, role: "MONTHLY_MANAGER" }
           });
         }
       } catch (err) {

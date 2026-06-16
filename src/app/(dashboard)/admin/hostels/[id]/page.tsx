@@ -688,9 +688,29 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                               </Button>
                             </>
                           ) : (
-                            <span className="text-xs font-semibold px-2 py-1 bg-muted text-muted-foreground rounded-full">
-                              Completed
-                            </span>
+                            <>
+                              <span className="text-xs font-semibold px-2 py-1 bg-muted text-muted-foreground rounded-full">
+                                Completed
+                              </span>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="h-6 text-xs px-2"
+                                onClick={async () => {
+                                  if (!confirm("Are you sure you want to remove this monthly manager?")) return;
+                                  try {
+                                    const res = await fetch(`/api/hostels/${resolvedParams.id}/monthly-managers/${session.id}`, { method: "DELETE" });
+                                    if (!res.ok) throw new Error("Failed to remove monthly manager");
+                                    toast.success("Monthly manager removed successfully");
+                                    fetchData();
+                                  } catch (e: any) {
+                                    toast.error(e.message);
+                                  }
+                                }}
+                              >
+                                Remove
+                              </Button>
+                            </>
                           )}
                         </div>
                       </div>

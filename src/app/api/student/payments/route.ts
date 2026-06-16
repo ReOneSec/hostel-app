@@ -16,6 +16,9 @@ export async function GET(req: Request) {
       include: {
         bill: {
           select: { month: true, year: true, totalAmount: true }
+        },
+        user: {
+          select: { username: true, email: true, studentProfile: { select: { fullName: true } } }
         }
       },
       orderBy: { submittedAt: "desc" }

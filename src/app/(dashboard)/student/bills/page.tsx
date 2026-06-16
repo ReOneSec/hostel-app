@@ -12,9 +12,10 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Receipt, Calendar, CreditCard, AlertCircle } from "lucide-react";
+import { Loader2, Receipt, Calendar, CreditCard, AlertCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { generateInvoicePDF } from "@/lib/pdf-generator";
 
 export default function StudentBillsPage() {
   const [bills, setBills] = useState<any[]>([]);
@@ -117,10 +118,10 @@ export default function StudentBillsPage() {
                     </div>
                   )}
                   {parseFloat(currentMonthBill.messCharge) > 0 && (
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Mess Charges (Last Month)</span>
-                      <span className="font-medium">₹{parseFloat(currentMonthBill.messCharge).toFixed(2)}</span>
-                    </div>
+                      <div className="flex justify-between items-center text-sm pt-3 border-t">
+                        <span className="text-muted-foreground">Mess Charges (Last Month)</span>
+                        <span className="font-medium">₹{parseFloat(currentMonthBill.messCharge).toFixed(2)}</span>
+                      </div>
                   )}
                   {parseFloat(currentMonthBill.lateFee) > 0 && (
                     <div className="flex justify-between items-center text-sm text-destructive">
@@ -151,12 +152,30 @@ export default function StudentBillsPage() {
                     </span>
                   </div>
                   {(currentMonthBill.status === "GENERATED" || currentMonthBill.status === "PARTIALLY_PAID" || currentMonthBill.status === "OVERDUE") && (
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline"
+                        onClick={() => generateInvoicePDF(currentMonthBill)}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Invoice
+                      </Button>
+                      <Button 
+                        className="bg-primary hover:bg-primary/90"
+                        onClick={() => router.push(`/student/payments/upload?billId=${currentMonthBill.id}`)}
+                      >
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Pay Now
+                      </Button>
+                    </div>
+                  )}
+                  {currentMonthBill.status === "PAID" && (
                     <Button 
-                      className="bg-primary hover:bg-primary/90"
-                      onClick={() => router.push(`/student/payments/upload?billId=${currentMonthBill.id}`)}
+                      variant="outline"
+                      onClick={() => generateInvoicePDF(currentMonthBill)}
                     >
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Pay Now
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Invoice
                     </Button>
                   )}
                 </div>

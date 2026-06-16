@@ -1,5 +1,6 @@
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { ProfileCompletionModal } from "@/components/profile-completion/profile-completion-modal";
+import { GlobalSearch } from "@/components/global-search";
 
 export default function DashboardLayout({
   children,
@@ -14,6 +15,7 @@ export default function DashboardLayout({
           {children}
         </div>
         <ProfileCompletionModal />
+        <GlobalSearch />
       </main>
     </div>
   );

@@ -13,7 +13,14 @@ export async function GET(req: Request) {
     const bills = await prisma.bill.findMany({
       where: { userId: user.id },
       include: {
-        hostel: { select: { name: true } }
+        hostel: { select: { name: true } },
+        user: { 
+          select: { 
+            username: true, 
+            email: true, 
+            studentProfile: { select: { fullName: true } } 
+          } 
+        }
       },
       orderBy: [
         { year: "desc" },
