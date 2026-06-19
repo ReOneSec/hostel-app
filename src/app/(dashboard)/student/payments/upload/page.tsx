@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, Upload, Loader2, IndianRupee, ReceiptText, FileUp, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { compressImageClientSide } from "@/lib/image-compression";
 const paymentSchema = z.object({
   amount: z.string().min(1, "Amount is required"),
   transactionId: z.string().optional(),
@@ -69,7 +70,7 @@ export default function PaymentUploadPage() {
     if (selected) validateAndSetFile(selected);
   }
 
-  function validateAndSetFile(file: File) {
+  async function validateAndSetFile(file: File) {
     const allowed = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!allowed.includes(file.type)) {
       toast.error("Only JPG, PNG, and WebP images are allowed");
@@ -79,7 +80,17 @@ export default function PaymentUploadPage() {
       toast.error("File size must be under 5MB");
       return;
     }
-    setFile(file);
+    
+    setIsLoading(true);
+    toast.info("Compressing image...");
+    try {
+      const compressedFile = await compressImageClientSide(file);
+      setFile(compressedFile as File);
+    } catch (error) {
+      toast.error("Failed to compress image");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function onSubmit(data: PaymentFormData) {

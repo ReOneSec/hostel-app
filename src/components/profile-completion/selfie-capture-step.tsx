@@ -12,6 +12,7 @@ import {
   Video,
 } from "lucide-react";
 import { toast } from "sonner";
+import { compressImageClientSide } from "@/lib/image-compression";
 
 interface SelfieCaptureStepProps {
   onCaptured: () => void;
@@ -101,7 +102,10 @@ export function SelfieCaptureStep({
     try {
       // Convert data URL to blob
       const response = await fetch(capturedImage);
-      const blob = await response.blob();
+      const originalBlob = await response.blob();
+      
+      // Compress the selfie to ~75kb
+      const blob = await compressImageClientSide(originalBlob);
 
       // Get geolocation
       let latitude: number | null = null;

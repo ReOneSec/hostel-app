@@ -61,7 +61,15 @@ export async function GET(req: Request) {
           select: {
             id: true,
             username: true,
-            studentProfile: { select: { fullName: true } }
+            studentProfile: { select: { fullName: true } },
+            bedAssignments: {
+              where: { status: "ACTIVE" },
+              include: { 
+                bed: { 
+                  include: { room: true } 
+                } 
+              }
+            }
           }
         }
       }

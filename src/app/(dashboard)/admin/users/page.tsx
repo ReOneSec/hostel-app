@@ -53,6 +53,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -68,6 +69,27 @@ export default function AdminUsersPage() {
       toast.error("Could not load users.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleDeleteUser(userId: string) {
+    if (!confirm("Are you sure you want to delete this user? This action cannot be undone and will delete all related records.")) return;
+    
+    setIsDeleting(userId);
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || "Failed to delete user");
+      
+      toast.success("User deleted successfully");
+      setUsers(users.filter(u => u.id !== userId));
+    } catch (error: any) {
+      toast.error(error.message || "Could not delete user.");
+    } finally {
+      setIsDeleting(null);
     }
   }
 
@@ -212,6 +234,14 @@ export default function AdminUsersPage() {
                           }}
                         >
                           Copy Email
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={isDeleting === user.id}
+                        >
+                          {isDeleting === user.id ? "Deleting..." : "Delete User"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

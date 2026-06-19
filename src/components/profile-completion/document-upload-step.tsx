@@ -22,6 +22,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { compressImageClientSide } from "@/lib/image-compression";
 
 interface UploadedDoc {
   id: string;
@@ -76,8 +77,11 @@ export function DocumentUploadStep({
 
     setIsUploading(true);
     try {
+      toast.info("Compressing image...");
+      const compressedFile = await compressImageClientSide(file);
+
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressedFile);
       formData.append("documentType", selectedType);
 
       const res = await fetch("/api/documents/upload", {
