@@ -37,7 +37,18 @@ export async function GET(req: Request) {
       orderBy: { assignedAt: 'asc' }
     });
 
-    const usersMap = new Map();
+    type UserRegisterData = {
+      id: string;
+      name: string;
+      username: string;
+      studentProfile: any;
+      bedAssignments: any[];
+      joiningDate: Date;
+      leftDate: Date | null;
+      isActive: boolean;
+    };
+
+    const usersMap = new Map<string, UserRegisterData>();
     for (const a of assignments) {
       if (!usersMap.has(a.userId)) {
         usersMap.set(a.userId, {
@@ -51,7 +62,7 @@ export async function GET(req: Request) {
           isActive: a.status === "ACTIVE"
         });
       } else {
-        const u = usersMap.get(a.userId);
+        const u = usersMap.get(a.userId)!;
         if (a.assignedAt < u.joiningDate) u.joiningDate = a.assignedAt;
         if (a.status === "ACTIVE") {
           u.leftDate = null;
@@ -74,7 +85,7 @@ export async function GET(req: Request) {
         effectiveTo: null
       }
     });
-    const rentMap = new Map();
+    const rentMap = new Map<string, number>();
     for (const r of rentConfigs) {
       rentMap.set(r.userId, Number(r.amount));
     }
@@ -107,7 +118,8 @@ export async function GET(req: Request) {
         status: estFeeBill ? estFeeBill.status : "NOT_BILLED"
       };
 
-      const monthly: any = {};
+      type MonthRecord = { amount: number; totalAmount: number; status: string } | null;
+      const monthly: Record<number, MonthRecord> = {};
       for (let m = 1; m <= 12; m++) {
         const b = yearBills.find(x => x.month === m);
         if (b) {

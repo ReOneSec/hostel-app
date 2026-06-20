@@ -51,6 +51,8 @@ export async function GET(
             status: true,
             uploadedAt: true,
             rejectionReason: true,
+            verifiedBy: true,
+            verifiedAt: true,
           },
           orderBy: { uploadedAt: "desc" }
         },
@@ -97,7 +99,54 @@ export async function GET(
       return errorResponse("User not found", 404);
     }
 
-    return successResponse(user);
+    const userResponse = { ...user } as any;
+    const documents = [...userResponse.documents];
+
+    // Attempt to recover missing verifier data from AuditLogs for legacy verifications
+    const legacyApprovedDocs = documents.filter(d => 
+      (d.status === "VERIFIED" || d.status === "APPROVED") && (!d.verifiedBy || !d.verifiedAt)
+    );
+
+    if (legacyApprovedDocs.length > 0) {
+      const docIds = legacyApprovedDocs.map(d => d.id);
+      const auditLogs = await prisma.auditLog.findMany({
+        where: {
+          entityId: { in: docIds },
+          action: { in: ["DOCUMENT_APPROVED", "DOCUMENT_VERIFIED"] },
+          entity: "Document"
+        },
+        orderBy: { createdAt: "desc" }
+      });
+
+      for (const doc of legacyApprovedDocs) {
+        const log = auditLogs.find(l => l.entityId === doc.id);
+        if (log) {
+          doc.verifiedBy = doc.verifiedBy || log.userId;
+          doc.verifiedAt = doc.verifiedAt || log.createdAt;
+        }
+      }
+    }
+
+    const verifierIds = [...new Set(documents.map(d => d.verifiedBy).filter(Boolean))] as string[];
+    let verifierMap: Record<string, string> = {};
+
+    if (verifierIds.length > 0) {
+      const verifiers = await prisma.user.findMany({
+        where: { id: { in: verifierIds } },
+        select: { id: true, username: true, studentProfile: { select: { fullName: true } } }
+      });
+      verifierMap = verifiers.reduce((acc, v) => {
+        acc[v.id] = v.studentProfile?.fullName || v.username;
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    userResponse.documents = documents.map(d => ({
+      ...d,
+      verifierName: d.verifiedBy ? verifierMap[d.verifiedBy] : null
+    }));
+
+    return successResponse(userResponse);
   } catch (error) {
     console.error("[User GET]", error);
     return errorResponse("Internal server error", 500);

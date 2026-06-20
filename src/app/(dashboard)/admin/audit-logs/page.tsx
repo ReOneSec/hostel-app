@@ -147,7 +147,7 @@ export default function AuditLogsPage() {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <Select value={actionFilter} onValueChange={setActionFilter}>
+              <Select value={actionFilter} onValueChange={(v) => setActionFilter(v || "ALL")}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Filter Action" />
                 </SelectTrigger>

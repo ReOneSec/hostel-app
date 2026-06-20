@@ -13,7 +13,7 @@ const ROLE_ROUTES: Record<string, string[]> = {
 };
 
 // Public routes that don't require authentication
-const PUBLIC_ROUTES = ["/login", "/reset-password", "/api/auth"];
+const PUBLIC_ROUTES = ["/login", "/reset-password", "/api/auth", "/verify"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -17,6 +17,9 @@ const profileSchema = z.object({
   personalEmail: z.string().email(),
   permanentAddress: z.string().min(10),
   emergencyContact: z.string().regex(/^[6-9]\d{9}$/),
+  chronicIllnesses: z.string().optional(),
+  allergies: z.string().optional(),
+  regularMedications: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -44,6 +47,9 @@ export async function POST(req: NextRequest) {
         personalEmail: data.personalEmail,
         permanentAddress: data.permanentAddress,
         emergencyContact: data.emergencyContact,
+        chronicIllnesses: data.chronicIllnesses,
+        allergies: data.allergies,
+        regularMedications: data.regularMedications,
       },
       create: {
         userId: session.user.id,
@@ -58,6 +64,9 @@ export async function POST(req: NextRequest) {
         personalEmail: data.personalEmail,
         permanentAddress: data.permanentAddress,
         emergencyContact: data.emergencyContact,
+        chronicIllnesses: data.chronicIllnesses,
+        allergies: data.allergies,
+        regularMedications: data.regularMedications,
       },
     });
 

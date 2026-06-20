@@ -11,6 +11,7 @@ import { PersonalInfoStep } from "@/components/profile-completion/personal-info-
 import { AddressStep } from "@/components/profile-completion/address-step";
 import { DocumentUploadStep } from "@/components/profile-completion/document-upload-step";
 import { SelfieCaptureStep } from "@/components/profile-completion/selfie-capture-step";
+import { MedicalInfoStep } from "@/components/profile-completion/medical-info-step";
 import { StepIndicator } from "@/components/profile-completion/step-indicator";
 
 export interface ProfileFormData {
@@ -27,15 +28,20 @@ export interface ProfileFormData {
   // Step 2: Address
   permanentAddress: string;
   emergencyContact: string;
-  // Step 3: Documents (handled separately via file uploads)
-  // Step 4: Selfie (handled separately via camera capture)
+  // Step 3: Medical Info (Optional)
+  chronicIllnesses?: string;
+  allergies?: string;
+  regularMedications?: string;
+  // Step 4: Documents (handled separately via file uploads)
+  // Step 5: Selfie (handled separately via camera capture)
 }
 
 const STEPS = [
   { id: 1, title: "Personal Info", description: "Basic details" },
   { id: 2, title: "Address", description: "Contact & emergency" },
-  { id: 3, title: "Documents", description: "ID verification" },
-  { id: 4, title: "Selfie", description: "Photo capture" },
+  { id: 3, title: "Medical Info", description: "Optional health details" },
+  { id: 4, title: "Documents", description: "ID verification" },
+  { id: 5, title: "Selfie", description: "Photo capture" },
 ];
 
 export default function CompleteProfilePage() {
@@ -58,6 +64,9 @@ export default function CompleteProfilePage() {
     personalEmail: "",
     permanentAddress: "",
     emergencyContact: "",
+    chronicIllnesses: "",
+    allergies: "",
+    regularMedications: "",
   });
 
   const [isLoaded, setIsLoaded] = useState(false);
@@ -98,7 +107,7 @@ export default function CompleteProfilePage() {
   }
 
   function nextStep() {
-    if (currentStep < 4) setCurrentStep(currentStep + 1);
+    if (currentStep < 5) setCurrentStep(currentStep + 1);
   }
 
   function prevStep() {
@@ -108,12 +117,12 @@ export default function CompleteProfilePage() {
   async function handleFinalSubmit() {
     if (!documentsUploaded) {
       toast.error("Please upload at least one document");
-      setCurrentStep(3);
+      setCurrentStep(4);
       return;
     }
     if (!selfieUploaded) {
       toast.error("Please capture your selfie");
-      setCurrentStep(4);
+      setCurrentStep(5);
       return;
     }
 
@@ -206,6 +215,14 @@ export default function CompleteProfilePage() {
               />
             )}
             {currentStep === 3 && (
+              <MedicalInfoStep
+                data={formData}
+                onChange={updateFormData}
+                onNext={nextStep}
+                onPrev={prevStep}
+              />
+            )}
+            {currentStep === 4 && (
               <DocumentUploadStep
                 onUploaded={() => setDocumentsUploaded(true)}
                 onNext={nextStep}
@@ -213,7 +230,7 @@ export default function CompleteProfilePage() {
                 isUploaded={documentsUploaded}
               />
             )}
-            {currentStep === 4 && (
+            {currentStep === 5 && (
               <SelfieCaptureStep
                 onCaptured={() => setSelfieUploaded(true)}
                 onPrev={prevStep}
@@ -223,8 +240,8 @@ export default function CompleteProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Final Submit (only visible on step 4 after selfie is taken) */}
-        {currentStep === 4 && selfieUploaded && (
+        {/* Final Submit (only visible on step 5 after selfie is taken) */}
+        {currentStep === 5 && selfieUploaded && (
           <div className="mt-6 flex justify-center">
             <Button
               size="lg"

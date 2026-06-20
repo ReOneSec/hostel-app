@@ -11,8 +11,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // Use executeRaw to bypass Prisma Client cache until it's regenerated
-    await prisma.$executeRaw`UPDATE "users" SET "privacyConsentAt" = NOW() WHERE "id" = ${user.id}`;
+    // Update privacy consent date using standard Prisma method
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { privacyConsentAt: new Date() }
+    });
 
     return NextResponse.json({ 
       success: true, 

@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
     // HOSTEL_MANAGER sees only their assigned hostels
     // MONTHLY_MANAGER sees only their assigned hostels
     
-    let whereClause = {};
+    let whereClause: any = {};
     if (session.user.role !== "SUPER_ADMIN") {
-      whereClause = { managerId: session.user.id };
+      whereClause = { managerAssignments: { some: { userId: session.user.id, isActive: true } } };
     }
 
     const hostels = await prisma.hostel.findMany({

@@ -25,12 +25,6 @@ export async function sendEmail({
 }: SendEmailOptions): Promise<boolean> {
   try {
     let finalTo = to;
-    if (userId) {
-      const userProfile = await prisma.studentProfile.findUnique({ where: { userId } });
-      if (userProfile?.personalEmail) {
-        finalTo = userProfile.personalEmail;
-      }
-    }
 
     // In development, just log the email
     if (process.env.NODE_ENV === "development") {

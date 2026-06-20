@@ -38,11 +38,28 @@ export async function PATCH(
 
     if (action === "APPROVE") {
       // 1. Update the StudentProfile
-      const changes = request.requestedChanges as any;
+      const rawChanges = request.requestedChanges as Record<string, any>;
+      const allowedFields = [
+        "fullName", "fatherName", "motherName", "mobile", 
+        "parentMobile", "dateOfBirth", "permanentAddress", 
+        "emergencyContact", "bloodGroup", "gender",
+        "chronicIllnesses", "allergies", "regularMedications"
+      ];
+      
+      const safeChanges: Record<string, any> = {};
+      for (const field of allowedFields) {
+        if (field in rawChanges) {
+          if (field === "dateOfBirth" && rawChanges[field]) {
+            safeChanges[field] = new Date(rawChanges[field]);
+          } else {
+            safeChanges[field] = rawChanges[field];
+          }
+        }
+      }
       
       const updatedProfile = await prisma.studentProfile.update({
         where: { userId: request.userId },
-        data: changes,
+        data: safeChanges,
       });
 
       // 2. Mark request as APPROVED
@@ -60,7 +77,7 @@ export async function PATCH(
         action: "PROFILE_EDIT_APPROVED",
         entity: "StudentProfile",
         entityId: updatedProfile.id,
-        newValues: changes,
+        newValues: safeChanges,
         ipAddress: getIpAddress(req.headers),
         userAgent: getUserAgent(req.headers),
       });

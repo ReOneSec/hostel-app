@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
     const role = searchParams.get("role");
     const status = searchParams.get("status");
     const search = searchParams.get("search");
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const perPage = parseInt(searchParams.get("perPage") || "100", 10);
 
     const where: any = {};
     
@@ -35,7 +37,7 @@ export async function GET(req: NextRequest) {
         { email: { contains: search, mode: "insensitive" } },
         { username: { contains: search, mode: "insensitive" } },
         {
-          profile: {
+          studentProfile: {
             fullName: { contains: search, mode: "insensitive" }
           }
         }
@@ -44,6 +46,8 @@ export async function GET(req: NextRequest) {
 
     const users = await prisma.user.findMany({
       where,
+      skip: (page - 1) * perPage,
+      take: perPage,
       select: {
         id: true,
         email: true,
@@ -76,7 +80,17 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    return successResponse(users);
+    const total = await prisma.user.count({ where });
+
+    return successResponse({ 
+      data: users,
+      meta: {
+        total,
+        page,
+        perPage,
+        totalPages: Math.ceil(total / perPage)
+      }
+    });
   } catch (error) {
     console.error("[Users GET]", error);
     return errorResponse("Internal server error", 500);
@@ -99,6 +113,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const data = createUserSchema.parse(body);
+    data.email = data.email.toLowerCase(); // Force lowercase to match Supabase behavior
 
     if (session.user.role === "HOSTEL_MANAGER" && !["STUDENT", "MONTHLY_MANAGER"].includes(data.role)) {
       return errorResponse("Managers can only create STUDENT or MONTHLY_MANAGER accounts.", 403);

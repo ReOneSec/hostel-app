@@ -43,8 +43,12 @@ export async function uploadFile(
     throw new Error(`Upload failed: ${error.message}`);
   }
 
+  const { data: publicUrlData } = supabase.storage
+    .from(bucketName)
+    .getPublicUrl(data.path);
+
   return {
-    url: `${supabaseUrl}/storage/v1/object/${bucketName}/${data.path}`,
+    url: publicUrlData.publicUrl,
     path: data.path,
   };
 }

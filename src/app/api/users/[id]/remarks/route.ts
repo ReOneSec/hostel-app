@@ -41,13 +41,15 @@ export async function POST(
     });
 
     await createAuditLog({
+      userId: session.user.id,
       action: "REMARK_ADDED",
-      entityType: "USER",
+      entity: "USER",
       entityId: id,
-      actorId: session.user.id,
-      description: `Added remark to user ${targetUser.email}`,
-      ipAddress: getIpAddress(req),
-      userAgent: getUserAgent(req),
+      newValues: {
+        description: `Added remark to user ${targetUser.email}`
+      },
+      ipAddress: getIpAddress(req.headers),
+      userAgent: getUserAgent(req.headers),
     });
 
     return successResponse(remark);

@@ -18,6 +18,14 @@ export async function GET(req: NextRequest) {
       role: { in: ["STUDENT", "MONTHLY_MANAGER"] },
     };
     if (status) userWhere.status = status;
+    if (hostelId) {
+      userWhere.hostelAssignments = {
+        some: {
+          hostelId: hostelId,
+          status: "ACTIVE"
+        }
+      };
+    }
 
     const users = await prisma.user.findMany({
       where: userWhere,
@@ -55,15 +63,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Filter by hostel if provided
-    let filteredUsers = users;
-    if (hostelId) {
-      filteredUsers = users.filter(
-        (u) => u.hostelAssignments.length > 0 && u.hostelAssignments[0].hostel.id === hostelId
-      );
-    }
-
-    const students = filteredUsers.map((u) => ({
+    const students = users.map((u) => ({
       id: u.id,
       name: u.studentProfile?.fullName || "N/A",
       email: u.email,

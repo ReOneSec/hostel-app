@@ -23,6 +23,7 @@ export async function calculateLateFees(): Promise<number> {
   });
 
   let updatedCount = 0;
+  const transactionOperations = [];
 
   for (const bill of overdueBills) {
     // Calculate days late (difference between today and due date)
@@ -40,8 +41,8 @@ export async function calculateLateFees(): Promise<number> {
     if (targetLateFee > currentLateFee) {
       const feeToAdd = targetLateFee - currentLateFee;
 
-      // Wrap in a transaction to ensure atomic updates
-      await prisma.$transaction([
+      // Queue operations for atomic bulk execution
+      transactionOperations.push(
         // 1. Create audit record
         prisma.lateFeeRecord.create({
           data: {
@@ -50,7 +51,10 @@ export async function calculateLateFees(): Promise<number> {
             daysLate,
             amount: feeToAdd
           }
-        }),
+        })
+      );
+      
+      transactionOperations.push(
         // 2. Update bill totals and status
         prisma.bill.update({
           where: { id: bill.id },
@@ -60,17 +64,21 @@ export async function calculateLateFees(): Promise<number> {
             status: "OVERDUE"
           }
         })
-      ]);
+      );
 
       updatedCount++;
     }
   }
 
+  if (transactionOperations.length > 0) {
+    await prisma.$transaction(transactionOperations);
+  }
+
   // Find a super admin for audit log
   const admin = await prisma.user.findFirst({ where: { role: "SUPER_ADMIN" }});
-  const auditUserId = admin ? admin.id : "SYSTEM_CRON";
+  const auditUserId = admin ? admin.id : "";
 
-  if (updatedCount > 0) {
+  if (updatedCount > 0 && auditUserId !== "") {
     await prisma.auditLog.create({
       data: {
         userId: auditUserId,

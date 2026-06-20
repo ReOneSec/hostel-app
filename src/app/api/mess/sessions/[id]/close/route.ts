@@ -109,22 +109,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // 6. Save in transaction
     await prisma.$transaction(async (tx) => {
-      // Create settlements
-      for (const settlement of result.settlements) {
-        await tx.messSettlement.create({
-          data: {
-            messSessionId: sessionId,
-            userId: settlement.userId,
-            mealCount: settlement.mealCount,
-            mealCost: settlement.mealCost.toNumber(),
-            universalCommonCharge: settlement.universalCommonCharge.toNumber(),
-            initialContribution: settlement.initialContribution.toNumber(),
-            marketSpending: settlement.marketSpending.toNumber(),
-            waterSpending: settlement.waterSpending.toNumber(),
-            totalContribution: settlement.totalContribution.toNumber(),
-            totalLiability: settlement.totalLiability.toNumber(),
-            netSettlement: settlement.netSettlement.toNumber()
-          }
+      // Create settlements using createMany for bulk performance
+      const settlementData = result.settlements.map(settlement => ({
+        messSessionId: sessionId,
+        userId: settlement.userId,
+        mealCount: settlement.mealCount,
+        mealCost: settlement.mealCost.toNumber(),
+        universalCommonCharge: settlement.universalCommonCharge.toNumber(),
+        initialContribution: settlement.initialContribution.toNumber(),
+        marketSpending: settlement.marketSpending.toNumber(),
+        waterSpending: settlement.waterSpending.toNumber(),
+        totalContribution: settlement.totalContribution.toNumber(),
+        totalLiability: settlement.totalLiability.toNumber(),
+        netSettlement: settlement.netSettlement.toNumber()
+      }));
+
+      if (settlementData.length > 0) {
+        await tx.messSettlement.createMany({
+          data: settlementData
         });
       }
 

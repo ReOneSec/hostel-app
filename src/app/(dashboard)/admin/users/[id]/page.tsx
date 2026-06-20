@@ -19,8 +19,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Clock, FileText, Image as ImageIcon, Loader2, MapPin, Phone, Shield, User, KeyRound, Building2, Mail, Pencil, CheckCircle2, XCircle, Calendar, CalendarPlus } from "lucide-react";
+import { ArrowLeft, Clock, FileText, Image as ImageIcon, Loader2, MapPin, Phone, Shield, User, KeyRound, Building2, Mail, Pencil, CheckCircle2, XCircle, Calendar, CalendarPlus, Trash, Edit } from "lucide-react";
 import { toast } from "sonner";
+import { generateAdmissionFormPDF } from "@/lib/pdf-generator";
 
 export default function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -34,6 +35,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   const [isEditJoiningDateOpen, setIsEditJoiningDateOpen] = useState(false);
   const [newJoiningDate, setNewJoiningDate] = useState("");
   const [isUpdatingJoiningDate, setIsUpdatingJoiningDate] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [editingRemarkId, setEditingRemarkId] = useState<string | null>(null);
+  const [editingRemarkContent, setEditingRemarkContent] = useState("");
+  const [isUpdatingRemark, setIsUpdatingRemark] = useState(false);
+  const [isDeletingRemark, setIsDeletingRemark] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUser();
@@ -114,6 +120,44 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
     }
   }
 
+  async function handleUpdateRemark(remarkId: string) {
+    if (!editingRemarkContent.trim()) return;
+    setIsUpdatingRemark(true);
+    try {
+      const res = await fetch(`/api/users/${user?.id}/remarks/${remarkId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editingRemarkContent }),
+      });
+      if (!res.ok) throw new Error("Failed to update remark");
+      toast.success("Remark updated");
+      setEditingRemarkId(null);
+      setEditingRemarkContent("");
+      fetchUser();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsUpdatingRemark(false);
+    }
+  }
+
+  async function handleDeleteRemark(remarkId: string) {
+    if (!confirm("Are you sure you want to delete this remark?")) return;
+    setIsDeletingRemark(remarkId);
+    try {
+      const res = await fetch(`/api/users/${user?.id}/remarks/${remarkId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete remark");
+      toast.success("Remark deleted");
+      fetchUser();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsDeletingRemark(null);
+    }
+  }
+
   async function handleUpdateJoiningDate() {
     setIsUpdatingJoiningDate(true);
     try {
@@ -132,6 +176,17 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       toast.error(error.message || "Failed to update joining date");
     } finally {
       setIsUpdatingJoiningDate(false);
+    }
+  }
+
+  async function handleDownloadPDF() {
+    setIsGeneratingPDF(true);
+    try {
+      await generateAdmissionFormPDF(user);
+    } catch (error) {
+      toast.error("Failed to generate PDF");
+    } finally {
+      setIsGeneratingPDF(false);
     }
   }
 
@@ -185,6 +240,15 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div className="flex items-center gap-2">
+          <Button 
+            variant="secondary"
+            onClick={handleDownloadPDF}
+            disabled={isGeneratingPDF || !user.isProfileComplete}
+            title={!user.isProfileComplete ? "Profile incomplete" : "Download Admission Form"}
+          >
+            {isGeneratingPDF ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+            <span className="hidden sm:inline">Admission Form</span>
+          </Button>
           <Button 
             variant="outline" 
             onClick={handleToggleStatus}
@@ -527,11 +591,70 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
                   <div className="space-y-4">
                     {user.remarks?.map((remark: any) => (
-                      <div key={remark.id} className="border rounded-md p-4 bg-muted/50">
-                        <p className="text-sm whitespace-pre-wrap">{remark.content}</p>
-                        <p className="text-xs text-muted-foreground mt-3">
-                          {format(new Date(remark.createdAt), "MMM d, yyyy HH:mm")} • Added by {remark.createdBy}
-                        </p>
+                      <div key={remark.id} className="border rounded-md p-4 bg-muted/50 relative group">
+                        {editingRemarkId === remark.id ? (
+                          <div className="space-y-3">
+                            <Textarea 
+                              value={editingRemarkContent}
+                              onChange={(e) => setEditingRemarkContent(e.target.value)}
+                              className="min-h-[80px]"
+                            />
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleUpdateRemark(remark.id)}
+                                disabled={isUpdatingRemark}
+                              >
+                                {isUpdatingRemark && <Loader2 className="w-3 h-3 mr-2 animate-spin" />} Save
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => {
+                                  setEditingRemarkId(null);
+                                  setEditingRemarkContent("");
+                                }}
+                                disabled={isUpdatingRemark}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                                onClick={() => {
+                                  setEditingRemarkId(remark.id);
+                                  setEditingRemarkContent(remark.content);
+                                }}
+                              >
+                                <Edit className="w-4 h-4 text-muted-foreground" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => handleDeleteRemark(remark.id)}
+                                disabled={isDeletingRemark === remark.id}
+                              >
+                                {isDeletingRemark === remark.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </div>
+                            <p className="text-sm whitespace-pre-wrap pr-16">{remark.content}</p>
+                            <p className="text-xs text-muted-foreground mt-3">
+                              {format(new Date(remark.createdAt), "MMM d, yyyy HH:mm")} • Added by {remark.createdBy}
+                              {new Date(remark.updatedAt).getTime() - new Date(remark.createdAt).getTime() > 1000 && " (Edited)"}
+                            </p>
+                          </>
+                        )}
                       </div>
                     ))}
                     {(user.remarks?.length ?? 0) === 0 && (

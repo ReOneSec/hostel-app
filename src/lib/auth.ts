@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { cache } from "react";
 import { prisma } from "./prisma";
 import type { Role } from "@prisma/client";
 
@@ -15,7 +16,7 @@ export interface Session {
   };
 }
 
-export async function auth(): Promise<Session | null> {
+export const auth = cache(async (): Promise<Session | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -52,4 +53,4 @@ export async function auth(): Promise<Session | null> {
       username: dbUser.username,
     },
   };
-}
+});

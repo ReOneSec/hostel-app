@@ -38,6 +38,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const targetUserId = userId || user.id;
 
+    // Validate that the target user is actively assigned to this hostel
+    const activeAssignment = await prisma.hostelAssignment.findFirst({
+      where: {
+        userId: targetUserId,
+        hostelId: messSession.hostelId,
+        status: "ACTIVE"
+      }
+    });
+
+    if (!activeAssignment) {
+      return NextResponse.json({ error: "Target user is not actively assigned to this hostel" }, { status: 400 });
+    }
+
     if (type === "MARKET") {
       const expense = await prisma.messMarketExpense.create({
         data: {

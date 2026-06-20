@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, AlertCircle, FileText, Camera, CheckCircle, XCircle, Clock, Download } from "lucide-react";
 import { format } from "date-fns";
+import { generateAdmissionFormPDF } from "@/lib/pdf-generator";
 
 export default function StudentProfilePage() {
   const { data: session } = useSession();
@@ -19,6 +20,7 @@ export default function StudentProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<any>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -75,6 +77,17 @@ export default function StudentProfilePage() {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPDF(true);
+    try {
+      await generateAdmissionFormPDF(userData);
+    } catch (error) {
+      toast.error("Failed to generate PDF");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
@@ -107,9 +120,17 @@ export default function StudentProfilePage() {
             <CardTitle>Personal Details</CardTitle>
             <CardDescription>Your verified student information.</CardDescription>
           </div>
-          {!isEditing && !pendingRequest && (
-            <Button onClick={() => setIsEditing(true)} variant="outline">Request Edit</Button>
-          )}
+          <div className="flex items-center gap-2">
+            {!isEditing && !pendingRequest && (
+              <Button onClick={() => setIsEditing(true)} variant="outline">Request Edit</Button>
+            )}
+            {userData?.isProfileComplete && (
+              <Button onClick={handleDownloadPDF} disabled={isGeneratingPDF} variant="secondary">
+                {isGeneratingPDF ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                <span className="hidden sm:inline">Admission Form</span>
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {isEditing ? (
@@ -118,6 +139,10 @@ export default function StudentProfilePage() {
                 <div className="space-y-2">
                   <Label>Full Name</Label>
                   <Input name="fullName" value={formData.fullName || ""} onChange={handleChange} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Date of Birth</Label>
+                  <Input name="dateOfBirth" type="date" value={formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString().split('T')[0] : ""} onChange={handleChange} required />
                 </div>
                 <div className="space-y-2">
                   <Label>Mobile</Label>
@@ -151,6 +176,18 @@ export default function StudentProfilePage() {
                   <Label>Permanent Address</Label>
                   <Input name="permanentAddress" value={formData.permanentAddress || ""} onChange={handleChange} required />
                 </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Chronic Illnesses (Optional)</Label>
+                  <Input name="chronicIllnesses" value={formData.chronicIllnesses || ""} onChange={handleChange} placeholder="None" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Allergies (Optional)</Label>
+                  <Input name="allergies" value={formData.allergies || ""} onChange={handleChange} placeholder="None" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Regular Medications (Optional)</Label>
+                  <Input name="regularMedications" value={formData.regularMedications || ""} onChange={handleChange} placeholder="None" />
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="ghost" onClick={() => { setIsEditing(false); setFormData(profile); }}>Cancel</Button>
@@ -165,6 +202,10 @@ export default function StudentProfilePage() {
               <div>
                 <Label className="text-muted-foreground">Full Name</Label>
                 <p className="font-medium mt-1">{profile?.fullName}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Date of Birth</Label>
+                <p className="font-medium mt-1">{profile?.dateOfBirth ? format(new Date(profile.dateOfBirth), "MMM d, yyyy") : "N/A"}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Mobile</Label>
@@ -197,6 +238,18 @@ export default function StudentProfilePage() {
               <div className="md:col-span-2">
                 <Label className="text-muted-foreground">Permanent Address</Label>
                 <p className="font-medium mt-1">{profile?.permanentAddress || "N/A"}</p>
+              </div>
+              <div className="md:col-span-2">
+                <Label className="text-muted-foreground">Chronic Illnesses</Label>
+                <p className="font-medium mt-1">{profile?.chronicIllnesses || "None"}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Allergies</Label>
+                <p className="font-medium mt-1">{profile?.allergies || "None"}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Regular Medications</Label>
+                <p className="font-medium mt-1">{profile?.regularMedications || "None"}</p>
               </div>
             </div>
           )}

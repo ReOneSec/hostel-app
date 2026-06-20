@@ -659,7 +659,7 @@ export default function AdminBillingPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Label>Year:</Label>
-                  <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <Select value={selectedYear} onValueChange={(v) => setSelectedYear(v || new Date().getFullYear().toString())}>
                     <SelectTrigger className="w-24">
                       <SelectValue />
                     </SelectTrigger>

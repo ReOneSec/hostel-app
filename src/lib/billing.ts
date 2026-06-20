@@ -36,23 +36,30 @@ export async function generateBulkBills(month: number, year: number, generatedBy
 
   let generatedCount = 0;
 
+  // Batch fetch to prevent N+1 queries
+  const studentIds = activeAssignments.map(a => a.userId);
+
+  const existingBillsList = await prisma.bill.findMany({
+    where: { userId: { in: studentIds }, month, year }
+  });
+  const existingBillsMap = new Set(existingBillsList.map(b => `${b.userId}_${b.hostelId}`));
+
+  const estFeeBillsList = await prisma.bill.findMany({
+    where: { userId: { in: studentIds }, establishmentFee: { gt: 0 } }
+  });
+  const estFeeMap = new Set(estFeeBillsList.map(b => `${b.userId}_${b.hostelId}`));
+
+  const bedFeeBillsList = await prisma.bill.findMany({
+    where: { userId: { in: studentIds }, year, bedFee: { gt: 0 } }
+  });
+  const bedFeeMap = new Set(bedFeeBillsList.map(b => b.userId));
+
   for (const assignment of activeAssignments) {
     const student = assignment.user;
     const hostel = assignment.hostel;
 
     // Check if bill already exists for this month
-    const existingBill = await prisma.bill.findUnique({
-      where: {
-        userId_hostelId_month_year: {
-          userId: student.id,
-          hostelId: hostel.id,
-          month,
-          year
-        }
-      }
-    });
-
-    if (existingBill) continue; // Skip if already generated
+    if (existingBillsMap.has(`${student.id}_${hostel.id}`)) continue; // Skip if already generated
 
     // ── Calculate Base Rent (monthly, always applied) ──
     const currentRentConfig = student.rentConfigs.find(rc => rc.hostelId === hostel.id);
@@ -62,13 +69,7 @@ export async function generateBulkBills(month: number, year: number, generatedBy
     let estFeeAmount = 0;
     const estFeeConfig = hostel.establishmentFees[0];
     if (estFeeConfig) {
-      const alreadyChargedEstFee = await prisma.bill.findFirst({
-        where: {
-          userId: student.id,
-          hostelId: hostel.id,
-          establishmentFee: { gt: 0 },
-        }
-      });
+      const alreadyChargedEstFee = estFeeMap.has(`${student.id}_${hostel.id}`);
 
       if (!alreadyChargedEstFee) {
         estFeeAmount = estFeeConfig.amount.toNumber();
@@ -87,13 +88,7 @@ export async function generateBulkBills(month: number, year: number, generatedBy
 
       const applicableBedFee = bedSpecificFee || roomSpecificFee || hostelSpecificFee;
       if (applicableBedFee) {
-        const alreadyChargedBedFee = await prisma.bill.findFirst({
-          where: {
-            userId: student.id,
-            year: year,
-            bedFee: { gt: 0 },
-          }
-        });
+        const alreadyChargedBedFee = bedFeeMap.has(student.id);
 
         if (!alreadyChargedBedFee) {
           bedFeeAmount = applicableBedFee.amount.toNumber();
@@ -145,10 +140,14 @@ export async function generateBulkBills(month: number, year: number, generatedBy
   let auditUserId = generatedBy;
   if (generatedBy === "SYSTEM_CRON") {
     const admin = await prisma.user.findFirst({ where: { role: "SUPER_ADMIN" }});
-    if (admin) auditUserId = admin.id;
+    if (admin) {
+      auditUserId = admin.id;
+    } else {
+      auditUserId = ""; // No valid user ID, skip audit to prevent FK error
+    }
   }
 
-  if (generatedCount > 0) {
+  if (generatedCount > 0 && auditUserId !== "") {
     await prisma.auditLog.create({
       data: {
         userId: auditUserId,

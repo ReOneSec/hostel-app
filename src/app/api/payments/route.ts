@@ -37,6 +37,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields including proof image" }, { status: 400 });
     }
 
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      return NextResponse.json({ error: "Invalid payment amount" }, { status: 400 });
+    }
+
     // Verify the bill belongs to the student
     const bill = await prisma.bill.findUnique({
       where: { id: billId }
@@ -80,7 +85,7 @@ export async function POST(req: NextRequest) {
       data: {
         billId,
         userId: user.id,
-        amount: parseFloat(amount),
+        amount: parsedAmount,
         transactionId: transactionId || null,
         utrNumber: utrNumber || null,
         proofFileUrl,
@@ -97,7 +102,7 @@ export async function POST(req: NextRequest) {
       entityId: payment.id,
       newValues: {
         billId,
-        amount: parseFloat(amount),
+        amount: parsedAmount,
         proofFileUrl,
       },
       ipAddress: getIpAddress(req.headers),

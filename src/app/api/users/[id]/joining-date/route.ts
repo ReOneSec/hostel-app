@@ -38,13 +38,15 @@ export async function PATCH(
     });
 
     await createAuditLog({
+      userId: session.user.id,
       action: "JOINING_DATE_UPDATED",
-      entityType: "USER",
+      entity: "USER",
       entityId: id,
-      actorId: session.user.id,
-      description: `Updated joining date for user ${targetUser.email}`,
-      ipAddress: getIpAddress(req),
-      userAgent: getUserAgent(req),
+      newValues: {
+        description: `Updated joining date for user ${targetUser.email}`
+      },
+      ipAddress: getIpAddress(req.headers),
+      userAgent: getUserAgent(req.headers),
     });
 
     return successResponse({ joiningDate: updatedUser.joiningDate });

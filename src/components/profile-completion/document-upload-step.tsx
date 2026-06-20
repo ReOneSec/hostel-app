@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +56,30 @@ export function DocumentUploadStep({
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    async function fetchDocuments() {
+      try {
+        const res = await fetch("/api/users/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.data?.documents?.length > 0) {
+            setUploadedDocs(
+              data.data.documents.map((doc: any) => ({
+                id: doc.id,
+                type: doc.documentType,
+                fileName: doc.fileName,
+              }))
+            );
+            onUploaded();
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch documents", error);
+      }
+    }
+    fetchDocuments();
+  }, [onUploaded]);
 
   async function handleFileUpload(file: File) {
     if (!selectedType) {

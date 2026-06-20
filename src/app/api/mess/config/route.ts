@@ -19,11 +19,11 @@ export async function GET(req: Request) {
     }
 
     if (user.role !== "SUPER_ADMIN") {
-      const hostel = await prisma.hostel.findUnique({
-        where: { id: hostelId }
+      const assignment = await prisma.hostelManagerAssignment.findFirst({
+        where: { hostelId, userId: user.id, isActive: true }
       });
 
-      if (!hostel || hostel.managerId !== user.id) {
+      if (!assignment) {
         return NextResponse.json({ error: "Not managing this hostel" }, { status: 403 });
       }
     }
@@ -57,11 +57,11 @@ export async function POST(req: Request) {
     }
 
     if (user.role !== "SUPER_ADMIN") {
-      const hostel = await prisma.hostel.findUnique({
-        where: { id: hostelId }
+      const assignment = await prisma.hostelManagerAssignment.findFirst({
+        where: { hostelId, userId: user.id, isActive: true }
       });
 
-      if (!hostel || hostel.managerId !== user.id) {
+      if (!assignment) {
         return NextResponse.json({ error: "Not managing this hostel" }, { status: 403 });
       }
     }
