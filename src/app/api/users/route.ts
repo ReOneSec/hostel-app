@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { createAuditLog, getIpAddress, getUserAgent } from "@/lib/audit";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, welcomeEmail } from "@/lib/email";
 import { z } from "zod";
 import type { Role } from "@prisma/client";
 import { getUsersList } from "@/lib/services/users";
@@ -78,7 +78,6 @@ export async function POST(req: NextRequest) {
       password: password,
       email_confirm: true,
       user_metadata: {
-        role: data.role,
         isProfileComplete: false,
         needsSelfieUpdate: false
       }
@@ -89,34 +88,35 @@ export async function POST(req: NextRequest) {
       return errorResponse(authError?.message || "Failed to create user in authentication system", 500);
     }
 
-    // Create user in Prisma profile table
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        username: data.username,
-        role: data.role as Role,
-        createdBy: session.user.id,
-      },
+    // Explicitly set app_metadata role
+    await supabaseAdmin.auth.admin.updateUserById(authData.user.id, {
+      app_metadata: { role: data.role }
     });
+
+    let user;
+    try {
+      // Create user in Prisma profile table
+      user = await prisma.user.create({
+        data: {
+          email: data.email,
+          username: data.username,
+          role: data.role as Role,
+          createdBy: session.user.id,
+        },
+      });
+    } catch (prismaError) {
+      // Compensating transaction: delete orphaned Supabase auth user
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      console.error("[Prisma Create Error]", prismaError);
+      return errorResponse("Database error: Failed to create user profile. Auth user rolled back.", 500);
+    }
 
     try {
       // Send welcome email with credentials
       await sendEmail({
         to: user.email,
         subject: "Welcome to Mirror Hostels - Your Account Details",
-        html: `
-          <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto;">
-            <h2>Welcome to Mirror Hostels!</h2>
-            <p>Hi ${user.username},</p>
-            <p>An account has been created for you. You can log in using the credentials below:</p>
-            <div style="background: #f4f4f5; padding: 16px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 0;"><strong>Email:</strong> ${user.email}</p>
-              <p style="margin: 8px 0 0 0;"><strong>Temporary Password:</strong> ${password}</p>
-            </div>
-            <p>Please log in and complete your profile setup as soon as possible.</p>
-            <p>Best regards,<br/>Mirror Hostels Team</p>
-          </div>
-        `
+        html: welcomeEmail(user.username, password)
       });
     } catch (emailError) {
       console.error("[Email Sending Error]", emailError);

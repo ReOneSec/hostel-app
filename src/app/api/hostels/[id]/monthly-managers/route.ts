@@ -130,7 +130,8 @@ export async function POST(
         const authUser = users.find((u: any) => u.email === user.email);
         if (authUser) {
           await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
-            user_metadata: { ...authUser.user_metadata, role: "MONTHLY_MANAGER" }
+            user_metadata: { ...authUser.user_metadata, role: "MONTHLY_MANAGER" },
+            app_metadata: { role: "MONTHLY_MANAGER" }
           });
         }
       } catch (err) {

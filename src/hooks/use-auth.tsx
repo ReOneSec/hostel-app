@@ -43,7 +43,7 @@ export function useSession() {
           user: {
             id: user.id,
             email: user.email!,
-            role: user.user_metadata?.role as any,
+            role: user.app_metadata?.role as any || "STUDENT",
             isFirstLogin: user.user_metadata?.isFirstLogin ?? false,
             isProfileComplete: user.user_metadata?.isProfileComplete ?? false,
             needsSelfieUpdate: user.user_metadata?.needsSelfieUpdate ?? false,
@@ -94,7 +94,7 @@ export function useSession() {
             user: {
               id: session.user.id,
               email: session.user.email!,
-              role: session.user.user_metadata?.role as any,
+              role: session.user.app_metadata?.role as any || "STUDENT",
               isFirstLogin: session.user.user_metadata?.isFirstLogin ?? false,
               isProfileComplete: session.user.user_metadata?.isProfileComplete ?? false,
               needsSelfieUpdate: session.user.user_metadata?.needsSelfieUpdate ?? false,

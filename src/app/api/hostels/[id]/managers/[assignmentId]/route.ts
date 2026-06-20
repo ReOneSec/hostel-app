@@ -82,7 +82,8 @@ export async function DELETE(
         const authUser = users.find((u: any) => u.email === assignment.user.email);
         if (authUser) {
           await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
-            user_metadata: { ...authUser.user_metadata, role: "STUDENT" }
+            user_metadata: { ...authUser.user_metadata, role: "STUDENT" },
+            app_metadata: { role: "STUDENT" }
           });
         }
       } catch (err) {

@@ -55,7 +55,7 @@ export async function middleware(request: NextRequest) {
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
     // If already authenticated and trying to access login, redirect to dashboard
     if (pathname.startsWith("/login") && user) {
-      const role = user.user_metadata?.role || "STUDENT";
+      const role = user.app_metadata?.role || "STUDENT";
       return NextResponse.redirect(
         new URL(getDashboardRoute(role), baseUrl)
       );
@@ -75,7 +75,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const role = user.user_metadata?.role || "STUDENT";
+  const role = user.app_metadata?.role || "STUDENT";
   const isProfileComplete = user.user_metadata?.isProfileComplete ?? true;
   const needsSelfieUpdate = user.user_metadata?.needsSelfieUpdate ?? false;
 

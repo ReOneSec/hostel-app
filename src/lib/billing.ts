@@ -52,7 +52,7 @@ export async function generateBulkBills(month: number, year: number, generatedBy
   const bedFeeBillsList = await prisma.bill.findMany({
     where: { userId: { in: studentIds }, year, bedFee: { gt: 0 } }
   });
-  const bedFeeMap = new Set(bedFeeBillsList.map(b => b.userId));
+  const bedFeeMap = new Set(bedFeeBillsList.map(b => `${b.userId}_${b.hostelId}`));
 
   for (const assignment of activeAssignments) {
     const student = assignment.user;
@@ -88,7 +88,7 @@ export async function generateBulkBills(month: number, year: number, generatedBy
 
       const applicableBedFee = bedSpecificFee || roomSpecificFee || hostelSpecificFee;
       if (applicableBedFee) {
-        const alreadyChargedBedFee = bedFeeMap.has(student.id);
+        const alreadyChargedBedFee = bedFeeMap.has(`${student.id}_${hostel.id}`);
 
         if (!alreadyChargedBedFee) {
           bedFeeAmount = applicableBedFee.amount.toNumber();

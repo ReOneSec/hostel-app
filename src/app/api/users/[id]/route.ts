@@ -21,9 +21,25 @@ export async function GET(
       id = session.user.id;
     }
 
-    // SUPER_ADMIN can view anyone. HOSTEL_MANAGER can only view students (or we can tighten it to students in their hostel later)
+    // SUPER_ADMIN can view anyone. HOSTEL_MANAGER can only view students in their assigned hostels.
     if (session.user.role === "STUDENT" && session.user.id !== id) {
       return errorResponse("Forbidden", 403);
+    }
+
+    if (session.user.role === "HOSTEL_MANAGER" && session.user.id !== id) {
+      const managedHostels = await prisma.hostelManagerAssignment.findMany({
+        where: { userId: session.user.id, status: "ACTIVE" }
+      });
+      const managedHostelIds = managedHostels.map(h => h.hostelId);
+
+      const targetUserAssignments = await prisma.hostelAssignment.findMany({
+        where: { userId: id, status: "ACTIVE" }
+      });
+      
+      const hasOverlap = targetUserAssignments.some(a => managedHostelIds.includes(a.hostelId));
+      if (!hasOverlap) {
+        return errorResponse("Forbidden: User not in your assigned hostels", 403);
+      }
     }
 
     const user = await prisma.user.findUnique({
@@ -115,14 +131,14 @@ export async function GET(
           action: { in: ["DOCUMENT_APPROVED", "DOCUMENT_VERIFIED"] },
           entity: "Document"
         },
-        orderBy: { createdAt: "desc" }
+        orderBy: { timestamp: "desc" }
       });
 
       for (const doc of legacyApprovedDocs) {
         const log = auditLogs.find(l => l.entityId === doc.id);
         if (log) {
           doc.verifiedBy = doc.verifiedBy || log.userId;
-          doc.verifiedAt = doc.verifiedAt || log.createdAt;
+          doc.verifiedAt = doc.verifiedAt || log.timestamp;
         }
       }
     }

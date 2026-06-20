@@ -28,8 +28,7 @@ export async function sendEmail({
 
     // In development, just log the email
     if (process.env.NODE_ENV === "development") {
-      console.log(`[Email] To: ${to}, Subject: ${subject}`);
-      console.log(`[Email] Body preview: ${html.substring(0, 200)}...`);
+      console.log(`[Email] To: ${to}, Subject: ${subject}, Body Size: ${html.length} bytes`);
     }
 
     // Only actually send in production (or if RESEND_API_KEY is set to a real key)

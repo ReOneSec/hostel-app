@@ -5,8 +5,8 @@ import { sendEmail, paymentReminderEmail } from "@/lib/email";
 export async function GET(req: Request) {
   try {
     const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return new NextResponse("Forbidden", { status: 403 });
     }
 
     const today = new Date();

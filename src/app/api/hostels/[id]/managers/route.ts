@@ -146,7 +146,8 @@ export async function POST(
           const authUser = allAuthUsers.find((u: any) => u.email === oldAssignment.user.email);
           if (authUser) {
             await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
-              user_metadata: { ...authUser.user_metadata, role: "STUDENT" }
+              user_metadata: { ...authUser.user_metadata, role: "STUDENT" },
+              app_metadata: { role: "STUDENT" }
             });
           }
         }
@@ -157,7 +158,8 @@ export async function POST(
         const authUser = allAuthUsers.find((u: any) => u.email === user.email);
         if (authUser) {
           await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
-            user_metadata: { ...authUser.user_metadata, role: "HOSTEL_MANAGER" }
+            user_metadata: { ...authUser.user_metadata, role: "HOSTEL_MANAGER" },
+            app_metadata: { role: "HOSTEL_MANAGER" }
           });
         }
       }
