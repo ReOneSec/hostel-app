@@ -1,7 +1,5 @@
-"use client";
-
-import { useSession } from "@/hooks/use-auth";
-import { useEffect, useState } from "react";
+import { auth } from "@/lib/auth";
+import { getDashboardStats } from "@/lib/services/dashboard";
 import {
   Card,
   CardContent,
@@ -9,31 +7,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Building2, Users, BedDouble, CreditCard, BarChart3, TrendingUp, Loader2 } from "lucide-react";
+import { Building2, Users, BedDouble, CreditCard, BarChart3, TrendingUp } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-export default function AdminDashboardPage() {
-  const { data: session } = useSession();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+export default async function AdminDashboardPage() {
+  const session = await auth();
+  
+  let data = null;
+  let error = null;
 
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const res = await fetch("/api/admin/dashboard");
-        const json = await res.json();
-        if (json.success) {
-          setData(json.data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch dashboard stats", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchStats();
-  }, []);
+  try {
+    data = await getDashboardStats();
+  } catch (err) {
+    console.error("Failed to fetch dashboard stats", err);
+    error = "Failed to load dashboard data.";
+  }
 
   return (
     <div className="space-y-8">
@@ -45,12 +33,12 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      {error ? (
+        <div className="p-4 border border-destructive/50 bg-destructive/10 text-destructive rounded-lg">
+          <p>{error}</p>
         </div>
       ) : !data ? (
-        <p className="text-center text-muted-foreground py-12">Failed to load data.</p>
+        <p className="text-center text-muted-foreground py-12">No data available.</p>
       ) : (
         <>
           {/* Stats Grid */}

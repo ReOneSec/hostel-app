@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getBillingConfig } from "@/lib/services/billing";
 
 export async function GET(req: Request) {
   try {
@@ -17,79 +17,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "hostelId is required" }, { status: 400 });
     }
 
-    // Fetch active RentConfigs for students in this hostel
-    const rentConfigs = await prisma.rentConfig.findMany({
-      where: { 
-        hostelId,
-        effectiveTo: null // Active rents
-      },
-      include: {
-        user: {
-          select: { username: true, studentProfile: { select: { fullName: true } } }
-        }
-      }
-    });
+    const data = await getBillingConfig(hostelId);
 
-    // Fetch active Establishment Fees for this hostel
-    const establishmentFees = await prisma.establishmentFee.findMany({
-      where: {
-        hostelId,
-        effectiveTo: null
-      }
-    });
-
-    // Fetch active Bed Fees for this hostel
-    const bedFees = await prisma.bedFee.findMany({
-      where: {
-        hostelId,
-        effectiveTo: null
-      },
-      include: {
-        room: { select: { roomNumber: true } },
-        bed: { select: { bedLabel: true } }
-      }
-    });
-
-    // Also fetch the students who are currently assigned to this hostel so we can configure them
-    const activeStudents = await prisma.hostelAssignment.findMany({
-      where: {
-        hostelId,
-        status: "ACTIVE"
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            studentProfile: { select: { fullName: true } },
-            bedAssignments: {
-              where: { status: "ACTIVE" },
-              include: { 
-                bed: { 
-                  include: { room: true } 
-                } 
-              }
-            }
-          }
-        }
-      }
-    });
-
-    // Also fetch rooms and beds for the bed fee configuration
-    const rooms = await prisma.room.findMany({
-      where: { hostelId, isActive: true },
-      include: { beds: { where: { isActive: true } } }
-    });
-
-    return NextResponse.json({
-      data: {
-        rentConfigs,
-        establishmentFees,
-        bedFees,
-        activeStudents: activeStudents.map(a => a.user),
-        rooms
-      }
-    });
+    return NextResponse.json({ data });
   } catch (error: any) {
     console.error("Error fetching billing config:", error);
     return NextResponse.json(

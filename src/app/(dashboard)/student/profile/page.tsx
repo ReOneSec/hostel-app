@@ -304,7 +304,7 @@ export default function StudentProfilePage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 ml-2 shrink-0">
-                    {doc.status === "VERIFIED" && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                    {(doc.status === "VERIFIED" || doc.status === "APPROVED") && <CheckCircle className="w-4 h-4 text-emerald-500" />}
                     {doc.status === "PENDING" && <Clock className="w-4 h-4 text-amber-500" />}
                     {doc.status === "REJECTED" && <XCircle className="w-4 h-4 text-destructive" />}
                     <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-muted rounded-md transition-colors">

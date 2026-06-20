@@ -5,8 +5,8 @@ import { successResponse, errorResponse } from "@/lib/api-response";
 import { createAuditLog, getIpAddress, getUserAgent } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { z } from "zod";
-import bcrypt from "bcryptjs";
 import type { Role } from "@prisma/client";
+import { getUsersList } from "@/lib/services/users";
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,78 +19,18 @@ export async function GET(req: NextRequest) {
     const role = searchParams.get("role");
     const status = searchParams.get("status");
     const search = searchParams.get("search");
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const perPage = parseInt(searchParams.get("perPage") || "100", 10);
+    const page = searchParams.has("page") ? parseInt(searchParams.get("page")!, 10) : undefined;
+    const perPage = searchParams.has("perPage") ? parseInt(searchParams.get("perPage")!, 10) : undefined;
 
-    const where: any = {};
-    
-    if (role) {
-      if (role.includes(",")) {
-        where.role = { in: role.split(",") };
-      } else {
-        where.role = role;
-      }
-    }
-    if (status) where.status = status;
-    if (search) {
-      where.OR = [
-        { email: { contains: search, mode: "insensitive" } },
-        { username: { contains: search, mode: "insensitive" } },
-        {
-          studentProfile: {
-            fullName: { contains: search, mode: "insensitive" }
-          }
-        }
-      ];
-    }
-
-    const users = await prisma.user.findMany({
-      where,
-      skip: (page - 1) * perPage,
-      take: perPage,
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        role: true,
-        status: true,
-        isProfileComplete: true,
-        createdAt: true,
-        studentProfile: {
-          select: {
-            fullName: true,
-            mobile: true,
-          }
-        },
-        hostelAssignments: {
-          where: { status: "ACTIVE" },
-          include: {
-            hostel: { select: { name: true } }
-          }
-        },
-        roomAssignments: {
-          where: { status: "ACTIVE" },
-          include: { room: true }
-        },
-        bedAssignments: {
-          where: { status: "ACTIVE" },
-          include: { bed: true }
-        }
-      },
-      orderBy: { createdAt: "desc" },
+    const result = await getUsersList({
+      role,
+      status,
+      search,
+      page,
+      perPage
     });
 
-    const total = await prisma.user.count({ where });
-
-    return successResponse({ 
-      data: users,
-      meta: {
-        total,
-        page,
-        perPage,
-        totalPages: Math.ceil(total / perPage)
-      }
-    });
+    return successResponse(result);
   } catch (error) {
     console.error("[Users GET]", error);
     return errorResponse("Internal server error", 500);

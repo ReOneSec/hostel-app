@@ -49,7 +49,7 @@ export default function StudentDashboardPage() {
 
   const latestBill = userData?.bills?.[0];
   const documents = userData?.documents || [];
-  const approvedDocs = documents.filter((d: any) => d.status === "VERIFIED").length;
+  const approvedDocs = documents.filter((d: any) => d.status === "APPROVED" || d.status === "VERIFIED").length;
   const totalDocs = documents.length;
 
   return (

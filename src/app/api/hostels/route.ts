@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { createAuditLog, getIpAddress, getUserAgent } from "@/lib/audit";
 import { z } from "zod";
+import { getHostelsForUser } from "@/lib/services/billing";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,28 +13,7 @@ export async function GET(req: NextRequest) {
       return errorResponse("Unauthorized", 401);
     }
 
-    // Role-based filtering:
-    // SUPER_ADMIN sees all
-    // HOSTEL_MANAGER sees only their assigned hostels
-    // MONTHLY_MANAGER sees only their assigned hostels
-    
-    let whereClause: any = {};
-    if (session.user.role !== "SUPER_ADMIN") {
-      whereClause = { managerAssignments: { some: { userId: session.user.id, isActive: true } } };
-    }
-
-    const hostels = await prisma.hostel.findMany({
-      where: whereClause,
-      include: {
-        manager: {
-          select: { id: true, username: true, studentProfile: { select: { fullName: true } } }
-        },
-        _count: {
-          select: { rooms: true, hostelAssignments: { where: { status: "ACTIVE" } } }
-        }
-      },
-      orderBy: { name: "asc" }
-    });
+    const hostels = await getHostelsForUser(session);
 
     return successResponse(hostels);
   } catch (error) {

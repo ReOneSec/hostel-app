@@ -184,7 +184,9 @@ export default function AssignStudentPage({ params }: { params: Promise<{ id: st
               <Label>Hostel</Label>
               <Select value={selectedHostel} onValueChange={(val) => setSelectedHostel(val || "")} required>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a hostel" />
+                  <SelectValue placeholder="Select a hostel">
+                    {selectedHostel ? hostels.find(h => h.id === selectedHostel)?.name : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {hostels.map(h => (
@@ -198,7 +200,9 @@ export default function AssignStudentPage({ params }: { params: Promise<{ id: st
               <Label>Room</Label>
               <Select value={selectedRoom} onValueChange={(val) => setSelectedRoom(val || "")} disabled={!selectedHostel || rooms.length === 0} required>
                 <SelectTrigger>
-                  <SelectValue placeholder={!selectedHostel ? "Select a hostel first" : rooms.length === 0 ? "No rooms available" : "Select a room"} />
+                  <SelectValue placeholder={!selectedHostel ? "Select a hostel first" : rooms.length === 0 ? "No rooms available" : "Select a room"}>
+                    {selectedRoom ? `Room ${rooms.find(r => r.id === selectedRoom)?.roomNumber}` : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {rooms.map(r => (
@@ -212,7 +216,9 @@ export default function AssignStudentPage({ params }: { params: Promise<{ id: st
               <Label>Bed</Label>
               <Select value={selectedBed} onValueChange={(val) => setSelectedBed(val || "")} disabled={!selectedRoom || beds.length === 0} required>
                 <SelectTrigger>
-                  <SelectValue placeholder={!selectedRoom ? "Select a room first" : beds.length === 0 ? "No available beds in this room" : "Select a bed"} />
+                  <SelectValue placeholder={!selectedRoom ? "Select a room first" : beds.length === 0 ? "No available beds in this room" : "Select a bed"}>
+                    {selectedBed ? `Bed ${beds.find(b => b.id === selectedBed)?.bedLabel}` : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {beds.map(b => (
