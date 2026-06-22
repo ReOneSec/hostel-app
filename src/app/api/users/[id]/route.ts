@@ -28,7 +28,7 @@ export async function GET(
 
     if (session.user.role === "HOSTEL_MANAGER" && session.user.id !== id) {
       const managedHostels = await prisma.hostelManagerAssignment.findMany({
-        where: { userId: session.user.id, status: "ACTIVE" }
+        where: { userId: session.user.id, isActive: true }
       });
       const managedHostelIds = managedHostels.map(h => h.hostelId);
 

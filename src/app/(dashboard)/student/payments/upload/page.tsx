@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,7 +25,7 @@ const paymentSchema = z.object({
 
 type PaymentFormData = z.infer<typeof paymentSchema>;
 
-export default function PaymentUploadPage() {
+function PaymentUploadForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const billId = searchParams.get("billId");
@@ -302,5 +302,13 @@ export default function PaymentUploadPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function PaymentUploadPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+      <PaymentUploadForm />
+    </Suspense>
   );
 }
