@@ -162,257 +162,304 @@ export async function generateAdmissionFormPDF(user: any) {
   // Application Reference Number
   const appNumber = `APP-${new Date().getFullYear()}-${user.id.slice(-4).toUpperCase()}`;
 
-  // Header
-  doc.setFontSize(24);
-  doc.setTextColor(41, 128, 185);
-  doc.setFont("helvetica", "bold");
-  doc.text("MIRROR HOSTELS", 105, 20, { align: "center" });
+  const primaryColor: [number, number, number] = [10, 37, 64]; // Deep Navy
+  const accentColor: [number, number, number] = [39, 174, 96]; // Emerald
 
-  doc.setFontSize(12);
-  doc.setTextColor(108, 117, 125);
-  doc.setFont("helvetica", "normal");
-  doc.text("ADMISSION & AGREEMENT FORM", 105, 27, { align: "center" });
+  // --- 1. PREMIUM HEADER ---
+  doc.setFontSize(24);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("MIRROR HOSTELS", 14, 22);
 
   doc.setFontSize(10);
+  doc.setTextColor(100, 110, 120);
+  doc.setFont("helvetica", "normal");
+  doc.text("Student Admission & Accommodation Agreement", 14, 28);
+
+  // Right side meta box
+  doc.setFontSize(9);
+  doc.setTextColor(100, 110, 120);
+  doc.setFont("helvetica", "normal");
+  doc.text(`App ID:`, 135, 18);
   doc.setTextColor(33, 37, 41);
-  doc.text(`Ref No: ${appNumber}`, 196, 20, { align: "right" });
-  doc.text(`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 196, 25, { align: "right" });
+  doc.setFont("helvetica", "bold");
+  doc.text(appNumber, 150, 18);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 110, 120);
+  doc.text(`Date:`, 135, 23);
+  doc.setTextColor(33, 37, 41);
+  doc.setFont("helvetica", "bold");
+  doc.text(format(new Date(), "dd MMM yyyy"), 150, 23);
+
+  const approvedDocs = user.documents?.filter((d: any) => d.status === "VERIFIED" || d.status === "APPROVED") || [];
+  const systemStatus = approvedDocs.length > 0 ? "APPROVED" : "PENDING";
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 110, 120);
+  doc.text(`Status:`, 135, 28);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(systemStatus === "APPROVED" ? 39 : 231, systemStatus === "APPROVED" ? 174 : 76, systemStatus === "APPROVED" ? 96 : 60);
+  doc.text(systemStatus, 150, 28);
 
   if (qrDataUrl) {
-    doc.addImage(qrDataUrl, 'PNG', 14, 10, 20, 20);
+    doc.addImage(qrDataUrl, 'PNG', 178, 12, 18, 18);
   }
 
-  doc.setDrawColor(41, 128, 185);
-  doc.setLineWidth(1);
-  doc.line(14, 32, 196, 32);
-
-  // Profile Image Box
-  doc.setDrawColor(200, 200, 200);
+  // Header separator
+  doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.setLineWidth(0.5);
-  doc.rect(160, 40, 35, 45);
+  doc.line(14, 34, 196, 34);
+
+  let currentY = 40;
+
+  // --- 2. STUDENT PROFILE CARD ---
+  doc.setDrawColor(220, 225, 230);
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, currentY, 182, 36, 2, 2, "FD");
+
+  // Profile Photo
+  doc.setDrawColor(200, 200, 200);
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(18, currentY + 4, 22, 28, 1, 1, "FD");
+
   if (selfieDataUrl) {
     const formatType = selfieDataUrl.toString().includes('image/png') ? 'PNG' : 'JPEG';
-    doc.addImage(selfieDataUrl, formatType, 160, 40, 35, 45);
-    doc.rect(160, 40, 35, 45);
+    doc.addImage(selfieDataUrl, formatType, 18, currentY + 4, 22, 28);
   } else {
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text("Passport Size\nPhoto", 177.5, 62, { align: "center" });
+    doc.text("Photo\nArea", 29, currentY + 17, { align: "center" });
   }
 
-  const personalDetails = [
-    ["Full Name", profile.fullName || user.username || "N/A"],
-    ["Date of Birth", profile.dob || profile.dateOfBirth ? format(new Date(profile.dob || profile.dateOfBirth), "MMM d, yyyy") : "N/A"],
-    ["Gender", profile.gender || "N/A"],
-    ["Aadhaar Number", profile.aadhaarNumber || "N/A"],
-    ["Mobile Number", profile.mobile || "N/A"],
-    ["Email Address", profile.personalEmail || user.email || "N/A"]
+  // Student Details inside card
+  doc.setFontSize(14);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text(profile.fullName || user.username || "Student Name", 45, currentY + 12);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 110, 120);
+  doc.text("Student ID:", 45, currentY + 20);
+  doc.setTextColor(33, 37, 41);
+  doc.setFont("helvetica", "bold");
+  doc.text(user.id.slice(-6).toUpperCase(), 65, currentY + 20);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 110, 120);
+  doc.text("Mobile:", 45, currentY + 26);
+  doc.setTextColor(33, 37, 41);
+  doc.setFont("helvetica", "bold");
+  doc.text(profile.mobile || "N/A", 65, currentY + 26);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 110, 120);
+  doc.text("Gender:", 120, currentY + 20);
+  doc.setTextColor(33, 37, 41);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${profile.gender || "N/A"}  •  ${profile.bloodGroup || "N/A"}`, 135, currentY + 20);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 110, 120);
+  doc.text("DOB:", 120, currentY + 26);
+  doc.setTextColor(33, 37, 41);
+  doc.setFont("helvetica", "bold");
+  doc.text(profile.dob || profile.dateOfBirth ? format(new Date(profile.dob || profile.dateOfBirth), "dd MMM yyyy") : "N/A", 135, currentY + 26);
+
+  currentY += 44;
+
+  // --- 3. SECTION CARDS HELPER ---
+  const drawSection = (title: string, data: any[][], yPos: number, headerColor: [number, number, number] = primaryColor) => {
+    autoTable(doc, {
+      startY: yPos,
+      head: [[title, ""]],
+      body: data,
+      theme: "plain",
+      headStyles: { fillColor: headerColor, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 10, cellPadding: 3 },
+      bodyStyles: { fillColor: [250, 252, 254], textColor: [33, 37, 41], fontSize: 9, cellPadding: 3 },
+      alternateRowStyles: { fillColor: [244, 247, 250] },
+      columnStyles: {
+        0: { fontStyle: "normal", textColor: [100, 110, 120], cellWidth: 45 },
+        1: { fontStyle: "bold", cellWidth: 137 }
+      },
+      margin: { left: 14, right: 14 },
+      tableLineWidth: 0.1,
+      tableLineColor: [220, 225, 230],
+    });
+    return (doc as any).lastAutoTable.finalY + 6;
+  };
+
+  // Personal
+  const personalData = [
+    ["Email Address", profile.personalEmail || user.email || "N/A"],
+    ["Aadhaar Number", profile.aadhaarNumber || "N/A"]
   ];
+  currentY = drawSection("PERSONAL INFORMATION", personalData, currentY);
 
-  autoTable(doc, {
-    startY: 40,
-    head: [["PERSONAL DETAILS", ""]],
-    body: personalDetails,
-    theme: "grid",
-    headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
-    columnStyles: { 0: { fontStyle: "bold", cellWidth: 40, fillColor: [245, 247, 250] }, 1: { cellWidth: 95 } },
-    margin: { left: 14 }
-  });
-
-  let finalY = (doc as any).lastAutoTable.finalY + 10;
-
-  const medicalDetails = [
-    ["Blood Group", profile.bloodGroup || "N/A"],
-    ["Chronic Illnesses", profile.chronicIllnesses || "None reported"],
-    ["Allergies", profile.allergies || "None reported"],
-    ["Regular Medications", profile.regularMedications || "None reported"],
-  ];
-
-  autoTable(doc, {
-    startY: finalY,
-    head: [["MEDICAL & SAFETY DETAILS", ""]],
-    body: medicalDetails,
-    theme: "grid",
-    headStyles: { fillColor: [231, 76, 60], textColor: [255, 255, 255] },
-    columnStyles: { 0: { fontStyle: "bold", cellWidth: 40, fillColor: [253, 237, 236] }, 1: { cellWidth: 142 } },
-    margin: { left: 14 }
-  });
-
-  finalY = (doc as any).lastAutoTable.finalY + 10;
-
-  const guardianDetails = [
+  // Guardian
+  const guardianData = [
     ["Father's Name", profile.fatherName || "N/A"],
     ["Mother's Name", profile.motherName || "N/A"],
-    ["Guardian Name", profile.guardianName || "N/A"],
-    ["Relationship", profile.guardianRelation || "N/A"],
-    ["Guardian Mobile", profile.guardianMobile || profile.parentMobile || "N/A"],
+    ["Guardian Name", `${profile.guardianName || "N/A"} (${profile.guardianRelation || "N/A"})`],
+    ["Parent/Alt Mobile", profile.parentMobile || profile.guardianMobile || "N/A"],
     ["Emergency Contact", profile.emergencyContactName ? `${profile.emergencyContactName} (${profile.emergencyContactNumber})` : (profile.emergencyContact || "N/A")]
   ];
+  currentY = drawSection("GUARDIAN INFORMATION", guardianData, currentY);
 
-  autoTable(doc, {
-    startY: finalY,
-    head: [["GUARDIAN DETAILS", ""]],
-    body: guardianDetails,
-    theme: "grid",
-    headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
-    columnStyles: { 0: { fontStyle: "bold", cellWidth: 40, fillColor: [245, 247, 250] }, 1: { cellWidth: 142 } },
-    margin: { left: 14 }
-  });
-
-  finalY = (doc as any).lastAutoTable.finalY + 10;
-
-  autoTable(doc, {
-    startY: finalY,
-    head: [["ADDRESS DETAILS", ""]],
-    body: [
-      ["Permanent Address", profile.permanentAddress || profile.address || "N/A"]
-    ],
-    theme: "grid",
-    headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
-    columnStyles: { 0: { fontStyle: "bold", cellWidth: 40, fillColor: [245, 247, 250] }, 1: { cellWidth: 142 } },
-    margin: { left: 14 }
-  });
-
-  finalY = (doc as any).lastAutoTable.finalY + 10;
-
-  const accomDetails = [
-    ["Hostel Name", hostelAssign?.hostel?.name || "Not Assigned"],
-    ["Hostel Contact", hostelAssign?.hostel?.contactNumber || "N/A"],
-    ["Hostel Address", hostelAssign?.hostel?.address || "N/A"],
-    ["Room Number", roomAssign?.room?.roomNumber || "Not Assigned"],
-    ["Bed Label", bedAssign?.bed?.bedLabel || "Not Assigned"],
-    ["Joining Date", user.joiningDate || profile.completedAt || user.createdAt ? format(new Date(user.joiningDate || profile.completedAt || user.createdAt), "MMM d, yyyy") : "N/A"]
+  // Address
+  const addressData = [
+    ["Permanent Address", profile.permanentAddress || profile.address || "N/A"]
   ];
+  currentY = drawSection("ADDRESS DETAILS", addressData, currentY);
 
-  autoTable(doc, {
-    startY: finalY,
-    head: [["ACCOMMODATION DETAILS", ""]],
-    body: accomDetails,
-    theme: "grid",
-    headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
-    columnStyles: { 0: { fontStyle: "bold", cellWidth: 40, fillColor: [245, 247, 250] }, 1: { cellWidth: 142 } },
-    margin: { left: 14 }
-  });
+  // Accommodation
+  const accomData = [
+    ["Hostel Name", hostelAssign?.hostel?.name || "Not Assigned"],
+    ["Room & Bed", `${roomAssign?.room?.roomNumber || "Unassigned Room"} - ${bedAssign?.bed?.bedLabel || "Unassigned Bed"}`],
+    ["Joining Date", user.joiningDate || profile.completedAt || user.createdAt ? format(new Date(user.joiningDate || profile.completedAt || user.createdAt), "dd MMM yyyy") : "N/A"]
+  ];
+  currentY = drawSection("ACCOMMODATION", accomData, currentY);
 
-  finalY = (doc as any).lastAutoTable.finalY + 10;
+  if (currentY > 230) { doc.addPage(); currentY = 20; }
 
-  const feeDetails = [
+  // Medical
+  const medicalData = [
+    ["Chronic Illnesses", profile.chronicIllnesses || "None reported"],
+    ["Allergies", profile.allergies || "None reported"],
+    ["Regular Meds", profile.regularMedications || "None reported"]
+  ];
+  currentY = drawSection("MEDICAL DETAILS", medicalData, currentY, [192, 57, 43]); // Subtle red header for medical
+
+  if (currentY > 230) { doc.addPage(); currentY = 20; }
+
+  // Financial
+  const feeData = [
     ["Security Deposit", "As per standard hostel policy"],
     ["Monthly Rent", "As per assigned room configuration"],
     ["Establishment Fees", "Applicable as per assignment"],
   ];
+  currentY = drawSection("FEE & AGREEMENT", feeData, currentY, accentColor); // Emerald header for financial
 
-  autoTable(doc, {
-    startY: finalY,
-    head: [["FINANCIAL AGREEMENT", ""]],
-    body: feeDetails,
-    theme: "grid",
-    headStyles: { fillColor: [39, 174, 96], textColor: [255, 255, 255] },
-    columnStyles: { 0: { fontStyle: "bold", cellWidth: 40, fillColor: [234, 250, 241] }, 1: { cellWidth: 142 } },
-    margin: { left: 14 }
-  });
+  // --- 5. MODERN TERMS & CONDITIONS ---
+  if (currentY > 160) { doc.addPage(); currentY = 20; }
 
-  finalY = (doc as any).lastAutoTable.finalY + 15;
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(220, 225, 230);
+  doc.roundedRect(14, currentY, 182, 60, 2, 2, "FD");
 
-  // Legal Terms
-  doc.setFontSize(12);
-  doc.setTextColor(41, 128, 185);
+  doc.setFontSize(11);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.setFont("helvetica", "bold");
-  doc.text("TERMS AND CONDITIONS", 105, finalY, { align: "center" });
-  doc.setFont("helvetica", "normal");
-  finalY += 8;
+  doc.text("TERMS AND CONDITIONS", 20, currentY + 8);
 
-  doc.setFontSize(9);
-  doc.setTextColor(33, 37, 41);
+  doc.setFontSize(8);
+  doc.setTextColor(70, 80, 90);
+  doc.setFont("helvetica", "normal");
+
   const terms = [
     "1. I agree to abide by all the rules and regulations of the hostel, which may be amended from time to time.",
-    "2. Anti-Ragging Undertaking: I understand that Mirror Hostels has a zero-tolerance policy towards ragging, harassment, and the use of alcohol/illegal substances.",
+    "2. Anti-Ragging Undertaking: I understand that Mirror Hostels has a zero-tolerance policy towards ragging,",
+    "    harassment, and the use of alcohol/illegal substances.",
     "3. I understand that the hostel fees and mess charges must be paid on or before the due date, failing which late fees may apply.",
     "4. I shall be held responsible for any damage caused to hostel property by me, and I agree to bear the cost of repair or replacement.",
-    "5. I understand that the hostel management reserves the right to terminate my accommodation in case of any misconduct or violation of rules.",
-    "6. Privacy Consent: I hereby declare that all information provided is true and I consent to the storage and processing of my data."
+    "5. I understand that the management reserves the right to terminate my accommodation in case of misconduct.",
+    "6. Privacy Consent: I declare that all info is true and I consent to the processing of my data."
   ];
 
+  let ty = currentY + 15;
   terms.forEach(term => {
-    const termLines = doc.splitTextToSize(term, 180);
-    if (finalY + (termLines.length * 5) > 270) {
-      doc.addPage();
-      finalY = 20;
-    }
-    doc.text(termLines, 14, finalY);
-    finalY += (termLines.length * 5) + 2;
+    doc.text(term, 20, ty);
+    ty += 5;
   });
 
-  // Consent timestamp highlighted
-  finalY += 4;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(39, 174, 96); // Green color for verification
   const consentDate = user.privacyConsentAt ? format(new Date(user.privacyConsentAt), "MMM d, yyyy HH:mm:ss") : format(new Date(user.createdAt || new Date()), "MMM d, yyyy HH:mm:ss");
-  doc.text(`Digital Consent Of The Student Given On: ${consentDate}`, 14, finalY);
+
+  currentY += 75;
+
+  // --- 6. SIGNATURE AREA ---
+  if (currentY > 240) { doc.addPage(); currentY = 40; }
 
   doc.setTextColor(33, 37, 41);
-  doc.setFont("helvetica", "normal");
-
-  // Signatures section
-  finalY += 20;
-  if (finalY > 260) {
-    doc.addPage();
-    finalY = 40;
-  }
-
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text("_________________________", 20, finalY);
-  doc.text("Student Signature", 30, finalY + 6);
 
-  doc.setFontSize(10);
-  doc.text("_________________________", 85, finalY);
-  doc.text("Guardian Signature", 93, finalY + 6);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+  doc.setFontSize(9);
+  doc.text(`[ DIGITAL CONSENT ]`, 32, currentY, { align: "center" });
 
-  doc.setTextColor(39, 174, 96);
   doc.setFontSize(8);
-  doc.text("[ DIGITAL VERIFIED ]", 172, finalY - 2, { align: "center" });
-  doc.setTextColor(33, 37, 41);
-  doc.setFontSize(10);
-  doc.text("_________________________", 150, finalY);
-  doc.text("Hostel Authority", 158, finalY + 6);
+  doc.text(consentDate, 32, currentY + 6, { align: "center" });
 
-  finalY += 45;
-  if (finalY > 260) {
-    doc.addPage();
-    finalY = 40;
+  doc.text("GIVEN BY Student", 32, currentY + 12, { align: "center" });
+
+  doc.setTextColor(33, 37, 41);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+
+  doc.text("________________________", 80, currentY);
+  doc.text("Guardian Signature", 86, currentY + 6);
+
+  doc.text("________________________", 140, currentY);
+  doc.text("Hostel Authority", 146, currentY + 6);
+
+  if (systemStatus === "APPROVED") {
+    doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+    doc.setFontSize(8);
+    doc.text(`[ DIGITALLY VERIFIED ]`, 142, currentY - 4);
+  } else {
+    doc.setTextColor(150, 150, 150);
+    doc.setFontSize(8);
+    doc.text(`[ PENDING REVIEW ]`, 146, currentY - 4);
   }
 
-  const approvedDocs = user.documents?.filter((d: any) => d.status === "VERIFIED" || d.status === "APPROVED") || [];
+  // --- OFFICE USE SECTION ---
+  currentY += 20;
+  if (currentY > 250) { doc.addPage(); currentY = 20; }
+
+  doc.setDrawColor(220, 225, 230);
+  doc.setFillColor(250, 252, 254);
+  doc.roundedRect(14, currentY, 182, 26, 2, 2, "FD");
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text("FOR OFFICE USE ONLY", 105, currentY + 7, { align: "center" });
+  doc.setDrawColor(220, 225, 230);
+  doc.line(14, currentY + 10, 196, currentY + 10);
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 110, 120);
+  doc.text(`System Status:`, 20, currentY + 17);
+  doc.text(`Date of Verification:`, 20, currentY + 22);
+  doc.text(`Verified By:`, 110, currentY + 17);
 
   let verifierName = "Pending Verification";
   let verifiedDate = "Pending Verification";
-
   if (approvedDocs.length > 0) {
     const latestVerifiedDoc = [...approvedDocs].sort((a: any, b: any) => new Date(b.verifiedAt || b.uploadedAt || 0).getTime() - new Date(a.verifiedAt || a.uploadedAt || 0).getTime())[0];
-    verifierName = latestVerifiedDoc?.verifierName || "System Admin (Legacy)";
+    verifierName = latestVerifiedDoc?.verifiedBy || "System Admin";
     const dateToUse = latestVerifiedDoc?.verifiedAt || latestVerifiedDoc?.uploadedAt;
-    verifiedDate = dateToUse ? format(new Date(dateToUse), "MMM d, yyyy HH:mm") : "Prior to Update";
+    verifiedDate = dateToUse ? format(new Date(dateToUse), "dd MMM yyyy, HH:mm") : "Verified";
   }
 
-  // Office Use Only Section
-  doc.setDrawColor(200, 200, 200);
-  doc.setFillColor(250, 250, 250);
-  doc.rect(14, finalY, 182, 30, "FD");
-  doc.setFontSize(11);
+  if (systemStatus === "APPROVED") {
+    doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+  } else {
+    doc.setTextColor(231, 76, 60);
+  }
   doc.setFont("helvetica", "bold");
-  doc.text("FOR OFFICE USE ONLY", 105, finalY + 8, { align: "center" });
-  doc.line(14, finalY + 11, 196, finalY + 11);
+  doc.text(`[ ${systemStatus} ]`, 45, currentY + 17);
 
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  const systemStatus = approvedDocs.length > 0 ? "APPROVED & VERIFIED" : "PENDING VERIFICATION";
-  doc.text(`System Status: [ ${systemStatus} ]`, 20, finalY + 19);
-  doc.text(`Date of Verification: ${verifiedDate}`, 20, finalY + 27);
-  doc.text(`Verified By: ${verifierName}`, 110, finalY + 19);
+  doc.setTextColor(33, 37, 41);
+  doc.text(verifiedDate, 50, currentY + 22);
+  doc.text(verifierName, 125, currentY + 17);
 
-  for (const docItem of approvedDocs) {
+  // Attachments
+  const allDocs = user.documents || [];
+  for (const docItem of allDocs) {
     if (!docItem.fileUrl) continue;
 
     try {
@@ -431,10 +478,10 @@ export async function generateAdmissionFormPDF(user: any) {
 
       doc.addPage();
       doc.setFontSize(14);
-      doc.setTextColor(41, 128, 185);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setFont("helvetica", "bold");
       doc.text(`ATTACHMENT: ${docItem.documentType.replace(/_/g, ' ')}`, 105, 20, { align: "center" });
-      doc.setDrawColor(41, 128, 185);
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setLineWidth(0.5);
       doc.line(14, 25, 196, 25);
 
@@ -449,38 +496,40 @@ export async function generateAdmissionFormPDF(user: any) {
       const x = (210 - width) / 2;
 
       doc.addImage(base64, formatType, x, 35, width, height);
-
       doc.setDrawColor(200, 200, 200);
       doc.rect(x, 35, width, height);
-
     } catch (err) {
       console.warn("Could not load document image for PDF attachment", docItem.documentType, err);
     }
   }
 
-  // Add Watermarks and Footers
+  // --- FOOTER AND WATERMARKS ---
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+
     // Watermark
     doc.saveGraphicsState();
-    doc.setGState(new (doc as any).GState({ opacity: 0.25 }));
-    doc.setTextColor(200, 200, 200);
+    doc.setGState(new (doc as any).GState({ opacity: 0.05 }));
+    doc.setTextColor(...primaryColor);
     doc.setFontSize(60);
     doc.setFont("helvetica", "bold");
-    // jsPDF text rotation
     doc.text("MIRROR HOSTELS", 105, 150, { align: "center", angle: 45 });
     doc.restoreGraphicsState();
 
     // Footer
+    doc.setDrawColor(220, 225, 230);
+    doc.setLineWidth(0.5);
+    doc.line(14, 282, 196, 282);
+
     doc.setTextColor(150, 150, 150);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: "center" });
-    doc.text(`Student: ${profile.fullName || user.username} | ID: ${user.id.slice(-6)}`, 14, 290);
+    doc.text(`Mirror Hostels • Secure Digital Admission Record`, 14, 288);
+    doc.text(`Page ${i} of ${pageCount}`, 105, 288, { align: "center" });
+    doc.text(`support@mirrorhostels.com`, 196, 288, { align: "right" });
   }
 
-  // Save
   doc.save(`Admission_Form_${(profile.fullName || user.username || "Student").replace(/\s+/g, '_')}.pdf`);
 }
 
