@@ -407,7 +407,8 @@ export async function generateAdmissionFormPDF(user: any) {
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text("System Status: [ APPROVED & VERIFIED ]", 20, finalY + 19);
+  const systemStatus = approvedDocs.length > 0 ? "APPROVED & VERIFIED" : "PENDING VERIFICATION";
+  doc.text(`System Status: [ ${systemStatus} ]`, 20, finalY + 19);
   doc.text(`Date of Verification: ${verifiedDate}`, 20, finalY + 27);
   doc.text(`Verified By: ${verifierName}`, 110, finalY + 19);
 
