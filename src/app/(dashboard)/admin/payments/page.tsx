@@ -3,24 +3,13 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { 
+import {
   Check, X, Loader2, Eye, Receipt, Calendar, CreditCard, User, Landmark
 } from "lucide-react";
-import { 
-  Card, CardContent, CardDescription, CardHeader, CardTitle 
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -37,11 +26,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+function PaymentStatusBadge({ status }: { status: string }) {
+  const config: Record<string, { label: string; dot: string; className: string }> = {
+    PENDING_REVIEW: { label: "Pending", dot: "bg-amber-500", className: "bg-amber-50 text-amber-800 border-amber-200" },
+    APPROVED: { label: "Approved", dot: "bg-green-500", className: "bg-green-50 text-green-800 border-green-200" },
+    REJECTED: { label: "Rejected", dot: "bg-red-400", className: "bg-red-50 text-red-700 border-red-200" },
+  };
+  const c = config[status] || { label: status, dot: "bg-slate-400", className: "bg-slate-50 text-slate-500 border-slate-200" };
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${c.className}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+      {c.label}
+    </span>
+  );
+}
+
 export default function PaymentVerificationPage() {
   const [payments, setPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("PENDING_REVIEW");
-  
+
   const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [verifyStatus, setVerifyStatus] = useState<"APPROVED" | "REJECTED">("APPROVED");
@@ -91,7 +95,7 @@ export default function PaymentVerificationPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      
+
       toast.success(`Payment ${verifyStatus.toLowerCase()} successfully`);
       setIsVerifyDialogOpen(false);
       fetchPayments();
@@ -103,16 +107,22 @@ export default function PaymentVerificationPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
+    <div className="space-y-6">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Payment Verification</h1>
-          <p className="text-muted-foreground mt-1">Review student payments and match UTR numbers.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Payment Verification</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Review student payments and match UTR numbers.</p>
         </div>
         <div className="w-full sm:w-48">
           <Select value={statusFilter} onValueChange={(val) => { if (val) setStatusFilter(val); }}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by status" />
+            <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-white text-sm">
+              <SelectValue placeholder="Filter by status">
+                {statusFilter === "PENDING_REVIEW" ? "Pending Review" : 
+                 statusFilter === "APPROVED" ? "Approved" : 
+                 statusFilter === "REJECTED" ? "Rejected" : 
+                 statusFilter === "ALL" ? "All Payments" : null}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="PENDING_REVIEW">Pending Review</SelectItem>
@@ -124,183 +134,256 @@ export default function PaymentVerificationPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle>Submitted Payments</CardTitle>
-          <CardDescription>
-            {payments.length} payment{payments.length !== 1 && 's'} found
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0">
-          {isLoading ? (
-            <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Bill Details</TableHead>
-                    <TableHead>Payment Info</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                        No payments found in this view.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    payments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium">{payment.user.studentProfile?.fullName || payment.user.username}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-sm font-medium">
-                              {payment.bill.hostel?.name}
-                            </span>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {new Date(0, payment.bill.month - 1).toLocaleString('default', { month: 'short' })} {payment.bill.year}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            {payment.utrNumber && (
-                              <div className="flex items-center gap-1.5 text-xs">
-                                <Landmark className="w-3 h-3 text-muted-foreground" />
-                                <span>UTR: <span className="font-medium font-mono">{payment.utrNumber}</span></span>
-                              </div>
-                            )}
-                            {payment.transactionId && (
-                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <Receipt className="w-3 h-3" />
-                                <span>Txn: {payment.transactionId}</span>
-                              </div>
-                            )}
-                            <div className="text-xs text-muted-foreground">
-                              Paid: {format(new Date(payment.paymentDate), "MMM d, yyyy")}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-1">
-                              For: {payment.categories?.map((cat: string) => (
-                                <Badge key={cat} variant="secondary" className="text-[10px] uppercase">
-                                  {cat.replace(/_/g, " ")}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-semibold text-emerald-600 dark:text-emerald-400">
-                            ₹{Number(payment.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {payment.status === "PENDING_REVIEW" && <Badge variant="outline" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">Pending</Badge>}
-                          {payment.status === "APPROVED" && <Badge variant="outline" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">Approved</Badge>}
-                          {payment.status === "REJECTED" && <Badge variant="destructive">Rejected</Badge>}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {payment.proofFileUrl && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => window.open(payment.proofFileUrl!, "_blank", "noopener,noreferrer")}
-                              >
-                                <Eye className="w-4 h-4 mr-2" /> Proof
-                              </Button>
-                            )}
-                            
-                            {payment.status === "PENDING_REVIEW" && (
-                              <>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
-                                  onClick={() => handleOpenVerify(payment, "APPROVED")}
-                                >
-                                  <Check className="w-4 h-4 mr-1" /> Approve
-                                </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={() => handleOpenVerify(payment, "REJECTED")}
-                                >
-                                  <X className="w-4 h-4 mr-1" /> Reject
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Content Card */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-purple-50 flex items-center justify-center">
+            <CreditCard className="w-3.5 h-3.5 text-purple-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800">Submitted Payments</h3>
+            <p className="text-xs text-slate-400">{payments.length} payment{payments.length !== 1 && "s"} found</p>
+          </div>
+        </div>
 
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <p className="text-xs text-slate-400 mt-3">Loading payments…</p>
+          </div>
+        ) : payments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
+              <Receipt className="w-6 h-6 text-slate-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-slate-700 mb-1">No payments found</h3>
+            <p className="text-xs text-slate-400 max-w-xs">
+              No payments match the current filter. Try a different status.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block">
+              <div className="grid grid-cols-[1.5fr_1.5fr_2fr_1fr_1fr_auto] px-5 py-3 border-b border-slate-100 bg-slate-50">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Bill Details</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Payment Info</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</span>
+              </div>
+              {payments.map((payment) => (
+                <div key={payment.id} className="grid grid-cols-[1.5fr_1.5fr_2fr_1fr_1fr_auto] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/70 transition-colors items-center">
+                  {/* Student */}
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                      {(payment.user.studentProfile?.fullName || payment.user.username).substring(0, 2).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-slate-800 truncate">
+                      {payment.user.studentProfile?.fullName || payment.user.username}
+                    </span>
+                  </div>
+
+                  {/* Bill Details */}
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">{payment.bill.hostel?.name}</p>
+                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(0, payment.bill.month - 1).toLocaleString("default", { month: "short" })} {payment.bill.year}
+                    </p>
+                  </div>
+
+                  {/* Payment Info */}
+                  <div className="space-y-1">
+                    {payment.utrNumber && (
+                      <p className="text-xs flex items-center gap-1 text-slate-600">
+                        <Landmark className="w-3 h-3 text-slate-400" />
+                        UTR: <span className="font-mono font-medium">{payment.utrNumber}</span>
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-400">Paid: {format(new Date(payment.paymentDate), "MMM d, yyyy")}</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {payment.categories?.map((cat: string) => (
+                        <span key={cat} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500 uppercase tracking-wider">
+                          {cat.replace(/_/g, " ")}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Amount */}
+                  <p className="text-sm font-bold text-green-700">
+                    ₹{Number(payment.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </p>
+
+                  {/* Status */}
+                  <div>
+                    <PaymentStatusBadge status={payment.status} />
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 justify-end">
+                    {payment.proofFileUrl && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-slate-500 hover:text-slate-700 cursor-pointer"
+                        onClick={() => window.open(payment.proofFileUrl!, "_blank", "noopener,noreferrer")}
+                      >
+                        <Eye className="w-3.5 h-3.5 mr-1" /> Proof
+                      </Button>
+                    )}
+                    {payment.status === "PENDING_REVIEW" && (
+                      <>
+                        <Button
+                          size="sm"
+                          className="h-7 px-2.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer"
+                          onClick={() => handleOpenVerify(payment, "APPROVED")}
+                        >
+                          <Check className="w-3 h-3 mr-1" /> Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 rounded-lg cursor-pointer"
+                          onClick={() => handleOpenVerify(payment, "REJECTED")}
+                        >
+                          <X className="w-3 h-3 mr-1" /> Reject
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden p-4 space-y-3">
+              {payments.map((payment) => (
+                <div key={payment.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50/30">
+                  {/* Card header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
+                        {(payment.user.studentProfile?.fullName || payment.user.username).substring(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{payment.user.studentProfile?.fullName || payment.user.username}</p>
+                        <p className="text-xs text-slate-400">{payment.bill.hostel?.name}</p>
+                      </div>
+                    </div>
+                    <PaymentStatusBadge status={payment.status} />
+                  </div>
+
+                  {/* Key-value rows */}
+                  <div className="space-y-2 pt-3 border-t border-slate-100">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-400">Period</span>
+                      <span className="text-xs font-medium text-slate-700">
+                        {new Date(0, payment.bill.month - 1).toLocaleString("default", { month: "short" })} {payment.bill.year}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-400">Amount</span>
+                      <span className="text-sm font-bold text-green-700">
+                        ₹{Number(payment.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    {payment.utrNumber && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-slate-400">UTR</span>
+                        <span className="text-xs font-mono font-medium text-slate-700">{payment.utrNumber}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-400">Paid On</span>
+                      <span className="text-xs text-slate-500">{format(new Date(payment.paymentDate), "MMM d, yyyy")}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  {payment.status === "PENDING_REVIEW" && (
+                    <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
+                      <Button
+                        size="sm"
+                        className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer"
+                        onClick={() => handleOpenVerify(payment, "APPROVED")}
+                      >
+                        <Check className="w-3.5 h-3.5 mr-1" /> Approve
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 rounded-lg cursor-pointer"
+                        onClick={() => handleOpenVerify(payment, "REJECTED")}
+                      >
+                        <X className="w-3.5 h-3.5 mr-1" /> Reject
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Verify Dialog */}
       <Dialog open={isVerifyDialogOpen} onOpenChange={setIsVerifyDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-md w-full p-0 overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-100">
+            <DialogTitle className="text-base font-bold text-slate-900">
               {verifyStatus === "APPROVED" ? "Approve Payment" : "Reject Payment"}
             </DialogTitle>
-            <DialogDescription>
-              {verifyStatus === "APPROVED" 
+            <DialogDescription className="text-xs text-slate-500 mt-0.5">
+              {verifyStatus === "APPROVED"
                 ? "This will update the bill's paid balance and automatically mark it as PAID if fully settled."
                 : "Please provide a reason so the student knows why their payment was rejected."}
             </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="p-3 border rounded bg-muted/30">
-              <p className="font-medium text-sm">{selectedPayment?.user?.studentProfile?.fullName}</p>
-              <div className="flex justify-between items-center mt-1">
-                <p className="text-xs text-muted-foreground">Amount: <span className="font-semibold text-emerald-600">₹{selectedPayment ? Number(selectedPayment.amount).toLocaleString('en-IN') : 0}</span></p>
-                {selectedPayment?.utrNumber && <p className="text-xs text-muted-foreground font-mono">UTR: {selectedPayment.utrNumber}</p>}
+          </div>
+          <div className="px-6 py-5 space-y-4">
+            <div className="p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+              <p className="text-sm font-semibold text-slate-800">{selectedPayment?.user?.studentProfile?.fullName}</p>
+              <div className="flex justify-between items-center mt-1.5">
+                <p className="text-xs text-slate-400">Amount: <span className="font-bold text-green-700">₹{selectedPayment ? Number(selectedPayment.amount).toLocaleString("en-IN") : 0}</span></p>
+                {selectedPayment?.utrNumber && <p className="text-xs text-slate-400 font-mono">UTR: {selectedPayment.utrNumber}</p>}
               </div>
             </div>
 
             {verifyStatus === "REJECTED" && (
-              <div className="space-y-2">
-                <Label htmlFor="reason">Rejection Reason <span className="text-destructive">*</span></Label>
-                <Textarea 
-                  id="reason" 
-                  placeholder="e.g., UTR number does not match bank records, amount is incorrect..." 
+              <div>
+                <Label htmlFor="reason" className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                  Rejection Reason <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  id="reason"
+                  placeholder="e.g., UTR number does not match bank records, amount is incorrect..."
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
+                  className="border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
             )}
           </div>
-          
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsVerifyDialogOpen(false)}>Cancel</Button>
-            <Button 
-              variant={verifyStatus === "APPROVED" ? "default" : "destructive"}
+          <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+            <Button variant="ghost" onClick={() => setIsVerifyDialogOpen(false)} className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer">Cancel</Button>
+            <Button
               onClick={submitVerification}
               disabled={isSubmitting || (verifyStatus === "REJECTED" && !rejectionReason.trim())}
+              className={`rounded-lg h-9 text-sm cursor-pointer ${
+                verifyStatus === "APPROVED"
+                  ? "bg-green-600 hover:bg-green-700 text-white"
+                  : "bg-red-500 hover:bg-red-600 text-white"
+              }`}
             >
-              {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Confirm"}
+              {isSubmitting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+              Confirm
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+

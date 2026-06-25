@@ -166,7 +166,12 @@ export default function CreateUserPage() {
                 >
                   <SelectTrigger className="w-full relative pl-10">
                     <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
-                    <SelectValue placeholder="Select a role" />
+                    <SelectValue placeholder="Select a role">
+                      {selectedRole === "STUDENT" ? "Student" :
+                       selectedRole === "HOSTEL_MANAGER" ? "Hostel Manager" :
+                       selectedRole === "MONTHLY_MANAGER" ? "Monthly Manager" :
+                       selectedRole === "SUPER_ADMIN" ? "Super Admin" : null}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="STUDENT">Student</SelectItem>

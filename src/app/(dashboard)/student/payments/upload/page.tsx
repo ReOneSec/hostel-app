@@ -9,12 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Upload, Loader2, IndianRupee, ReceiptText, FileUp, CalendarIcon } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, IndianRupee, ReceiptText, FileUp, CalendarIcon, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { compressImageClientSide } from "@/lib/image-compression";
+
 const paymentSchema = z.object({
   amount: z.string().min(1, "Amount is required"),
   transactionId: z.string().optional(),
@@ -48,8 +46,6 @@ function PaymentUploadForm() {
       categories: ["ALL"],
     }
   });
-
-  const paymentDate = watch("paymentDate");
 
   useEffect(() => {
     if (!billId) {
@@ -135,62 +131,67 @@ function PaymentUploadForm() {
   if (!billId) return null;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-2xl mx-auto w-full space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
-          <ArrowLeft className="w-5 h-5" />
+        <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-9 w-9 rounded-lg shrink-0 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Upload Payment Proof</h1>
-          <p className="text-muted-foreground mt-1">
-            Submit your payment details for verification.
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Upload Payment Proof</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Submit your payment details for verification.</p>
         </div>
       </div>
 
-      <Card className="border shadow-sm">
-        <CardHeader>
-          <CardTitle>Payment Details</CardTitle>
-          <CardDescription>
-            Enter the exact amount paid and the UTR/Reference number from your bank app.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+            <ReceiptText className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-slate-800">Payment Details</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Enter the exact amount paid and the UTR/Reference number.</p>
+          </div>
+        </div>
+
+        <div className="p-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount Paid (₹)</Label>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="amount" className="text-xs font-semibold text-slate-600 block">Amount Paid (₹)</Label>
                 <div className="relative">
-                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
                     id="amount"
                     type="number"
                     step="0.01"
                     placeholder="e.g. 4500"
-                    className="pl-9"
+                    className="pl-9 h-10 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20"
                     {...register("amount")}
                     disabled={isLoading}
                   />
                 </div>
-                {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
+                {errors.amount && <p className="text-xs font-medium text-red-600 flex items-center gap-1 mt-1"><AlertCircle className="w-3 h-3" />{errors.amount.message}</p>}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="paymentDate">Payment Date</Label>
-                <Input
-                  id="paymentDate"
-                  type="date"
-                  max={new Date().toISOString().split("T")[0]}
-                  {...register("paymentDate")}
-                  disabled={isLoading}
-                />
-                {errors.paymentDate && <p className="text-sm text-destructive">{errors.paymentDate.message}</p>}
+              <div className="space-y-1.5">
+                <Label htmlFor="paymentDate" className="text-xs font-semibold text-slate-600 block">Payment Date</Label>
+                <div className="relative">
+                  <Input
+                    id="paymentDate"
+                    type="date"
+                    max={new Date().toISOString().split("T")[0]}
+                    className="h-10 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20"
+                    {...register("paymentDate")}
+                    disabled={isLoading}
+                  />
+                </div>
+                {errors.paymentDate && <p className="text-xs font-medium text-red-600 flex items-center gap-1 mt-1"><AlertCircle className="w-3 h-3" />{errors.paymentDate.message}</p>}
               </div>
             </div>
 
-            <div className="space-y-3">
-              <Label>Payment For</Label>
-              <div className="grid grid-cols-2 gap-4 border rounded-lg p-4 bg-muted/20">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-slate-600 block mb-2">Payment For</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-slate-200 rounded-xl p-4 bg-slate-50/50">
                 {[
                   { id: "ALL", label: "Total Bill Amount" },
                   { id: "RENT", label: "Rent Only" },
@@ -200,7 +201,7 @@ function PaymentUploadForm() {
                   { id: "LATE_FEE", label: "Late Fee" },
                   { id: "OTHER", label: "Other Partial Amount" }
                 ].map((item) => (
-                  <div key={item.id} className="flex items-center space-x-2">
+                  <div key={item.id} className="flex items-center space-x-3 bg-white p-2.5 rounded-lg border border-slate-100 shadow-sm">
                     <Checkbox 
                       id={item.id}
                       checked={watch("categories")?.includes(item.id as any)}
@@ -212,37 +213,38 @@ function PaymentUploadForm() {
                           setValue("categories", current.filter(c => c !== item.id));
                         }
                       }}
+                      className="rounded-md border-slate-300 text-blue-600 focus:ring-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                     />
-                    <Label htmlFor={item.id} className="font-normal cursor-pointer">{item.label}</Label>
+                    <Label htmlFor={item.id} className="text-sm font-medium text-slate-700 cursor-pointer">{item.label}</Label>
                   </div>
                 ))}
               </div>
-              {errors.categories && <p className="text-sm text-destructive">{errors.categories.message}</p>}
+              {errors.categories && <p className="text-xs font-medium text-red-600 flex items-center gap-1 mt-1"><AlertCircle className="w-3 h-3" />{errors.categories.message}</p>}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="utrNumber">UTR / Reference Number</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="utrNumber" className="text-xs font-semibold text-slate-600 block">UTR / Reference Number</Label>
               <div className="relative">
-                <ReceiptText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <ReceiptText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   id="utrNumber"
                   placeholder="e.g. 123456789012"
-                  className="pl-9"
+                  className="pl-9 h-10 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20"
                   {...register("utrNumber")}
                   disabled={isLoading}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">The 12-digit UPI reference number or bank transaction number.</p>
-              {errors.utrNumber && <p className="text-sm text-destructive">{errors.utrNumber.message}</p>}
+              <p className="text-xs font-medium text-slate-500 ml-1">The 12-digit UPI reference number or bank transaction number.</p>
+              {errors.utrNumber && <p className="text-xs font-medium text-red-600 flex items-center gap-1 mt-1"><AlertCircle className="w-3 h-3" />{errors.utrNumber.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label>Payment Screenshot</Label>
+              <Label className="text-xs font-semibold text-slate-600 block">Payment Screenshot</Label>
               <div
                 className={`
                   relative border-2 border-dashed rounded-xl p-8 text-center
                   transition-all duration-200 cursor-pointer
-                  ${dragActive ? "border-primary bg-primary/5 scale-[1.01]" : "border-border hover:border-primary/50 hover:bg-muted/30"}
+                  ${dragActive ? "border-blue-500 bg-blue-50/50 scale-[1.01]" : "border-slate-300 hover:border-blue-400 hover:bg-slate-50"}
                 `}
                 onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
                 onDragLeave={() => setDragActive(false)}
@@ -258,57 +260,67 @@ function PaymentUploadForm() {
                 />
 
                 {file ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="p-3 rounded-full bg-emerald-500/10 text-emerald-500">
-                      <FileUp className="w-6 h-6" />
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center">
+                      <FileUp className="w-6 h-6 text-emerald-600" />
                     </div>
-                    <p className="text-sm font-medium">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{file.name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
                     <Button 
                       type="button" 
                       variant="ghost" 
                       size="sm" 
                       onClick={(e) => { e.stopPropagation(); setFile(null); }}
-                      className="mt-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      className="mt-2 h-8 px-3 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
                     >
                       Remove File
                     </Button>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3">
-                    <div className="p-3 rounded-full bg-primary/10">
-                      <Upload className="w-6 h-6 text-primary" />
+                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                      <Upload className="w-5 h-5 text-slate-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Drop your screenshot here</p>
-                      <p className="text-xs text-muted-foreground mt-1">JPG, PNG, or WebP up to 5MB</p>
+                      <p className="text-sm font-semibold text-slate-700">Click or drag screenshot here</p>
+                      <p className="text-xs font-medium text-slate-400 mt-1">JPG, PNG, or WebP up to 5MB</p>
                     </div>
                   </div>
                 )}
               </div>
             </div>
-
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Submitting Payment...
-                </>
-              ) : (
-                "Submit Payment"
-              )}
-            </Button>
+            
+            <div className="pt-2">
+              <Button type="submit" className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm font-semibold text-sm" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Submitting Payment...
+                  </>
+                ) : (
+                  "Submit Payment"
+                )}
+              </Button>
+            </div>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function PaymentUploadPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center items-center min-h-[400px]"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center py-24 bg-white rounded-xl border border-slate-200 shadow-sm max-w-2xl mx-auto">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" />
+        <p className="text-sm text-slate-400 font-medium">Loading form...</p>
+      </div>
+    }>
       <PaymentUploadForm />
     </Suspense>
   );
 }
+

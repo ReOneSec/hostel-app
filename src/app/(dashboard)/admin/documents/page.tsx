@@ -3,24 +3,12 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { 
-  FileText, Check, X, Loader2, Eye, File, ExternalLink, Calendar
-} from "lucide-react";
-import { 
-  Card, CardContent, CardDescription, CardHeader, CardTitle 
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+  FileText, Check, X, Loader2, Eye, Calendar, FolderOpen
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -36,13 +24,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+
+function DocumentStatusBadge({ status }: { status: string }) {
+  const config: Record<string, { label: string; dot: string; className: string }> = {
+    PENDING: { label: "Pending", dot: "bg-amber-500", className: "bg-amber-50 text-amber-800 border-amber-200" },
+    APPROVED: { label: "Approved", dot: "bg-green-500", className: "bg-green-50 text-green-800 border-green-200" },
+    REJECTED: { label: "Rejected", dot: "bg-red-400", className: "bg-red-50 text-red-700 border-red-200" },
+  };
+  const c = config[status] || { label: status, dot: "bg-slate-400", className: "bg-slate-50 text-slate-500 border-slate-200" };
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${c.className}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+      {c.label}
+    </span>
+  );
+}
 
 export default function DocumentVerificationPage() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("PENDING");
-  
+
   const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [verifyStatus, setVerifyStatus] = useState<"APPROVED" | "REJECTED">("APPROVED");
@@ -92,7 +94,7 @@ export default function DocumentVerificationPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      
+
       toast.success(`Document ${verifyStatus.toLowerCase()} successfully`);
       setIsVerifyDialogOpen(false);
       fetchDocuments();
@@ -104,16 +106,22 @@ export default function DocumentVerificationPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
+    <div className="space-y-6">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Document Verification</h1>
-          <p className="text-muted-foreground mt-1">Review and approve student KYC documents.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Document Verification</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Review and approve student KYC documents.</p>
         </div>
         <div className="w-full sm:w-48">
           <Select value={statusFilter} onValueChange={(val) => { if (val) setStatusFilter(val); }}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by status" />
+            <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-white text-sm">
+              <SelectValue placeholder="Filter by status">
+                {statusFilter === "PENDING" ? "Pending Review" : 
+                 statusFilter === "APPROVED" ? "Approved" : 
+                 statusFilter === "REJECTED" ? "Rejected" : 
+                 statusFilter === "ALL" ? "All Documents" : null}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="PENDING">Pending Review</SelectItem>
@@ -125,146 +133,242 @@ export default function DocumentVerificationPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle>Uploaded Documents</CardTitle>
-          <CardDescription>
-            {documents.length} document{documents.length !== 1 && 's'} found
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0">
-          {isLoading ? (
-            <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Uploaded</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {documents.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                        No documents found in this view.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    documents.map((doc) => (
-                      <TableRow key={doc.id}>
-                        <TableCell>
-                          <div className="font-medium">{doc.user.studentProfile?.fullName || doc.user.username}</div>
-                          <div className="text-xs text-muted-foreground">{doc.user.email}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-muted-foreground" />
-                            <span>{doc.documentType}</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">{(doc.fileSize / 1024 / 1024).toFixed(2)} MB</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 text-sm">
-                            <Calendar className="w-4 h-4 text-muted-foreground" />
-                            {format(new Date(doc.uploadedAt), "MMM d, yyyy")}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {doc.status === "PENDING" && <Badge variant="outline" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">Pending</Badge>}
-                          {doc.status === "APPROVED" && <Badge variant="outline" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">Approved</Badge>}
-                          {doc.status === "REJECTED" && <Badge variant="destructive">Rejected</Badge>}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => window.open(doc.fileUrl, "_blank", "noopener,noreferrer")}
-                            >
-                              <Eye className="w-4 h-4 mr-2" /> View
-                            </Button>
-                            
-                            {doc.status === "PENDING" && (
-                              <>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
-                                  onClick={() => handleOpenVerify(doc, "APPROVED")}
-                                >
-                                  <Check className="w-4 h-4 mr-1" /> Approve
-                                </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={() => handleOpenVerify(doc, "REJECTED")}
-                                >
-                                  <X className="w-4 h-4 mr-1" /> Reject
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Content Card */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
+            <FolderOpen className="w-3.5 h-3.5 text-amber-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800">Uploaded Documents</h3>
+            <p className="text-xs text-slate-400">{documents.length} document{documents.length !== 1 && "s"} found</p>
+          </div>
+        </div>
 
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <p className="text-xs text-slate-400 mt-3">Loading documents…</p>
+          </div>
+        ) : documents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
+              <FileText className="w-6 h-6 text-slate-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-slate-700 mb-1">No documents found</h3>
+            <p className="text-xs text-slate-400 max-w-xs">
+              No documents match the current filter. Try a different status.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block">
+              <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_auto] px-5 py-3 border-b border-slate-100 bg-slate-50">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Document Type</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Uploaded</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</span>
+              </div>
+              {documents.map((doc) => (
+                <div key={doc.id} className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_auto] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/70 transition-colors items-center">
+                  {/* Student */}
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                      {(doc.user.studentProfile?.fullName || doc.user.username).substring(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">
+                        {doc.user.studentProfile?.fullName || doc.user.username}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">{doc.user.email}</p>
+                    </div>
+                  </div>
+
+                  {/* Document Type */}
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-slate-400" />
+                      {doc.documentType}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5 ml-5">
+                      {(doc.fileSize / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+
+                  {/* Uploaded */}
+                  <p className="text-sm text-slate-600 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                    {format(new Date(doc.uploadedAt), "MMM d, yyyy")}
+                  </p>
+
+                  {/* Status */}
+                  <div>
+                    <DocumentStatusBadge status={doc.status} />
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-slate-500 hover:text-slate-700 cursor-pointer"
+                      onClick={() => window.open(doc.fileUrl, "_blank", "noopener,noreferrer")}
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1" /> View
+                    </Button>
+
+                    {doc.status === "PENDING" && (
+                      <>
+                        <Button
+                          size="sm"
+                          className="h-7 px-2.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer"
+                          onClick={() => handleOpenVerify(doc, "APPROVED")}
+                        >
+                          <Check className="w-3 h-3 mr-1" /> Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 rounded-lg cursor-pointer"
+                          onClick={() => handleOpenVerify(doc, "REJECTED")}
+                        >
+                          <X className="w-3 h-3 mr-1" /> Reject
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden p-4 space-y-3">
+              {documents.map((doc) => (
+                <div key={doc.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50/30">
+                  {/* Card header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
+                        {(doc.user.studentProfile?.fullName || doc.user.username).substring(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{doc.user.studentProfile?.fullName || doc.user.username}</p>
+                        <p className="text-xs text-slate-400 truncate">{doc.user.email}</p>
+                      </div>
+                    </div>
+                    <DocumentStatusBadge status={doc.status} />
+                  </div>
+
+                  {/* Key-value rows */}
+                  <div className="space-y-2 pt-3 border-t border-slate-100">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-400">Document</span>
+                      <span className="text-xs font-medium text-slate-700 flex items-center gap-1">
+                        <FileText className="w-3 h-3 text-slate-400" />
+                        {doc.documentType}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-400">Size</span>
+                      <span className="text-xs text-slate-600">{(doc.fileSize / 1024 / 1024).toFixed(2)} MB</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-400">Uploaded</span>
+                      <span className="text-xs text-slate-500">{format(new Date(doc.uploadedAt), "MMM d, yyyy")}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 h-8 text-xs border-slate-200 text-slate-700 cursor-pointer"
+                      onClick={() => window.open(doc.fileUrl, "_blank", "noopener,noreferrer")}
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1" /> View Document
+                    </Button>
+                  </div>
+                  {doc.status === "PENDING" && (
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer"
+                        onClick={() => handleOpenVerify(doc, "APPROVED")}
+                      >
+                        <Check className="w-3.5 h-3.5 mr-1" /> Approve
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 rounded-lg cursor-pointer"
+                        onClick={() => handleOpenVerify(doc, "REJECTED")}
+                      >
+                        <X className="w-3.5 h-3.5 mr-1" /> Reject
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Verify Dialog */}
       <Dialog open={isVerifyDialogOpen} onOpenChange={setIsVerifyDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-md w-full p-0 overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-100">
+            <DialogTitle className="text-base font-bold text-slate-900">
               {verifyStatus === "APPROVED" ? "Approve Document" : "Reject Document"}
             </DialogTitle>
-            <DialogDescription>
-              {verifyStatus === "APPROVED" 
+            <DialogDescription className="text-xs text-slate-500 mt-0.5">
+              {verifyStatus === "APPROVED"
                 ? "This will mark the document as verified and compliant."
                 : "Please provide a reason so the student can upload a corrected version."}
             </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="p-3 border rounded bg-muted/30">
-              <p className="font-medium text-sm">{selectedDocument?.user?.studentProfile?.fullName}</p>
-              <p className="text-xs text-muted-foreground">{selectedDocument?.documentType}</p>
+          </div>
+          <div className="px-6 py-5 space-y-4">
+            <div className="p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+              <p className="text-sm font-semibold text-slate-800">{selectedDocument?.user?.studentProfile?.fullName}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{selectedDocument?.documentType}</p>
             </div>
 
             {verifyStatus === "REJECTED" && (
-              <div className="space-y-2">
-                <Label htmlFor="reason">Rejection Reason <span className="text-destructive">*</span></Label>
-                <Textarea 
-                  id="reason" 
-                  placeholder="e.g., Image is too blurry, wrong document type..." 
+              <div>
+                <Label htmlFor="reason" className="text-xs font-semibold text-slate-600 mb-1.5 block">
+                  Rejection Reason <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  id="reason"
+                  placeholder="e.g., Image is too blurry, wrong document type..."
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
+                  className="border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
             )}
           </div>
-          
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsVerifyDialogOpen(false)}>Cancel</Button>
-            <Button 
-              variant={verifyStatus === "APPROVED" ? "default" : "destructive"}
+          <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+            <Button variant="ghost" onClick={() => setIsVerifyDialogOpen(false)} className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer">Cancel</Button>
+            <Button
               onClick={submitVerification}
               disabled={isSubmitting || (verifyStatus === "REJECTED" && !rejectionReason.trim())}
+              className={`rounded-lg h-9 text-sm cursor-pointer ${
+                verifyStatus === "APPROVED"
+                  ? "bg-green-600 hover:bg-green-700 text-white"
+                  : "bg-red-500 hover:bg-red-600 text-white"
+              }`}
             >
-              {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Confirm"}
+              {isSubmitting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+              Confirm
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+

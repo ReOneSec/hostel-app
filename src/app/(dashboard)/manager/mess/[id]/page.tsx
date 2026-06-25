@@ -4,18 +4,16 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "@/hooks/use-auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Loader2, Plus, ArrowLeft, Calendar, User, 
-  CheckCircle2, AlertTriangle, AlertCircle, TrendingUp, TrendingDown, RefreshCcw, HandCoins, Receipt
-} from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { 
+  Loader2, Plus, ArrowLeft, Calendar, User, 
+  CheckCircle2, AlertTriangle, AlertCircle, TrendingUp, TrendingDown, RefreshCcw, HandCoins, Receipt, FileText, Settings, ArrowDownToLine, ArrowUpFromLine, CheckCircle
+} from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 export default function MessSessionDetails() {
   const params = useParams();
@@ -41,6 +39,8 @@ export default function MessSessionDetails() {
     mealDate: new Date().toISOString().split('T')[0],
     guestCount: 1
   });
+
+  const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
 
   const [mealCounts, setMealCounts] = useState<{ [key: string]: number }>({});
   const [isSavingMeals, setIsSavingMeals] = useState(false);
@@ -92,6 +92,7 @@ export default function MessSessionDetails() {
       
       toast.success("Added successfully");
       setIsExpenseOpen(false);
+      setIsAdvanceOpen(false);
       fetchDetails();
     } catch (error: any) {
       toast.error(error.message);
@@ -162,33 +163,48 @@ export default function MessSessionDetails() {
     }
   }
 
-  if (isLoading) return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
-  if (!data) return <div>Session not found</div>;
+  if (isLoading) return (
+    <div className="flex flex-col items-center justify-center h-[60vh]">
+      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <p className="text-sm text-slate-400 mt-3">Loading session details…</p>
+    </div>
+  );
+  if (!data) return <div className="flex justify-center items-center h-[60vh] text-slate-500">Session not found</div>;
 
   const isClosed = data.session.status === "CLOSED";
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Mess Session: {new Date(data.session.year, data.session.month - 1).toLocaleString('default', { month: 'long' })} {data.session.year}
-          </h1>
-          <div className="flex items-center gap-2 mt-2">
-            <Badge variant={isClosed ? "secondary" : "default"}>{data.session.status}</Badge>
-            {isClosed && (
-              <span className="text-sm text-muted-foreground">
-                Universal Meal Charge: ₹{data.session.universalMealCharge}
+    <div className="space-y-6 max-w-7xl mx-auto w-full">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => router.back()} className="h-8 w-8 p-0 rounded-lg shrink-0 text-slate-500 hover:text-slate-900 cursor-pointer">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              {new Date(data.session.year, data.session.month - 1).toLocaleString('default', { month: 'long' })} {data.session.year} Session
+            </h1>
+            <div className="flex items-center gap-3 mt-1.5">
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold border uppercase tracking-wider ${
+                isClosed 
+                  ? "bg-slate-100 text-slate-600 border-slate-200" 
+                  : "bg-green-50 text-green-700 border-green-200"
+              }`}>
+                {data.session.status}
               </span>
-            )}
+              {isClosed && (
+                <span className="text-xs text-slate-500 font-medium bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                  Rate: ₹{data.session.universalMealCharge} / meal
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        <div className="ml-auto">
+        
+        <div className="flex items-center gap-2">
           {!isClosed && ["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role as string) && (
-            <Button onClick={closeSession} variant="destructive">
+            <Button onClick={closeSession} className="bg-slate-900 hover:bg-slate-800 text-white h-9 px-4 text-sm rounded-lg cursor-pointer">
               <CheckCircle2 className="w-4 h-4 mr-2" />
               Close Session & Settle
             </Button>
@@ -197,391 +213,452 @@ export default function MessSessionDetails() {
       </div>
 
       <Tabs defaultValue="expenses" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="expenses">Expenses</TabsTrigger>
-          <TabsTrigger value="guests">Guest Meals</TabsTrigger>
-          <TabsTrigger value="initial">Initial Contributions</TabsTrigger>
-          <TabsTrigger value="meals">Student Meal Counts</TabsTrigger>
+        <TabsList className="bg-slate-100/50 p-1 rounded-xl flex flex-wrap h-auto border border-slate-200 mb-6 max-w-fit">
+          <TabsTrigger value="expenses" className="rounded-lg text-sm px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Expenses</TabsTrigger>
+          <TabsTrigger value="guests" className="rounded-lg text-sm px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Guest Meals</TabsTrigger>
+          <TabsTrigger value="initial" className="rounded-lg text-sm px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Contributions</TabsTrigger>
+          <TabsTrigger value="meals" className="rounded-lg text-sm px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Student Meals</TabsTrigger>
           {isClosed ? (
-            <TabsTrigger value="settlements">Final Settlements</TabsTrigger>
+            <TabsTrigger value="settlements" className="rounded-lg text-sm px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Final Settlements</TabsTrigger>
           ) : (
-            <TabsTrigger value="live-estimates">Live Estimates</TabsTrigger>
+            <TabsTrigger value="live-estimates" className="rounded-lg text-sm px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Live Estimates</TabsTrigger>
           )}
         </TabsList>
 
-        <TabsContent value="expenses">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+        <TabsContent value="expenses" className="mt-0">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <CardTitle>Market & Water Expenses</CardTitle>
-                <CardDescription>Daily grocery and water can logs</CardDescription>
+                <h3 className="text-base font-semibold text-slate-800">Market & Water Expenses</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Daily grocery and water can logs</p>
               </div>
               {!isClosed && (
                 <Dialog open={isExpenseOpen} onOpenChange={setIsExpenseOpen}>
-                  <DialogTrigger render={<Button size="sm" />}>
+                  <DialogTrigger render={<Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm rounded-lg cursor-pointer shadow-sm" />}>
                     <Plus className="w-4 h-4 mr-2" /> Add Expense
                   </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Expense</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={addExpense} className="space-y-4 pt-4">
-                      <div className="grid gap-2">
-                        <Label>Type</Label>
-                        <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                          value={expenseForm.type} onChange={e => setExpenseForm({...expenseForm, type: e.target.value})}>
-                          <option value="MARKET">Market (Grocery)</option>
-                          <option value="WATER">Water Cans</option>
-                        </select>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Amount (₹)</Label>
-                        <Input type="number" required value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: parseFloat(e.target.value)})} />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Date</Label>
-                        <Input type="date" required value={expenseForm.expenseDate} onChange={e => setExpenseForm({...expenseForm, expenseDate: e.target.value})} />
-                      </div>
-                      {expenseForm.type === "MARKET" && (
-                        <div className="grid gap-2">
-                          <Label>Description</Label>
-                          <Input value={expenseForm.description} onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} placeholder="Vegetables, Rice, etc." />
+                  <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-md w-full p-0 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-100">
+                      <DialogTitle className="text-base font-bold text-slate-900">Add Expense</DialogTitle>
+                    </div>
+                    <form onSubmit={addExpense}>
+                      <div className="px-6 py-5 space-y-4">
+                        <div>
+                          <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Type</Label>
+                          <select 
+                            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                            value={expenseForm.type} 
+                            onChange={e => setExpenseForm({...expenseForm, type: e.target.value})}
+                          >
+                            <option value="MARKET">Market (Grocery)</option>
+                            <option value="WATER">Water Cans</option>
+                          </select>
                         </div>
-                      )}
-                      <div className="grid gap-2">
-                        <Label>Paid By (Student)</Label>
-                        <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required
-                          value={expenseForm.userId} onChange={e => setExpenseForm({...expenseForm, userId: e.target.value})}>
-                          <option value="">-- Select Student --</option>
-                          {students.map((s: any) => (
-                            <option key={s.id} value={s.id}>{s.fullName || s.email}</option>
-                          ))}
-                        </select>
+                        <div>
+                          <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Amount (₹)</Label>
+                          <Input type="number" required min="0" step="0.01" value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: parseFloat(e.target.value)})} className="h-9 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Date</Label>
+                          <Input type="date" required value={expenseForm.expenseDate} onChange={e => setExpenseForm({...expenseForm, expenseDate: e.target.value})} className="h-9 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" />
+                        </div>
+                        {expenseForm.type === "MARKET" && (
+                          <div>
+                            <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Description</Label>
+                            <Input value={expenseForm.description} onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} placeholder="Vegetables, Rice, etc." className="h-9 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" />
+                          </div>
+                        )}
+                        <div>
+                          <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Paid By (Student)</Label>
+                          <select 
+                            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none" 
+                            required
+                            value={expenseForm.userId} 
+                            onChange={e => setExpenseForm({...expenseForm, userId: e.target.value})}
+                          >
+                            <option value="">-- Select Student --</option>
+                            {students.map((s: any) => (
+                              <option key={s.id} value={s.id}>{s.fullName || s.email}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
-                      <Button type="submit" className="w-full">Add Expense</Button>
+                      <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+                        <Button type="button" variant="ghost" onClick={() => setIsExpenseOpen(false)} className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer w-full sm:w-auto">
+                          Cancel
+                        </Button>
+                        <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-sm cursor-pointer w-full sm:w-auto">
+                          Add Expense
+                        </Button>
+                      </div>
                     </form>
                   </DialogContent>
                 </Dialog>
               )}
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Paid By</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {[...data.marketExpenses.map((e: any) => ({...e, type: "MARKET"})), ...data.waterExpenses.map((e: any) => ({...e, type: "WATER"}))]
-                    .sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime())
-                    .map((expense: any) => (
-                    <TableRow key={expense.id}>
-                      <TableCell>{new Date(expense.expenseDate).toLocaleDateString()}</TableCell>
-                      <TableCell><Badge variant={expense.type === "WATER" ? "secondary" : "outline"}>{expense.type}</Badge></TableCell>
-                      <TableCell>{expense.user.fullName || expense.user.email}</TableCell>
-                      <TableCell>{expense.description || "-"}</TableCell>
-                      <TableCell className="text-right">₹{expense.amount}</TableCell>
-                    </TableRow>
-                  ))}
-                  {data.marketExpenses.length === 0 && data.waterExpenses.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">No expenses recorded yet</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <div className="min-w-[700px]">
+                <div className="grid grid-cols-[1fr_1fr_1.5fr_2fr_1fr] px-5 py-3 border-b border-slate-100 bg-slate-50">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Paid By</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Amount</span>
+                </div>
+                
+                {(() => {
+                  const combined = [...data.marketExpenses.map((e: any) => ({...e, type: "MARKET"})), ...data.waterExpenses.map((e: any) => ({...e, type: "WATER"}))]
+                    .sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime());
+                    
+                  if (combined.length === 0) {
+                    return (
+                      <div className="p-12 text-center text-sm text-slate-500">No expenses recorded yet.</div>
+                    );
+                  }
+                  
+                  return combined.map((expense: any) => (
+                    <div key={expense.id} className="grid grid-cols-[1fr_1fr_1.5fr_2fr_1fr] px-5 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
+                      <span className="text-sm text-slate-600">{format(new Date(expense.expenseDate), "MMM d, yyyy")}</span>
+                      <div>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border uppercase tracking-wider ${
+                          expense.type === "WATER" 
+                            ? "bg-blue-50 text-blue-700 border-blue-200" 
+                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        }`}>
+                          {expense.type}
+                        </span>
+                      </div>
+                      <span className="text-sm font-medium text-slate-800 truncate pr-2">{expense.user.fullName || expense.user.email}</span>
+                      <span className="text-sm text-slate-500 truncate pr-2">{expense.description || "—"}</span>
+                      <span className="text-sm font-bold text-slate-900 text-right">₹{parseFloat(expense.amount).toLocaleString('en-IN')}</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          </div>
         </TabsContent>
 
-        <TabsContent value="guests">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+        <TabsContent value="guests" className="mt-0">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <CardTitle>Guest Meals</CardTitle>
-                <CardDescription>Record extra meals consumed by guests</CardDescription>
+                <h3 className="text-base font-semibold text-slate-800">Guest Meals</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Record extra meals consumed by guests</p>
               </div>
               {!isClosed && (
                 <Dialog open={isGuestOpen} onOpenChange={setIsGuestOpen}>
-                  <DialogTrigger render={<Button size="sm" />}>
+                  <DialogTrigger render={<Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm rounded-lg cursor-pointer shadow-sm" />}>
                     <Plus className="w-4 h-4 mr-2" /> Add Guest Meal
                   </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Guest Meal</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={addGuest} className="space-y-4 pt-4">
-                      <div className="grid gap-2">
-                        <Label>Date</Label>
-                        <Input type="date" required value={guestForm.mealDate} onChange={e => setGuestForm({...guestForm, mealDate: e.target.value})} />
+                  <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-md w-full p-0 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-100">
+                      <DialogTitle className="text-base font-bold text-slate-900">Add Guest Meal</DialogTitle>
+                    </div>
+                    <form onSubmit={addGuest}>
+                      <div className="px-6 py-5 space-y-4">
+                        <div>
+                          <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Date</Label>
+                          <Input type="date" required value={guestForm.mealDate} onChange={e => setGuestForm({...guestForm, mealDate: e.target.value})} className="h-9 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Guest Count</Label>
+                          <Input type="number" required min="1" value={guestForm.guestCount} onChange={e => setGuestForm({...guestForm, guestCount: parseInt(e.target.value)})} className="h-9 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" />
+                        </div>
                       </div>
-                      <div className="grid gap-2">
-                        <Label>Guest Count</Label>
-                        <Input type="number" required min="1" value={guestForm.guestCount} onChange={e => setGuestForm({...guestForm, guestCount: parseInt(e.target.value)})} />
+                      <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+                        <Button type="button" variant="ghost" onClick={() => setIsGuestOpen(false)} className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer w-full sm:w-auto">
+                          Cancel
+                        </Button>
+                        <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-sm cursor-pointer w-full sm:w-auto">
+                          Save
+                        </Button>
                       </div>
-                      <Button type="submit" className="w-full">Save</Button>
                     </form>
                   </DialogContent>
                 </Dialog>
               )}
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Guest Count</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.guestMeals.map((g: any) => (
-                    <TableRow key={g.id}>
-                      <TableCell>{new Date(g.mealDate).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-right">{g.guestCount}</TableCell>
-                    </TableRow>
-                  ))}
-                  {data.guestMeals.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={2} className="text-center py-4 text-muted-foreground">No guest meals recorded</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <div className="min-w-[400px]">
+                <div className="grid grid-cols-[1fr_1fr] px-5 py-3 border-b border-slate-100 bg-slate-50">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Guest Count</span>
+                </div>
+                
+                {data.guestMeals.length === 0 ? (
+                  <div className="p-12 text-center text-sm text-slate-500">No guest meals recorded.</div>
+                ) : (
+                  data.guestMeals.map((g: any) => (
+                    <div key={g.id} className="grid grid-cols-[1fr_1fr] px-5 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
+                      <span className="text-sm font-medium text-slate-800">{format(new Date(g.mealDate), "MMM d, yyyy")}</span>
+                      <span className="text-sm font-semibold text-slate-900 text-right">{g.guestCount}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         </TabsContent>
 
-        <TabsContent value="initial">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+        <TabsContent value="initial" className="mt-0">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <CardTitle>Initial Contributions (Advances)</CardTitle>
-                <CardDescription>Money collected from students at start of month</CardDescription>
+                <h3 className="text-base font-semibold text-slate-800">Initial Contributions</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Money collected from students at start of month (Advances)</p>
               </div>
               {!isClosed && (
-                <Dialog>
-                  <DialogTrigger render={<Button size="sm" />}>
+                <Dialog open={isAdvanceOpen} onOpenChange={setIsAdvanceOpen}>
+                  <DialogTrigger render={<Button className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 px-4 text-sm rounded-lg cursor-pointer shadow-sm" />}>
                     <Plus className="w-4 h-4 mr-2" /> Add Advance
                   </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Initial Contribution</DialogTitle>
-                    </DialogHeader>
+                  <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-md w-full p-0 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-100">
+                      <DialogTitle className="text-base font-bold text-slate-900">Add Initial Contribution</DialogTitle>
+                    </div>
                     <form onSubmit={(e) => {
                       e.preventDefault();
                       setExpenseForm(prev => ({...prev, type: "INITIAL_CONTRIBUTION"}));
                       addExpense(e);
-                    }} className="space-y-4 pt-4">
-                      <div className="grid gap-2">
-                        <Label>Student</Label>
-                        <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required
-                          value={expenseForm.userId} onChange={e => setExpenseForm({...expenseForm, userId: e.target.value})}>
-                          <option value="">-- Select Student --</option>
-                          {students.map((s: any) => (
-                            <option key={s.id} value={s.id}>{s.fullName || s.email}</option>
-                          ))}
-                        </select>
+                    }}>
+                      <div className="px-6 py-5 space-y-4">
+                        <div>
+                          <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Student</Label>
+                          <select 
+                            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none" 
+                            required
+                            value={expenseForm.userId} 
+                            onChange={e => setExpenseForm({...expenseForm, userId: e.target.value})}
+                          >
+                            <option value="">-- Select Student --</option>
+                            {students.map((s: any) => (
+                              <option key={s.id} value={s.id}>{s.fullName || s.email}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Amount (₹)</Label>
+                          <Input type="number" min="0" step="0.01" required value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: parseFloat(e.target.value)})} className="h-9 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Date</Label>
+                          <Input type="date" required value={expenseForm.expenseDate} onChange={e => setExpenseForm({...expenseForm, expenseDate: e.target.value})} className="h-9 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" />
+                        </div>
                       </div>
-                      <div className="grid gap-2">
-                        <Label>Amount (₹)</Label>
-                        <Input type="number" required value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: parseFloat(e.target.value)})} />
+                      <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+                        <Button type="button" variant="ghost" onClick={() => setIsAdvanceOpen(false)} className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer w-full sm:w-auto">
+                          Cancel
+                        </Button>
+                        <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-sm cursor-pointer w-full sm:w-auto">
+                          Save Advance
+                        </Button>
                       </div>
-                      <div className="grid gap-2">
-                        <Label>Date</Label>
-                        <Input type="date" required value={expenseForm.expenseDate} onChange={e => setExpenseForm({...expenseForm, expenseDate: e.target.value})} />
-                      </div>
-                      <Button type="submit" className="w-full">Save Advance</Button>
                     </form>
                   </DialogContent>
                 </Dialog>
               )}
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Student</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.initialContributions.map((ic: any) => (
-                    <TableRow key={ic.id}>
-                      <TableCell>{new Date(ic.contributionDate).toLocaleDateString()}</TableCell>
-                      <TableCell>{ic.user.fullName || ic.user.email}</TableCell>
-                      <TableCell className="text-right">₹{ic.amount}</TableCell>
-                    </TableRow>
-                  ))}
-                  {data.initialContributions.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">No initial contributions recorded</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <div className="min-w-[500px]">
+                <div className="grid grid-cols-[1fr_2fr_1fr] px-5 py-3 border-b border-slate-100 bg-slate-50">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Amount</span>
+                </div>
+                
+                {data.initialContributions.length === 0 ? (
+                  <div className="p-12 text-center text-sm text-slate-500">No initial contributions recorded.</div>
+                ) : (
+                  data.initialContributions.map((ic: any) => (
+                    <div key={ic.id} className="grid grid-cols-[1fr_2fr_1fr] px-5 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
+                      <span className="text-sm text-slate-600">{format(new Date(ic.contributionDate), "MMM d, yyyy")}</span>
+                      <span className="text-sm font-medium text-slate-800 truncate pr-2">{ic.user.fullName || ic.user.email}</span>
+                      <span className="text-sm font-bold text-slate-900 text-right">₹{parseFloat(ic.amount).toLocaleString('en-IN')}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         </TabsContent>
 
-        <TabsContent value="meals">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+        <TabsContent value="meals" className="mt-0">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <CardTitle>Student Meal Counts</CardTitle>
-                <CardDescription>Enter the total number of meals eaten by each student</CardDescription>
+                <h3 className="text-base font-semibold text-slate-800">Student Meal Counts</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Enter the total number of meals eaten by each student</p>
               </div>
               {!isClosed && ["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role as string) && (
-                <Button onClick={saveMealCounts} disabled={isSavingMeals}>
-                  {isSavingMeals ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Save Meal Counts"}
+                <Button 
+                  onClick={saveMealCounts} 
+                  disabled={isSavingMeals}
+                  className="bg-slate-900 hover:bg-slate-800 text-white h-9 px-4 text-sm rounded-lg cursor-pointer shadow-sm"
+                >
+                  {isSavingMeals ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                  {isSavingMeals ? "Saving..." : "Save Meal Counts"}
                 </Button>
               )}
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="w-[150px] text-right">Meal Count</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {students.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell className="font-medium">{s.fullName || "Un-named"}</TableCell>
-                      <TableCell>{s.email}</TableCell>
-                      <TableCell className="text-right">
-                        <Input 
-                          type="number" 
-                          min="0"
-                          disabled={isClosed || !["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role as string)}
-                          className="w-[100px] ml-auto"
-                          value={mealCounts[s.id] || 0}
-                          onChange={(e) => setMealCounts({...mealCounts, [s.id]: parseInt(e.target.value) || 0})}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <div className="min-w-[600px]">
+                <div className="grid grid-cols-[1.5fr_1.5fr_1fr] px-5 py-3 border-b border-slate-100 bg-slate-50">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student Name</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Meal Count</span>
+                </div>
+                
+                {students.map((s) => (
+                  <div key={s.id} className="grid grid-cols-[1.5fr_1.5fr_1fr] px-5 py-2.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
+                    <span className="text-sm font-medium text-slate-800 truncate pr-2">{s.fullName || "Un-named"}</span>
+                    <span className="text-sm text-slate-500 truncate pr-2">{s.email}</span>
+                    <div className="flex justify-end">
+                      <Input 
+                        type="number" 
+                        min="0"
+                        disabled={isClosed || !["HOSTEL_MANAGER", "SUPER_ADMIN", "MONTHLY_MANAGER"].includes(session?.user?.role as string)}
+                        className="w-[100px] h-8 border-slate-200 rounded-md text-sm text-right focus:ring-2 focus:ring-blue-500/20"
+                        value={mealCounts[s.id] || 0}
+                        onChange={(e) => setMealCounts({...mealCounts, [s.id]: parseInt(e.target.value) || 0})}
+                      />
+                    </div>
+                  </div>
+                ))}
+                
+                {students.length === 0 && (
+                  <div className="p-12 text-center text-sm text-slate-500">No students found for this hostel.</div>
+                )}
+              </div>
+            </div>
+          </div>
         </TabsContent>
 
         {isClosed && (
-          <TabsContent value="settlements">
-            <Card>
-              <CardHeader>
-                <CardTitle>Final Settlements</CardTitle>
-                <CardDescription>Mathematical breakdown of what each student owes or is owed</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student</TableHead>
-                      <TableHead className="text-right">Meals</TableHead>
-                      <TableHead className="text-right">Meal Cost</TableHead>
-                      <TableHead className="text-right">Overhead</TableHead>
-                      <TableHead className="text-right">Contributions</TableHead>
-                      <TableHead className="text-right">Net Settlement</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.settlements.map((s: any) => (
-                      <TableRow key={s.id}>
-                        <TableCell className="font-medium">{s.user.fullName || s.user.email}</TableCell>
-                        <TableCell className="text-right">{s.mealCount}</TableCell>
-                        <TableCell className="text-right">₹{s.mealCost}</TableCell>
-                        <TableCell className="text-right">₹{s.universalCommonCharge}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">₹{s.totalContribution}</TableCell>
-                        <TableCell className="text-right font-bold">
+          <TabsContent value="settlements" className="mt-0">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <h3 className="text-base font-semibold text-slate-800">Final Settlements</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Mathematical breakdown of what each student owes or is owed</p>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <div className="min-w-[800px]">
+                  <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1.5fr_1.5fr] px-5 py-3 border-b border-slate-100 bg-slate-50">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Meals</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Meal Cost</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Overhead</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Contributions</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Net Settlement</span>
+                  </div>
+                  
+                  {data.settlements.map((s: any) => (
+                    <div key={s.id} className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1.5fr_1.5fr] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
+                      <span className="text-sm font-medium text-slate-800 truncate pr-2">{s.user.fullName || s.user.email}</span>
+                      <span className="text-sm font-semibold text-slate-700 text-right">{s.mealCount}</span>
+                      <span className="text-sm text-slate-600 text-right">₹{parseFloat(s.mealCost).toFixed(2)}</span>
+                      <span className="text-sm text-slate-600 text-right">₹{parseFloat(s.universalCommonCharge).toFixed(2)}</span>
+                      <span className="text-sm text-emerald-600 font-medium text-right">₹{parseFloat(s.totalContribution).toFixed(2)}</span>
+                      <div className="flex justify-end">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-bold border uppercase tracking-wider ${
+                          parseFloat(s.netSettlement) > 0 
+                            ? "bg-red-50 text-red-700 border-red-200" 
+                            : "bg-green-50 text-green-700 border-green-200"
+                        }`}>
                           {parseFloat(s.netSettlement) > 0 
-                            ? <span className="text-red-500">Owes ₹{s.netSettlement}</span> 
-                            : <span className="text-green-500">Refund ₹{Math.abs(parseFloat(s.netSettlement))}</span>}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                            ? `Owes ₹${parseFloat(s.netSettlement).toFixed(2)}` 
+                            : `Refund ₹${Math.abs(parseFloat(s.netSettlement)).toFixed(2)}`}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </TabsContent>
         )}
 
         {!isClosed && data.session.liveEstimate && (
-          <TabsContent value="live-estimates">
-            <Card className="border-primary mb-6">
-              <CardHeader className="bg-primary/5 pb-4">
-                <CardTitle className="flex items-center gap-2">
-                  <Receipt className="w-5 h-5" /> 
-                  Live Mess Rate Estimate
-                </CardTitle>
-                <CardDescription>Mathematical breakdown of current estimated metrics based on data entered so far</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="grid md:grid-cols-4 gap-6 text-center">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Student Meals</p>
-                    <p className="text-2xl font-bold">{data.session.liveEstimate.totalStudentMeals}</p>
+          <TabsContent value="live-estimates" className="mt-0 space-y-6">
+            <div className="bg-indigo-50/50 rounded-xl border border-indigo-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-indigo-100/50 bg-indigo-50/80 flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-indigo-600" />
+                <div>
+                  <h3 className="text-base font-semibold text-indigo-900">Live Mess Rate Estimate</h3>
+                  <p className="text-xs text-indigo-700/70 mt-0.5">Mathematical breakdown of metrics based on data entered so far</p>
+                </div>
+              </div>
+              
+              <div className="p-5">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                  <div className="bg-white rounded-lg border border-indigo-100/50 p-4 shadow-sm">
+                    <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Total Student Meals</p>
+                    <p className="text-2xl font-bold text-slate-800">{data.session.liveEstimate.totalStudentMeals}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Est. Meal Cost</p>
-                    <p className="text-2xl font-bold text-primary">₹{data.session.liveEstimate.universalMealCharge}</p>
+                  <div className="bg-indigo-600 rounded-lg border border-indigo-700 p-4 shadow-sm text-white">
+                    <p className="text-xs font-semibold text-indigo-200 uppercase tracking-wider mb-1">Est. Meal Cost</p>
+                    <p className="text-2xl font-bold">₹{parseFloat(data.session.liveEstimate.universalMealCharge).toFixed(2)}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Fixed Overhead</p>
-                    <p className="text-2xl font-bold">₹{data.session.liveEstimate.perStudentCommonCharge}</p>
+                  <div className="bg-white rounded-lg border border-indigo-100/50 p-4 shadow-sm">
+                    <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Fixed Overhead</p>
+                    <p className="text-2xl font-bold text-slate-800">₹{parseFloat(data.session.liveEstimate.perStudentCommonCharge).toFixed(2)}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Consumables</p>
-                    <p className="text-2xl font-bold">₹{data.session.liveEstimate.totalMessCharge1}</p>
+                  <div className="bg-white rounded-lg border border-indigo-100/50 p-4 shadow-sm">
+                    <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Total Consumables</p>
+                    <p className="text-2xl font-bold text-slate-800">₹{parseFloat(data.session.liveEstimate.totalMessCharge1).toLocaleString('en-IN')}</p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Live Settlements Estimate</CardTitle>
-                <CardDescription>What each student owes or is owed right now</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student</TableHead>
-                      <TableHead className="text-center">Meals</TableHead>
-                      <TableHead className="text-right">Total Contributions</TableHead>
-                      <TableHead className="text-right">Est. Liability</TableHead>
-                      <TableHead className="text-right">Est. Net Settlement</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.session.liveEstimate.settlements.map((s: any) => (
-                      <TableRow key={s.userId}>
-                        <TableCell className="font-medium">
-                          {data.mealCounts?.find((x: any) => x.userId === s.userId)?.user?.fullName || "Student"}
-                        </TableCell>
-                        <TableCell className="text-center">{s.mealCount}</TableCell>
-                        <TableCell className="text-right">₹{s.totalContribution}</TableCell>
-                        <TableCell className="text-right">₹{s.totalLiability}</TableCell>
-                        <TableCell className={`text-right font-bold ${parseFloat(s.netSettlement) > 0 ? "text-red-500" : "text-green-500"}`}>
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-blue-600" />
+                <div>
+                  <h3 className="text-base font-semibold text-slate-800">Live Settlements Estimate</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">What each student owes or is owed right now</p>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <div className="min-w-[800px]">
+                  <div className="grid grid-cols-[1.5fr_1fr_1.5fr_1.5fr_1.5fr] px-5 py-3 border-b border-slate-100 bg-slate-50">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">Meals</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Total Contributions</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Est. Liability</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Est. Net Settlement</span>
+                  </div>
+                  
+                  {data.session.liveEstimate.settlements.map((s: any) => (
+                    <div key={s.userId} className="grid grid-cols-[1.5fr_1fr_1.5fr_1.5fr_1.5fr] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
+                      <span className="text-sm font-medium text-slate-800 truncate pr-2">
+                        {data.mealCounts?.find((x: any) => x.userId === s.userId)?.user?.fullName || "Student"}
+                      </span>
+                      <span className="text-sm font-semibold text-slate-700 text-center">{s.mealCount}</span>
+                      <span className="text-sm text-emerald-600 font-medium text-right">₹{parseFloat(s.totalContribution).toFixed(2)}</span>
+                      <span className="text-sm text-slate-600 text-right">₹{parseFloat(s.totalLiability).toFixed(2)}</span>
+                      <div className="flex justify-end">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-bold border uppercase tracking-wider ${
+                          parseFloat(s.netSettlement) > 0 
+                            ? "bg-red-50 text-red-700 border-red-200" 
+                            : "bg-green-50 text-green-700 border-green-200"
+                        }`}>
                           {parseFloat(s.netSettlement) > 0 
-                            ? `Owes ₹${s.netSettlement}` 
-                            : `Refund ₹${Math.abs(parseFloat(s.netSettlement))}`}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                            ? `Owes ₹${parseFloat(s.netSettlement).toFixed(2)}` 
+                            : `Refund ₹${Math.abs(parseFloat(s.netSettlement)).toFixed(2)}`}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </TabsContent>
         )}
       </Tabs>

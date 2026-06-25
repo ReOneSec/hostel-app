@@ -2,13 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
@@ -26,7 +19,9 @@ import {
   Loader2, 
   Search, 
   XCircle,
-  ExternalLink
+  ExternalLink,
+  ShieldCheck,
+  CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -99,93 +94,109 @@ export default function DocumentVerificationPage() {
   });
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6 max-w-7xl mx-auto w-full">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Document Verification</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Document Verification</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
             Review and approve pending student KYC documents.
           </p>
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3 border-b">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle>Pending Queue</CardTitle>
-              <CardDescription>
-                {documents.length} document{documents.length !== 1 && "s"} waiting for verification
-              </CardDescription>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
             </div>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by student name or document type..."
-                className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800">Pending Queue</h3>
+              <p className="text-xs text-slate-400">{documents.length} document{documents.length !== 1 && "s"} waiting for verification</p>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search by student or type..."
+              className="pl-9 h-9 border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="p-0">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center p-12 text-muted-foreground">
-              <Loader2 className="h-8 w-8 animate-spin mb-4 text-primary" />
-              <p>Loading documents...</p>
+            <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+              <Loader2 className="h-8 w-8 animate-spin mb-3 text-blue-600" />
+              <p className="text-sm">Loading documents...</p>
             </div>
           ) : filteredDocs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-16 text-center">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <CheckCircle className="h-8 w-8 text-emerald-500" />
+            <div className="flex flex-col items-center justify-center py-20 text-center px-4">
+              <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center mb-4">
+                <CheckCircle className="h-6 w-6 text-green-500" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">All Caught Up!</h3>
-              <p className="text-muted-foreground max-w-sm">
+              <h3 className="text-sm font-semibold text-slate-800 mb-1">All Caught Up!</h3>
+              <p className="text-xs text-slate-500 max-w-sm">
                 There are no pending documents waiting for verification in your queue.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 md:p-6 bg-muted/30">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-5 bg-slate-50/50">
               {filteredDocs.map((doc) => (
-                <Card key={doc.id} className="overflow-hidden border-border/50 shadow-sm transition-all hover:shadow-md">
-                  <div className="aspect-video w-full bg-muted relative group">
+                <div key={doc.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group">
+                  <div className="aspect-video w-full bg-slate-100 relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
                       src={doc.fileUrl} 
                       alt={doc.documentType}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
                       <a 
                         href={doc.fileUrl} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all focus-visible:ring-3 focus-visible:ring-ring/50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-7 px-2.5 gap-1"
+                        className="inline-flex items-center justify-center bg-white text-slate-900 rounded-lg h-8 px-3 text-xs font-semibold shadow-sm hover:bg-slate-50 transition-colors gap-1.5"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                         View Full Screen
                       </a>
                     </div>
                   </div>
-                  <CardContent className="p-4 space-y-4">
-                    <div>
+                  <div className="p-4 space-y-4 flex-1 flex flex-col">
+                    <div className="flex-1">
                       <div className="flex items-start justify-between mb-1">
-                        <h4 className="font-semibold truncate pr-2">
+                        <h4 className="font-semibold text-slate-900 truncate pr-2 text-sm">
                           {doc.user?.studentProfile?.fullName || doc.user?.username || "Unknown Student"}
                         </h4>
-                        <Badge variant="outline" className="shrink-0">{doc.documentType}</Badge>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border uppercase tracking-wider bg-slate-100 text-slate-600 border-slate-200 shrink-0">
+                          {doc.documentType}
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <FileText className="w-3 h-3" />
-                        Uploaded {format(new Date(doc.uploadedAt), "MMM d, yyyy 'at' HH:mm")}
+                      <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-1.5">
+                        <FileText className="w-3.5 h-3.5" />
+                        Uploaded {format(new Date(doc.uploadedAt), "MMM d, yy 'at' HH:mm")}
                       </p>
                     </div>
                     
-                    <div className="flex items-center gap-2 pt-2">
+                    <div className="flex items-center gap-2 pt-2 mt-auto">
                       <Button 
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" 
-                        size="sm"
+                        variant="outline" 
+                        className="flex-1 h-9 text-xs border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 cursor-pointer"
+                        disabled={isSubmitting}
+                        onClick={() => {
+                          setSelectedDoc(doc);
+                          setIsRejectDialogOpen(true);
+                        }}
+                      >
+                        <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                        Reject
+                      </Button>
+                      <Button 
+                        className="flex-1 h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
                         disabled={isSubmitting}
                         onClick={() => {
                           if(confirm("Approve this document?")) {
@@ -193,65 +204,53 @@ export default function DocumentVerificationPage() {
                           }
                         }}
                       >
-                        <CheckCircle className="w-4 h-4 mr-2" />
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
                         Approve
                       </Button>
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
-                        className="flex-1"
-                        disabled={isSubmitting}
-                        onClick={() => {
-                          setSelectedDoc(doc);
-                          setIsRejectDialogOpen(true);
-                        }}
-                      >
-                        <XCircle className="w-4 h-4 mr-2" />
-                        Reject
-                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Rejection Dialog */}
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Document</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-md w-full p-0 overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-100">
+            <DialogTitle className="text-base font-bold text-slate-900">Reject Document</DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 mt-0.5">
               Please provide a reason for rejecting this document. The student will be notified and asked to re-upload.
             </DialogDescription>
-          </DialogHeader>
+          </div>
           
-          <div className="py-4">
+          <div className="px-6 py-5">
             <Textarea
               placeholder="e.g. Image is too blurry, or wrong document type uploaded..."
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              className="min-h-[100px]"
+              className="min-h-[100px] border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 resize-none"
             />
           </div>
           
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)} disabled={isSubmitting}>
+          <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+            <Button type="button" variant="ghost" onClick={() => setIsRejectDialogOpen(false)} disabled={isSubmitting} className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer w-full sm:w-auto">
               Cancel
             </Button>
             <Button 
-              variant="destructive" 
+              className="bg-red-600 hover:bg-red-700 text-white rounded-lg h-9 text-sm cursor-pointer w-full sm:w-auto"
               disabled={!rejectReason.trim() || isSubmitting}
               onClick={() => handleVerify(selectedDoc.id, "REJECTED", rejectReason)}
             >
-              {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              {isSubmitting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
               Confirm Rejection
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+

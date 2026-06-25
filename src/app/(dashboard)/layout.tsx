@@ -8,10 +8,10 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-slate-100">
       <DashboardSidebar />
-      <main className="flex-1 lg:ml-0">
-        <div className="p-4 lg:p-8 pt-16 lg:pt-8 max-w-7xl mx-auto">
+      <main className="flex-1 min-w-0">
+        <div className="px-4 sm:px-6 py-6 pt-20 lg:pt-6 pb-24 lg:pb-6 max-w-7xl mx-auto">
           {children}
         </div>
         <ProfileCompletionModal />

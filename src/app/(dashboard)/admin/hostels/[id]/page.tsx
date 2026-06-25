@@ -20,13 +20,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -81,6 +74,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<CreateRoomFormData>({
     resolver: zodResolver(createRoomSchema),
@@ -239,7 +233,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
   }
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
   }
 
   if (!hostel) {
@@ -254,8 +248,8 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{hostel.name}</h1>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{hostel.name}</h1>
+            <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
               {hostel.address && (
                 <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {hostel.address}</span>
               )}
@@ -333,7 +327,12 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                     <Label htmlFor="type">Room Type *</Label>
                     <Select defaultValue="DOUBLE" onValueChange={(v: any) => setValue("type", v)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
+                        <SelectValue placeholder="Select type">
+                          {watch("type") === "SINGLE" ? "Single" :
+                           watch("type") === "DOUBLE" ? "Double" :
+                           watch("type") === "TRIPLE" ? "Triple" :
+                           watch("type") === "DORMITORY" ? "Dormitory" : null}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="SINGLE">Single</SelectItem>
@@ -367,105 +366,103 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
 
         <TabsContent value="overview" className="space-y-6">
           {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-primary/5 border-primary/20">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                Total Capacity
-                <Users className="w-4 h-4 text-primary" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="text-2xl font-bold">{stats.totalCapacity}</div>
-              <p className="text-xs text-muted-foreground mt-1">Maximum allowed</p>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                <Users className="w-3.5 h-3.5 text-blue-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-800">Total Capacity</h3>
+            </div>
+            <div className="p-5">
+              <div className="text-2xl font-bold text-slate-900">{stats.totalCapacity}</div>
+              <p className="text-xs text-slate-400 mt-1">Maximum allowed beds</p>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                Occupancy Rate
-                <span className="text-emerald-500 font-bold">{stats.occupancyRate}%</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <Progress value={stats.occupancyRate} className="h-2 mt-2 mb-1" />
-              <div className="flex justify-between text-xs text-muted-foreground">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-sm font-semibold text-slate-800">Occupancy Rate</h3>
+              </div>
+              <span className="text-sm font-bold text-green-600">{stats.occupancyRate}%</span>
+            </div>
+            <div className="p-5">
+              <Progress value={stats.occupancyRate} className="h-2 mb-2" />
+              <div className="flex justify-between text-xs text-slate-500">
                 <span>{stats.occupiedBeds} occupied</span>
                 <span>{stats.totalBeds} configured beds</span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                Available Beds
-                <BedDouble className="w-4 h-4 text-amber-500" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center">
+                <BedDouble className="w-3.5 h-3.5 text-amber-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-800">Available Beds</h3>
+            </div>
+            <div className="p-5">
               <div className="text-2xl font-bold text-amber-600">{stats.vacantBeds}</div>
-              <p className="text-xs text-muted-foreground mt-1">Ready for assignment</p>
-            </CardContent>
-          </Card>
+              <p className="text-xs text-slate-400 mt-1">Ready for assignment</p>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                Total Rooms
-                <Building2 className="w-4 h-4 text-blue-500" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="text-2xl font-bold">{stats.totalRooms}</div>
-              <p className="text-xs text-muted-foreground mt-1">Active physical rooms</p>
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
+                <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-800">Total Rooms</h3>
+            </div>
+            <div className="p-5">
+              <div className="text-2xl font-bold text-slate-900">{stats.totalRooms}</div>
+              <p className="text-xs text-slate-400 mt-1">Active physical rooms</p>
+            </div>
+          </div>
         </div>
       )}
 
       <div>
-        <h2 className="text-xl font-semibold mb-4">Rooms Configuration</h2>
+        <h2 className="text-lg font-bold text-slate-900 mb-4">Rooms Configuration</h2>
         {hostel.rooms.length === 0 ? (
-          <div className="text-center py-12 bg-card rounded-xl border border-dashed">
-            <BedDouble className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-            <h3 className="text-lg font-medium">No rooms added yet</h3>
-            <p className="text-muted-foreground text-sm mt-1 mb-4">
+          <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            <BedDouble className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+            <h3 className="text-sm font-semibold text-slate-800">No rooms added yet</h3>
+            <p className="text-slate-500 text-xs mt-1 mb-4">
               Create your first room to start setting up bed assignments.
             </p>
-            <Button onClick={() => setIsDialogOpen(true)} variant="outline">
-              <Plus className="w-4 h-4 mr-2" /> Add First Room
+            <Button onClick={() => setIsDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer">
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add First Room
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
             {hostel.rooms.map((room: any) => (
-              <Link key={room.id} href={`/admin/hostels/${hostel.id}/rooms/${room.id}/beds`}>
-                <Card className="group hover:border-primary/50 hover:bg-muted/30 transition-all cursor-pointer h-full">
-                  <CardHeader className="p-4 pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg group-hover:text-primary transition-colors">
-                        Room {room.roomNumber}
-                      </CardTitle>
-                      <span className="text-xs font-medium px-2 py-1 bg-muted rounded-md border">
-                        {room.type}
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-2">
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <Link key={room.id} href={`/admin/hostels/${hostel.id}/rooms/${room.id}/beds`} className="block">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden hover:shadow-md hover:border-blue-300 transition-all cursor-pointer h-full group">
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                      Room {room.roomNumber}
+                    </h3>
+                    <span className="text-xs font-semibold px-2 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200 uppercase tracking-wider">
+                      {room.type}
+                    </span>
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center gap-4 text-sm text-slate-500">
                       <div className="flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5" />
+                        <Building2 className="w-4 h-4 text-slate-400" />
                         Floor {room.floor || "-"}
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <BedDouble className="w-3.5 h-3.5" />
+                        <BedDouble className="w-4 h-4 text-slate-400" />
                         {room._count.beds} Beds
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </Link>
             ))}
           </div>
@@ -477,15 +474,17 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Hostel Manager Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Hostel Manager</CardTitle>
-                <CardDescription>Assign a staff member or student to manage this hostel permanently.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">Hostel Manager</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Assign a staff member or student to manage this hostel permanently.</p>
+                </div>
+              </div>
+              <div className="p-5 space-y-4">
                 <div className="flex gap-2">
                   <Select value={selectedHostelManager} onValueChange={(val) => { if (val) setSelectedHostelManager(val); }}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full bg-white border-slate-200 rounded-lg text-sm">
                       <SelectValue placeholder="Select staff or student...">
                         {(() => {
                           if (!selectedHostelManager) return null;
@@ -495,13 +494,13 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none" disabled className="font-semibold text-muted-foreground">Staff</SelectItem>
+                      <SelectItem value="none" disabled className="font-semibold text-slate-500">Staff</SelectItem>
                       {staffUsers.map(user => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.studentProfile?.fullName || user.username} ({user.email})
                         </SelectItem>
                       ))}
-                      <SelectItem value="none2" disabled className="font-semibold text-muted-foreground mt-2 border-t pt-2">Students</SelectItem>
+                      <SelectItem value="none2" disabled className="font-semibold text-slate-500 mt-2 border-t pt-2">Students</SelectItem>
                       {studentUsers.map(user => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.studentProfile?.fullName || user.username} ({user.email})
@@ -509,32 +508,32 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button onClick={assignHostelManager} disabled={isAssigningManager || !selectedHostelManager}>
+                  <Button onClick={assignHostelManager} disabled={isAssigningManager || !selectedHostelManager} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer">
                     {isAssigningManager ? <Loader2 className="w-4 h-4 animate-spin" /> : "Assign"}
                   </Button>
                 </div>
                 
                 <div className="mt-6">
-                  <h4 className="text-sm font-medium text-muted-foreground mb-3">Assignment History</h4>
+                  <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Assignment History</h4>
                   <div className="space-y-3">
                     {hostelManagers.map((assignment: any) => (
-                      <div key={assignment.id} className={`p-3 border rounded-lg flex justify-between items-center ${assignment.isActive ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'}`}>
+                      <div key={assignment.id} className={`p-4 border rounded-xl flex justify-between items-center ${assignment.isActive ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50/50 border-slate-100'}`}>
                         <div>
-                          <p className="font-medium">{assignment.user.studentProfile?.fullName || assignment.user.username}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-sm font-semibold text-slate-800">{assignment.user.studentProfile?.fullName || assignment.user.username}</p>
+                          <p className="text-xs text-slate-500">
                             Assigned: {new Date(assignment.assignedAt).toLocaleDateString()}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           {assignment.isActive ? (
                             <>
-                              <span className="text-xs font-semibold px-2 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full">
+                              <span className="text-xs font-bold px-2 py-0.5 bg-green-100 text-green-700 rounded-md border border-green-200 uppercase tracking-wider">
                                 Active
                               </span>
                               <Button
-                                variant="destructive"
+                                variant="outline"
                                 size="sm"
-                                className="h-6 text-xs px-2"
+                                className="h-7 text-xs px-2.5 border-red-200 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
                                 onClick={async () => {
                                   if (!confirm("Are you sure you want to remove this manager?")) return;
                                   try {
@@ -552,14 +551,14 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                             </>
                           ) : (
                             <>
-                              <span className="text-xs font-semibold px-2 py-1 bg-muted text-muted-foreground rounded-full">
+                              <span className="text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md border border-slate-200 uppercase tracking-wider">
                                 Inactive
                               </span>
                               {assignment.user.role === "HOSTEL_MANAGER" && (
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="h-6 text-xs px-2 border-amber-500 text-amber-600 hover:bg-amber-50"
+                                  className="h-7 text-xs px-2.5 border-amber-200 text-amber-600 hover:bg-amber-50 rounded-lg cursor-pointer"
                                   onClick={async () => {
                                     if (!confirm(`Downgrade ${assignment.user.studentProfile?.fullName || assignment.user.username} back to Student?`)) return;
                                     try {
@@ -572,7 +571,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                                     }
                                   }}
                                 >
-                                  Downgrade to Student
+                                  Downgrade
                                 </Button>
                               )}
                             </>
@@ -581,26 +580,30 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                       </div>
                     ))}
                     {hostelManagers.length === 0 && (
-                      <p className="text-sm text-muted-foreground italic">No managers assigned yet.</p>
+                      <p className="text-xs text-slate-400 italic">No managers assigned yet.</p>
                     )}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Monthly Manager Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Manager</CardTitle>
-                <CardDescription>Appoint a student to manage the mess for a specific month.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Month</Label>
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">Monthly Manager</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Appoint a student to manage the mess for a specific month.</p>
+                </div>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-600">Month</Label>
                     <Select value={selectedMonth.toString()} onValueChange={v => { if (v) setSelectedMonth(parseInt(v)) }}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Month" />
+                      <SelectTrigger className="bg-white border-slate-200 rounded-lg text-sm">
+                        <SelectValue placeholder="Month">
+                          {selectedMonth ? new Date(0, selectedMonth - 1).toLocaleString('default', { month: 'long' }) : null}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {Array.from({ length: 12 }).map((_, i) => (
@@ -609,11 +612,13 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Year</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-600">Year</Label>
                     <Select value={selectedYear.toString()} onValueChange={v => { if (v) setSelectedYear(parseInt(v)) }}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Year" />
+                      <SelectTrigger className="bg-white border-slate-200 rounded-lg text-sm">
+                        <SelectValue placeholder="Year">
+                          {selectedYear}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {[0, 1, 2].map(offset => {
@@ -627,7 +632,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                 
                 <div className="flex gap-2 pt-2">
                   <Select value={selectedMonthlyManager} onValueChange={(val) => { if (val) setSelectedMonthlyManager(val); }}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full bg-white border-slate-200 rounded-lg text-sm">
                       <SelectValue placeholder="Select student...">
                         {(() => {
                           if (!selectedMonthlyManager) return null;
@@ -644,34 +649,34 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button onClick={assignMonthlyManager} disabled={isAssigningManager || !selectedMonthlyManager}>
+                  <Button onClick={assignMonthlyManager} disabled={isAssigningManager || !selectedMonthlyManager} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer">
                     {isAssigningManager ? <Loader2 className="w-4 h-4 animate-spin" /> : "Assign"}
                   </Button>
                 </div>
 
                 <div className="mt-6">
-                  <h4 className="text-sm font-medium text-muted-foreground mb-3">Recent Sessions</h4>
+                  <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Recent Sessions</h4>
                   <div className="space-y-3">
                     {monthlyManagers.map((session: any) => (
-                      <div key={session.id} className="p-3 border rounded-lg flex justify-between items-center">
+                      <div key={session.id} className="p-4 border rounded-xl flex justify-between items-center bg-slate-50/50 border-slate-100">
                         <div>
-                          <p className="font-medium text-sm">
+                          <p className="text-sm font-bold text-slate-800">
                             {new Date(0, session.month - 1).toLocaleString('default', { month: 'long' })} {session.year}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            Manager: {session.user.studentProfile?.fullName || session.user.username}
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Manager: <span className="font-medium text-slate-700">{session.user.studentProfile?.fullName || session.user.username}</span>
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           {session.isActive ? (
                             <>
-                              <span className="text-xs font-semibold px-2 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full">
+                              <span className="text-xs font-bold px-2 py-0.5 bg-green-100 text-green-700 rounded-md border border-green-200 uppercase tracking-wider">
                                 Active
                               </span>
                               <Button
-                                variant="destructive"
+                                variant="outline"
                                 size="sm"
-                                className="h-6 text-xs px-2"
+                                className="h-7 text-xs px-2.5 border-red-200 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
                                 onClick={async () => {
                                   if (!confirm("Are you sure you want to remove this monthly manager?")) return;
                                   try {
@@ -689,13 +694,13 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                             </>
                           ) : (
                             <>
-                              <span className="text-xs font-semibold px-2 py-1 bg-muted text-muted-foreground rounded-full">
+                              <span className="text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md border border-slate-200 uppercase tracking-wider">
                                 Completed
                               </span>
                               <Button
-                                variant="destructive"
+                                variant="outline"
                                 size="sm"
-                                className="h-6 text-xs px-2"
+                                className="h-7 text-xs px-2.5 border-red-200 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
                                 onClick={async () => {
                                   if (!confirm("Are you sure you want to remove this monthly manager?")) return;
                                   try {
@@ -716,12 +721,12 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                       </div>
                     ))}
                     {monthlyManagers.length === 0 && (
-                      <p className="text-sm text-muted-foreground italic">No monthly managers appointed yet.</p>
+                      <p className="text-xs text-slate-400 italic">No monthly managers appointed yet.</p>
                     )}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
           </div>
         </TabsContent>
