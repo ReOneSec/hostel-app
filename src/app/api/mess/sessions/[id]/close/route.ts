@@ -60,10 +60,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       where: { messSessionId: sessionId }
     });
 
-    if (mealCounts.length === 0) {
-      return NextResponse.json({ error: "Cannot close session: No student meal counts entered." }, { status: 400 });
-    }
-
     const initialContributions = await prisma.messInitialContribution.findMany({
       where: { messSessionId: sessionId }
     });
@@ -80,15 +76,32 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       _sum: { amount: true }
     });
 
-    // 4. Map into calculator input format
-    const students = mealCounts.map(mc => {
-      const initial = initialContributions.filter(ic => ic.userId === mc.userId).reduce((acc, curr) => acc.plus(new Decimal(curr.amount.toString())), new Decimal(0));
-      const market = individualMarketExpenses.find(e => e.userId === mc.userId)?._sum.amount || 0;
-      const water = individualWaterExpenses.find(e => e.userId === mc.userId)?._sum.amount || 0;
+    const activeAssignments = await prisma.hostelAssignment.findMany({
+      where: { hostelId: messSession.hostelId, status: "ACTIVE" },
+      select: { userId: true }
+    });
+
+    const studentUserIds = new Set([
+      ...activeAssignments.map(a => a.userId),
+      ...mealCounts.map(mc => mc.userId),
+      ...individualMarketExpenses.map(e => e.userId),
+      ...individualWaterExpenses.map(e => e.userId),
+      ...initialContributions.map(c => c.userId)
+    ]);
+
+    if (studentUserIds.size === 0) {
+      return NextResponse.json({ error: "Cannot close session: No students found." }, { status: 400 });
+    }
+
+    const students = Array.from(studentUserIds).map(userId => {
+      const mc = mealCounts.find(m => m.userId === userId);
+      const initial = initialContributions.filter(ic => ic.userId === userId).reduce((acc, curr) => acc.plus(new Decimal(curr.amount.toString())), new Decimal(0));
+      const market = individualMarketExpenses.find(e => e.userId === userId)?._sum.amount || 0;
+      const water = individualWaterExpenses.find(e => e.userId === userId)?._sum.amount || 0;
       
       return {
-        userId: mc.userId,
-        mealCount: mc.mealCount,
+        userId: userId,
+        mealCount: mc ? mc.mealCount : 0,
         initialContribution: initial,
         marketSpending: new Decimal(market.toString()),
         waterSpending: new Decimal(water.toString()),

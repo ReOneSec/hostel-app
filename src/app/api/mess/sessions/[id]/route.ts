@@ -74,14 +74,29 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           return acc;
         }, {});
 
-        const students = mealCountsRaw.map(mc => {
-          const initial = initialContributionsRaw.filter(ic => ic.userId === mc.userId).reduce((acc, curr) => acc.plus(new Decimal(curr.amount.toString())), new Decimal(0));
+        const activeAssignments = await prisma.hostelAssignment.findMany({
+          where: { hostelId: messSession.hostelId, status: "ACTIVE" },
+          select: { userId: true }
+        });
+
+        const studentUserIds = new Set([
+          ...activeAssignments.map(a => a.userId),
+          ...mealCountsRaw.map(mc => mc.userId),
+          ...marketExpensesRaw.map(e => e.userId),
+          ...waterExpensesRaw.map(e => e.userId),
+          ...initialContributionsRaw.map(c => c.userId)
+        ]);
+
+        const students = Array.from(studentUserIds).map(userId => {
+          const mc = mealCountsRaw.find(m => m.userId === userId);
+          const mealCount = mc ? mc.mealCount : 0;
+          const initial = initialContributionsRaw.filter(ic => ic.userId === userId).reduce((acc, curr) => acc.plus(new Decimal(curr.amount.toString())), new Decimal(0));
           return {
-            userId: mc.userId,
-            mealCount: mc.mealCount,
+            userId: userId,
+            mealCount: mealCount,
             initialContribution: initial,
-            marketSpending: individualMarket[mc.userId] || new Decimal(0),
-            waterSpending: individualWater[mc.userId] || new Decimal(0),
+            marketSpending: individualMarket[userId] || new Decimal(0),
+            waterSpending: individualWater[userId] || new Decimal(0),
           };
         });
 

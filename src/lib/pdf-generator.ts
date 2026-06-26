@@ -440,7 +440,7 @@ export async function generateAdmissionFormPDF(user: any) {
   let verifiedDate = "Pending Verification";
   if (approvedDocs.length > 0) {
     const latestVerifiedDoc = [...approvedDocs].sort((a: any, b: any) => new Date(b.verifiedAt || b.uploadedAt || 0).getTime() - new Date(a.verifiedAt || a.uploadedAt || 0).getTime())[0];
-    verifierName = latestVerifiedDoc?.verifiedBy || "System Admin";
+    verifierName = latestVerifiedDoc?.verifierName || latestVerifiedDoc?.verifiedBy || "System Admin";
     const dateToUse = latestVerifiedDoc?.verifiedAt || latestVerifiedDoc?.uploadedAt;
     verifiedDate = dateToUse ? format(new Date(dateToUse), "dd MMM yyyy, HH:mm") : "Verified";
   }

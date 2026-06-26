@@ -123,8 +123,8 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
       setStats(statsData.data);
       setHostelManagers(hManagersData.data || []);
       setMonthlyManagers(mManagersData.data || []);
-      setStaffUsers(staffData.data || []);
-      setStudentUsers(studentsData.data || []);
+      setStaffUsers(Array.isArray(staffData.data) ? staffData.data : (staffData.data?.data || []));
+      setStudentUsers(Array.isArray(studentsData.data) ? studentsData.data : (studentsData.data?.data || []));
       resetSettings({
         name: hostelData.data.name,
         address: hostelData.data.address || "",

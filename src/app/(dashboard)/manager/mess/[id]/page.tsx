@@ -79,13 +79,17 @@ export default function MessSessionDetails() {
     }
   }
 
-  async function addExpense(e: React.FormEvent) {
+  async function addExpense(e: React.FormEvent, overrideType?: string) {
     e.preventDefault();
     try {
+      const payload = { ...expenseForm };
+      if (overrideType) {
+        payload.type = overrideType;
+      }
       const res = await fetch(`/api/mess/sessions/${sessionId}/expenses`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(expenseForm)
+        body: JSON.stringify(payload)
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
@@ -419,11 +423,7 @@ export default function MessSessionDetails() {
                     <div className="px-6 py-5 border-b border-slate-100">
                       <DialogTitle className="text-base font-bold text-slate-900">Add Initial Contribution</DialogTitle>
                     </div>
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      setExpenseForm(prev => ({...prev, type: "INITIAL_CONTRIBUTION"}));
-                      addExpense(e);
-                    }}>
+                    <form onSubmit={(e) => addExpense(e, "INITIAL_CONTRIBUTION")}>
                       <div className="px-6 py-5 space-y-4">
                         <div>
                           <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Student</Label>
@@ -583,82 +583,92 @@ export default function MessSessionDetails() {
           </TabsContent>
         )}
 
-        {!isClosed && data.session.liveEstimate && (
+        {!isClosed && (
           <TabsContent value="live-estimates" className="mt-0 space-y-6">
-            <div className="bg-indigo-50/50 rounded-xl border border-indigo-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-indigo-100/50 bg-indigo-50/80 flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-indigo-600" />
-                <div>
-                  <h3 className="text-base font-semibold text-indigo-900">Live Mess Rate Estimate</h3>
-                  <p className="text-xs text-indigo-700/70 mt-0.5">Mathematical breakdown of metrics based on data entered so far</p>
-                </div>
-              </div>
-              
-              <div className="p-5">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-                  <div className="bg-white rounded-lg border border-indigo-100/50 p-4 shadow-sm">
-                    <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Total Student Meals</p>
-                    <p className="text-2xl font-bold text-slate-800">{data.session.liveEstimate.totalStudentMeals}</p>
-                  </div>
-                  <div className="bg-indigo-600 rounded-lg border border-indigo-700 p-4 shadow-sm text-white">
-                    <p className="text-xs font-semibold text-indigo-200 uppercase tracking-wider mb-1">Est. Meal Cost</p>
-                    <p className="text-2xl font-bold">₹{parseFloat(data.session.liveEstimate.universalMealCharge).toFixed(2)}</p>
-                  </div>
-                  <div className="bg-white rounded-lg border border-indigo-100/50 p-4 shadow-sm">
-                    <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Fixed Overhead</p>
-                    <p className="text-2xl font-bold text-slate-800">₹{parseFloat(data.session.liveEstimate.perStudentCommonCharge).toFixed(2)}</p>
-                  </div>
-                  <div className="bg-white rounded-lg border border-indigo-100/50 p-4 shadow-sm">
-                    <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Total Consumables</p>
-                    <p className="text-2xl font-bold text-slate-800">₹{parseFloat(data.session.liveEstimate.totalMessCharge1).toLocaleString('en-IN')}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
-                <div>
-                  <h3 className="text-base font-semibold text-slate-800">Live Settlements Estimate</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">What each student owes or is owed right now</p>
-                </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <div className="min-w-[800px]">
-                  <div className="grid grid-cols-[1.5fr_1fr_1.5fr_1.5fr_1.5fr] px-5 py-3 border-b border-slate-100 bg-slate-50">
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</span>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">Meals</span>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Total Contributions</span>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Est. Liability</span>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Est. Net Settlement</span>
+            {data.liveEstimate ? (
+              <>
+                <div className="bg-indigo-50/50 rounded-xl border border-indigo-100 shadow-sm overflow-hidden">
+                  <div className="px-5 py-4 border-b border-indigo-100/50 bg-indigo-50/80 flex items-center gap-2">
+                    <Receipt className="w-5 h-5 text-indigo-600" />
+                    <div>
+                      <h3 className="text-base font-semibold text-indigo-900">Live Mess Rate Estimate</h3>
+                      <p className="text-xs text-indigo-700/70 mt-0.5">Mathematical breakdown of metrics based on data entered so far</p>
+                    </div>
                   </div>
                   
-                  {data.session.liveEstimate.settlements.map((s: any) => (
-                    <div key={s.userId} className="grid grid-cols-[1.5fr_1fr_1.5fr_1.5fr_1.5fr] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
-                      <span className="text-sm font-medium text-slate-800 truncate pr-2">
-                        {data.mealCounts?.find((x: any) => x.userId === s.userId)?.user?.fullName || "Student"}
-                      </span>
-                      <span className="text-sm font-semibold text-slate-700 text-center">{s.mealCount}</span>
-                      <span className="text-sm text-emerald-600 font-medium text-right">₹{parseFloat(s.totalContribution).toFixed(2)}</span>
-                      <span className="text-sm text-slate-600 text-right">₹{parseFloat(s.totalLiability).toFixed(2)}</span>
-                      <div className="flex justify-end">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-bold border uppercase tracking-wider ${
-                          parseFloat(s.netSettlement) > 0 
-                            ? "bg-red-50 text-red-700 border-red-200" 
-                            : "bg-green-50 text-green-700 border-green-200"
-                        }`}>
-                          {parseFloat(s.netSettlement) > 0 
-                            ? `Owes ₹${parseFloat(s.netSettlement).toFixed(2)}` 
-                            : `Refund ₹${Math.abs(parseFloat(s.netSettlement)).toFixed(2)}`}
-                        </span>
+                  <div className="p-5">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                      <div className="bg-white rounded-lg border border-indigo-100/50 p-4 shadow-sm">
+                        <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Total Student Meals</p>
+                        <p className="text-2xl font-bold text-slate-800">{data.liveEstimate.totalStudentMeals}</p>
+                      </div>
+                      <div className="bg-indigo-600 rounded-lg border border-indigo-700 p-4 shadow-sm text-white">
+                        <p className="text-xs font-semibold text-indigo-200 uppercase tracking-wider mb-1">Est. Meal Cost</p>
+                        <p className="text-2xl font-bold">₹{parseFloat(data.liveEstimate.universalMealCharge).toFixed(2)}</p>
+                      </div>
+                      <div className="bg-white rounded-lg border border-indigo-100/50 p-4 shadow-sm">
+                        <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Common Charge</p>
+                        <p className="text-2xl font-bold text-slate-800">₹{parseFloat(data.liveEstimate.perStudentCommonCharge).toFixed(2)}</p>
+                      </div>
+                      <div className="bg-white rounded-lg border border-indigo-100/50 p-4 shadow-sm">
+                        <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Total Consumables</p>
+                        <p className="text-2xl font-bold text-slate-800">₹{parseFloat(data.liveEstimate.totalMessCharge1).toLocaleString('en-IN')}</p>
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
+
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <h3 className="text-base font-semibold text-slate-800">Live Settlements Estimate</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">What each student owes or is owed right now</p>
+                    </div>
+                  </div>
+                  
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[800px]">
+                      <div className="grid grid-cols-[1.5fr_1fr_1.5fr_1.5fr_1.5fr] px-5 py-3 border-b border-slate-100 bg-slate-50">
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</span>
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">Meals</span>
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Total Contributions</span>
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Est. Liability</span>
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Est. Net Settlement</span>
+                      </div>
+                      
+                      {data.liveEstimate.settlements.map((s: any) => (
+                        <div key={s.userId} className="grid grid-cols-[1.5fr_1fr_1.5fr_1.5fr_1.5fr] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
+                          <span className="text-sm font-medium text-slate-800 truncate pr-2">
+                            {data.mealCounts?.find((x: any) => x.userId === s.userId)?.user?.fullName || "Student"}
+                          </span>
+                          <span className="text-sm font-semibold text-slate-700 text-center">{s.mealCount}</span>
+                          <span className="text-sm text-emerald-600 font-medium text-right">₹{parseFloat(s.totalContribution).toFixed(2)}</span>
+                          <span className="text-sm text-slate-600 text-right">₹{parseFloat(s.totalLiability).toFixed(2)}</span>
+                          <div className="flex justify-end">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-bold border uppercase tracking-wider ${
+                              parseFloat(s.netSettlement) > 0 
+                                ? "bg-red-50 text-red-700 border-red-200" 
+                                : "bg-green-50 text-green-700 border-green-200"
+                            }`}>
+                              {parseFloat(s.netSettlement) > 0 
+                                ? `Owes ₹${parseFloat(s.netSettlement).toFixed(2)}` 
+                                : `Refund ₹${Math.abs(parseFloat(s.netSettlement)).toFixed(2)}`}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="p-12 text-center text-sm text-slate-500 bg-white rounded-xl border border-slate-200 shadow-sm">
+                <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-3" />
+                <h3 className="text-base font-semibold text-slate-800">Cannot calculate live estimate</h3>
+                <p className="mt-1">Please ensure that the <strong>Mess Config</strong> (salaries & rates) is configured for this hostel in the admin settings, and that there is at least one active student assigned to the hostel.</p>
               </div>
-            </div>
+            )}
           </TabsContent>
         )}
       </Tabs>
