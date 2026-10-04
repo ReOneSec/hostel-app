@@ -12,7 +12,8 @@ import {
   Plus, 
   Loader2, 
   User,
-  Trash2
+  Trash2,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,20 +36,37 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CardGridSkeleton } from "@/components/skeletons/page-skeletons";
 
 const createBedSchema = z.object({
   bedLabel: z.string().min(1, "Bed label is required"),
 });
 
+const updateRoomSchema = z.object({
+  roomNumber: z.string().min(1, "Room name is required"),
+  type: z.enum(["SINGLE", "DOUBLE", "TRIPLE", "DORMITORY"]),
+});
+
 type CreateBedFormData = z.infer<typeof createBedSchema>;
+type UpdateRoomFormData = z.infer<typeof updateRoomSchema>;
 
 export default function RoomBedsPage({ params }: { params: Promise<{ id: string; roomId: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  const [room, setRoom] = useState<any>(null);
   const [beds, setBeds] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
   const [isCreatingBed, setIsCreatingBed] = useState(false);
+  const [isUpdatingRoom, setIsUpdatingRoom] = useState(false);
 
   const {
     register,
@@ -59,20 +77,66 @@ export default function RoomBedsPage({ params }: { params: Promise<{ id: string;
     resolver: zodResolver(createBedSchema),
   });
 
+  const {
+    register: registerRoom,
+    handleSubmit: handleSubmitRoom,
+    setValue: setRoomValue,
+    watch: watchRoom,
+    reset: resetRoom,
+    formState: { errors: roomErrors },
+  } = useForm<UpdateRoomFormData>({
+    resolver: zodResolver(updateRoomSchema),
+  });
+
   useEffect(() => {
     fetchBeds();
   }, []);
 
   async function fetchBeds() {
     try {
-      const res = await fetch(`/api/hostels/${resolvedParams.id}/rooms/${resolvedParams.roomId}/beds`);
-      if (!res.ok) throw new Error("Failed to fetch beds");
-      const { data } = await res.json();
-      setBeds(data);
+      const [roomRes, bedsRes] = await Promise.all([
+        fetch(`/api/hostels/${resolvedParams.id}/rooms/${resolvedParams.roomId}`),
+        fetch(`/api/hostels/${resolvedParams.id}/rooms/${resolvedParams.roomId}/beds`)
+      ]);
+      
+      if (!roomRes.ok) throw new Error("Failed to fetch room");
+      if (!bedsRes.ok) throw new Error("Failed to fetch beds");
+      
+      const roomJson = await roomRes.json();
+      const bedsJson = await bedsRes.json();
+      
+      setRoom(roomJson.data);
+      setBeds(bedsJson.data);
+      
+      resetRoom({
+        roomNumber: roomJson.data.roomNumber,
+        type: roomJson.data.roomType,
+      });
     } catch (error) {
-      toast.error("Could not load beds");
+      toast.error("Could not load data");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function onSubmitUpdateRoom(data: UpdateRoomFormData) {
+    setIsUpdatingRoom(true);
+    try {
+      const res = await fetch(`/api/hostels/${resolvedParams.id}/rooms/${resolvedParams.roomId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      
+      toast.success("Room updated successfully!");
+      setIsEditRoomOpen(false);
+      fetchBeds(); // Refresh data
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update room");
+    } finally {
+      setIsUpdatingRoom(false);
     }
   }
 
@@ -98,8 +162,23 @@ export default function RoomBedsPage({ params }: { params: Promise<{ id: string;
     }
   }
 
+  async function deleteBed(bedId: string) {
+    if (!confirm("Are you sure you want to remove this bed?")) return;
+    try {
+      const res = await fetch(`/api/hostels/${resolvedParams.id}/rooms/${resolvedParams.roomId}/beds/${bedId}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      toast.success("Bed removed successfully!");
+      fetchBeds();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to remove bed");
+    }
+  }
+
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return <CardGridSkeleton cards={4} />;
   }
 
   return (
@@ -111,18 +190,62 @@ export default function RoomBedsPage({ params }: { params: Promise<{ id: string;
           </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-              Room Configuration
+              Room {room?.roomNumber || "Configuration"}
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              Manage beds and view current occupants.
+              Manage beds and view current occupants in this room.
             </p>
           </div>
         </div>
 
-        <Button onClick={() => setIsDialogOpen(true)} className="cursor-pointer shadow-lg shadow-primary/20">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Bed
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setIsEditRoomOpen(true)}>
+            <Settings className="w-4 h-4 mr-2" />
+            Settings
+          </Button>
+          <Button onClick={() => setIsDialogOpen(true)} className="cursor-pointer shadow-lg shadow-primary/20">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Bed
+          </Button>
+        </div>
+        
+        <Dialog open={isEditRoomOpen} onOpenChange={setIsEditRoomOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Room</DialogTitle>
+              <DialogDescription>
+                Update the room's name and type.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmitRoom(onSubmitUpdateRoom)} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="roomNumber">Room Name/Number *</Label>
+                <Input id="roomNumber" {...registerRoom("roomNumber")} />
+                {roomErrors.roomNumber && <p className="text-xs text-destructive">{roomErrors.roomNumber.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="type">Room Type *</Label>
+                <Select value={watchRoom("type")} onValueChange={(v: any) => setRoomValue("type", v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SINGLE">Single</SelectItem>
+                    <SelectItem value="DOUBLE">Double</SelectItem>
+                    <SelectItem value="TRIPLE">Triple</SelectItem>
+                    <SelectItem value="DORMITORY">Dormitory</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter className="pt-4">
+                <Button type="submit" disabled={isUpdatingRoom} className="w-full">
+                  {isUpdatingRoom ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -201,7 +324,12 @@ export default function RoomBedsPage({ params }: { params: Promise<{ id: string;
                 </CardContent>
                 {!isOccupied && (
                   <CardFooter className="p-4 pt-0 justify-end">
-                    <Button variant="ghost" size="sm" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                      onClick={() => deleteBed(bed.id)}
+                    >
                       <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                       Remove
                     </Button>

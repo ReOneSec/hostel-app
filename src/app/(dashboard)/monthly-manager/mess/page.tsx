@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, ArrowRight, BookOpen, Plus, Calendar, FileText, Users, UtensilsCrossed } from "lucide-react";
+import { MessPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 
@@ -84,12 +85,7 @@ export default function MonthlyManagerMessDashboard() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <p className="text-sm text-slate-400 mt-3">Loading mess sessions…</p>
-      </div>
-    );
+    return <MessPageSkeleton />;
   }
 
   return (

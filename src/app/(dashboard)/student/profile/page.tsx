@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/use-auth";
+import { ProfilePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,12 +88,7 @@ export default function StudentProfilePage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 bg-white rounded-xl border border-slate-200 shadow-sm">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" />
-        <p className="text-sm text-slate-400 font-medium">Loading your profile...</p>
-      </div>
-    );
+    return <ProfilePageSkeleton />;
   }
 
   const profile = userData?.studentProfile;

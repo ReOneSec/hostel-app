@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   CheckCircle2
 } from "lucide-react";
+import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
@@ -129,10 +130,7 @@ export default function DocumentVerificationPage() {
 
         <div className="p-0">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-              <Loader2 className="h-8 w-8 animate-spin mb-3 text-blue-600" />
-              <p className="text-sm">Loading documents...</p>
-            </div>
+            <TablePageSkeleton />
           ) : filteredDocs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center px-4">
               <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center mb-4">
@@ -146,7 +144,7 @@ export default function DocumentVerificationPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-5 bg-slate-50/50">
               {filteredDocs.map((doc) => (
-                <div key={doc.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group">
+                <div key={doc.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group min-w-0">
                   <div className="aspect-video w-full bg-slate-100 relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
@@ -166,9 +164,9 @@ export default function DocumentVerificationPage() {
                       </a>
                     </div>
                   </div>
-                  <div className="p-4 space-y-4 flex-1 flex flex-col">
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-1">
+                  <div className="p-4 space-y-4 flex-1 flex flex-col min-w-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-1 min-w-0">
                         <h4 className="font-semibold text-slate-900 truncate pr-2 text-sm">
                           {doc.user?.studentProfile?.fullName || doc.user?.username || "Unknown Student"}
                         </h4>
@@ -176,8 +174,8 @@ export default function DocumentVerificationPage() {
                           {doc.documentType}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-1.5">
-                        <FileText className="w-3.5 h-3.5" />
+                      <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-1.5 truncate">
+                        <FileText className="w-3.5 h-3.5 shrink-0" />
                         Uploaded {format(new Date(doc.uploadedAt), "MMM d, yy 'at' HH:mm")}
                       </p>
                     </div>

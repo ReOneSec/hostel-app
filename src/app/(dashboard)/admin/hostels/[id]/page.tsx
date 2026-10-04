@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -15,7 +15,8 @@ import {
   Users, 
   Plus, 
   Loader2, 
-  Settings
+  Settings,
+  Pencil
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { DetailPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { Progress } from "@/components/ui/progress";
 
 const createRoomSchema = z.object({
@@ -52,6 +54,12 @@ const createRoomSchema = z.object({
 });
 
 type CreateRoomFormData = z.infer<typeof createRoomSchema>;
+
+const updateRoomSchema = z.object({
+  roomNumber: z.string().min(1, "Room number is required"),
+  type: z.enum(["SINGLE", "DOUBLE", "TRIPLE", "DORMITORY"]),
+});
+type UpdateRoomFormData = z.infer<typeof updateRoomSchema>;
 
 export default function HostelDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -68,6 +76,9 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isUpdatingHostel, setIsUpdatingHostel] = useState(false);
   const [isAssigningManager, setIsAssigningManager] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<any>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isUpdatingRoom, setIsUpdatingRoom] = useState(false);
 
   const {
     register,
@@ -79,6 +90,18 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
   } = useForm<CreateRoomFormData>({
     resolver: zodResolver(createRoomSchema),
     defaultValues: { type: "DOUBLE", floor: 1 }
+  });
+
+  const {
+    register: registerEditRoom,
+    handleSubmit: handleSubmitEditRoom,
+    reset: resetEditRoom,
+    setValue: setEditRoomValue,
+    watch: watchEditRoom,
+    formState: { errors: errorsEditRoom },
+  } = useForm<UpdateRoomFormData>({
+    resolver: zodResolver(updateRoomSchema),
+    defaultValues: { type: "DOUBLE" }
   });
 
   const {
@@ -160,6 +183,29 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
     }
   }
 
+  async function onSubmitEditRoom(data: UpdateRoomFormData) {
+    setIsUpdatingRoom(true);
+    try {
+      const res = await fetch(`/api/hostels/${resolvedParams.id}/rooms/${editingRoom.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      
+      toast.success("Room updated successfully!");
+      setIsEditDialogOpen(false);
+      setEditingRoom(null);
+      resetEditRoom();
+      fetchData(); // Refresh list
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update room");
+    } finally {
+      setIsUpdatingRoom(false);
+    }
+  }
+
   async function onSubmitSettings(data: any) {
     setIsUpdatingHostel(true);
     try {
@@ -232,8 +278,95 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
     }
   }
 
+  const { groupedRooms, otherRooms } = useMemo(() => {
+    if (!hostel?.rooms) return { groupedRooms: [], otherRooms: [] };
+    const floorMap: Record<number, { floorName: string, left: any[], right: any[] }> = {};
+    const other: any[] = [];
+
+    hostel.rooms.forEach((room: any) => {
+      const match = room.roomNumber.trim().match(/^([LR])(\d)(\d+)$/i);
+      if (match) {
+        const side = match[1].toUpperCase();
+        const floorNum = parseInt(match[2], 10);
+        
+        if (!floorMap[floorNum]) {
+          let floorName = `${floorNum}th Floor`;
+          if (floorNum === 0) floorName = 'Ground Floor';
+          else if (floorNum === 1) floorName = '1st Floor';
+          else if (floorNum === 2) floorName = '2nd Floor';
+          else if (floorNum === 3) floorName = '3rd Floor';
+          
+          floorMap[floorNum] = { floorName, left: [], right: [] };
+        }
+        
+        if (side === 'L') {
+          floorMap[floorNum].left.push(room);
+        } else {
+          floorMap[floorNum].right.push(room);
+        }
+      } else {
+        other.push(room);
+      }
+    });
+
+    const sortedGroups = Object.keys(floorMap)
+      .map(k => parseInt(k, 10))
+      .sort((a, b) => a - b)
+      .map(k => {
+        floorMap[k].left.sort((a, b) => a.roomNumber.localeCompare(b.roomNumber));
+        floorMap[k].right.sort((a, b) => a.roomNumber.localeCompare(b.roomNumber));
+        return floorMap[k];
+      });
+
+    return { groupedRooms: sortedGroups, otherRooms: other };
+  }, [hostel?.rooms]);
+
+  const renderRoomCard = (room: any) => (
+    <Link key={room.id} href={`/admin/hostels/${hostel.id}/rooms/${room.id}/beds`} className="block h-full">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden hover:shadow-md hover:border-blue-300 transition-all cursor-pointer h-full group flex flex-col">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+            Room {room.roomNumber}
+          </h3>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setEditingRoom(room);
+                setEditRoomValue("roomNumber", room.roomNumber);
+                setEditRoomValue("type", room.type);
+                setIsEditDialogOpen(true);
+              }}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+            <span className="text-xs font-semibold px-2 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200 uppercase tracking-wider">
+              {room.type}
+            </span>
+          </div>
+        </div>
+        <div className="p-5 flex-1 flex flex-col justify-end">
+          <div className="flex items-center gap-4 text-sm text-slate-500">
+            <div className="flex items-center gap-1.5">
+              <Building2 className="w-4 h-4 text-slate-400" />
+              Floor {room.floor || "-"}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <BedDouble className="w-4 h-4 text-slate-400" />
+              {room._count?.beds || 0} Beds
+            </div>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+
   if (isLoading) {
-    return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
+    return <DetailPageSkeleton />;
   }
 
   if (!hostel) {
@@ -325,7 +458,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="type">Room Type *</Label>
-                    <Select defaultValue="DOUBLE" onValueChange={(v: any) => setValue("type", v)}>
+                    <Select value={watch("type") || "DOUBLE"} onValueChange={(v: any) => setValue("type", v)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select type">
                           {watch("type") === "SINGLE" ? "Single" :
@@ -438,36 +571,130 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {hostel.rooms.map((room: any) => (
-              <Link key={room.id} href={`/admin/hostels/${hostel.id}/rooms/${room.id}/beds`} className="block">
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden hover:shadow-md hover:border-blue-300 transition-all cursor-pointer h-full group">
-                  <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                    <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                      Room {room.roomNumber}
-                    </h3>
-                    <span className="text-xs font-semibold px-2 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200 uppercase tracking-wider">
-                      {room.type}
-                    </span>
+          <div className="space-y-10">
+            {groupedRooms.map((group) => (
+              <div key={group.floorName} className="space-y-4">
+                <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700">
+                    <Building2 className="w-4 h-4" />
                   </div>
-                  <div className="p-5">
-                    <div className="flex items-center gap-4 text-sm text-slate-500">
-                      <div className="flex items-center gap-1.5">
-                        <Building2 className="w-4 h-4 text-slate-400" />
-                        Floor {room.floor || "-"}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <BedDouble className="w-4 h-4 text-slate-400" />
-                        {room._count.beds} Beds
-                      </div>
+                  <h3 className="text-xl font-bold text-slate-800">{group.floorName}</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
+                  {/* Left Wing */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm"></div>
+                      <h4 className="text-sm font-bold text-slate-600 uppercase tracking-wider">
+                        Left Side
+                      </h4>
+                      <div className="h-px bg-slate-200 flex-1 ml-2"></div>
                     </div>
+                    {group.left.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {group.left.map(room => renderRoomCard(room))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-400 italic py-4 text-center bg-white/50 rounded-xl border border-dashed border-slate-200">No rooms on the left side</div>
+                    )}
+                  </div>
+                  
+                  {/* Right Wing */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-sm"></div>
+                      <h4 className="text-sm font-bold text-slate-600 uppercase tracking-wider">
+                        Right Side
+                      </h4>
+                      <div className="h-px bg-slate-200 flex-1 ml-2"></div>
+                    </div>
+                    {group.right.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {group.right.map(room => renderRoomCard(room))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-400 italic py-4 text-center bg-white/50 rounded-xl border border-dashed border-slate-200">No rooms on the right side</div>
+                    )}
                   </div>
                 </div>
-              </Link>
+              </div>
             ))}
+
+            {otherRooms.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800">Other Rooms</h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                  {otherRooms.map(room => renderRoomCard(room))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Room Details</DialogTitle>
+            <DialogDescription>
+              Update the room number and type.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmitEditRoom(onSubmitEditRoom)} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-roomNumber">Room Number/Name</Label>
+              <Input
+                id="edit-roomNumber"
+                placeholder="e.g., 101, A1, Ground-1"
+                {...registerEditRoom("roomNumber")}
+              />
+              {errorsEditRoom.roomNumber && (
+                <p className="text-sm text-red-500">{errorsEditRoom.roomNumber.message}</p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Room Type</Label>
+              <Select 
+                value={watchEditRoom("type") || "DOUBLE"} 
+                onValueChange={(val: any) => setEditRoomValue("type", val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select room type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SINGLE">Single Bed</SelectItem>
+                  <SelectItem value="DOUBLE">Double Bed</SelectItem>
+                  <SelectItem value="TRIPLE">Triple Bed</SelectItem>
+                  <SelectItem value="DORMITORY">Dormitory</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isUpdatingRoom} className="bg-blue-600 hover:bg-blue-700">
+                {isUpdatingRoom ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
         </TabsContent>
 
         <TabsContent value="managers" className="space-y-6">
@@ -483,7 +710,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
               </div>
               <div className="p-5 space-y-4">
                 <div className="flex gap-2">
-                  <Select value={selectedHostelManager} onValueChange={(val) => { if (val) setSelectedHostelManager(val); }}>
+                  <Select value={selectedHostelManager || ""} onValueChange={(val) => { if (val) setSelectedHostelManager(val); }}>
                     <SelectTrigger className="w-full bg-white border-slate-200 rounded-lg text-sm">
                       <SelectValue placeholder="Select staff or student...">
                         {(() => {
@@ -631,7 +858,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                 </div>
                 
                 <div className="flex gap-2 pt-2">
-                  <Select value={selectedMonthlyManager} onValueChange={(val) => { if (val) setSelectedMonthlyManager(val); }}>
+                  <Select value={selectedMonthlyManager || ""} onValueChange={(val) => { if (val) setSelectedMonthlyManager(val); }}>
                     <SelectTrigger className="w-full bg-white border-slate-200 rounded-lg text-sm">
                       <SelectValue placeholder="Select student...">
                         {(() => {

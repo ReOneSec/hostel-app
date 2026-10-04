@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import Link from "next/link";
 import { Building2, CreditCard, UtensilsCrossed, Users, Loader2, ArrowRight } from "lucide-react";
 
@@ -142,10 +143,7 @@ export default function ReportsHubPage() {
 
       {/* Report Cards */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <p className="text-sm text-slate-400 mt-3">Loading reports overview…</p>
-        </div>
+        <TablePageSkeleton />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {reports.map((report) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,10 +108,7 @@ export default function StudentsReportPage() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <p className="text-sm text-slate-400 mt-3">Loading student data…</p>
-        </div>
+        <TablePageSkeleton />
       ) : !data ? (
         <div className="flex flex-col items-center justify-center py-20">
           <p className="text-sm text-slate-500">Failed to load data.</p>

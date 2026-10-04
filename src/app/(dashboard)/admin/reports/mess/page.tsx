@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -120,10 +121,7 @@ export default function MessReportPage() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <p className="text-sm text-slate-400 mt-3">Loading mess data…</p>
-        </div>
+        <TablePageSkeleton />
       ) : !data || data.sessions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mb-4">

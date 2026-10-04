@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -146,10 +147,7 @@ export default function DocumentVerificationPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            <p className="text-xs text-slate-400 mt-3">Loading documents…</p>
-          </div>
+          <TablePageSkeleton />
         ) : documents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
             <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
@@ -164,17 +162,17 @@ export default function DocumentVerificationPage() {
           <>
             {/* Desktop Table */}
             <div className="hidden md:block">
-              <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_auto] px-5 py-3 border-b border-slate-100 bg-slate-50">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</span>
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Document Type</span>
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Uploaded</span>
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</span>
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</span>
+              <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-slate-100 bg-slate-50 items-center">
+                <span className="col-span-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</span>
+                <span className="col-span-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Document Type</span>
+                <span className="col-span-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Uploaded</span>
+                <span className="col-span-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</span>
+                <span className="col-span-2 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</span>
               </div>
               {documents.map((doc) => (
-                <div key={doc.id} className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_auto] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/70 transition-colors items-center">
+                <div key={doc.id} className="grid grid-cols-12 gap-4 px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/70 transition-colors items-center">
                   {/* Student */}
-                  <div className="flex items-center gap-2.5">
+                  <div className="col-span-3 flex items-center gap-2.5 min-w-0">
                     <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
                       {(doc.user.studentProfile?.fullName || doc.user.username).substring(0, 2).toUpperCase()}
                     </div>
@@ -187,10 +185,10 @@ export default function DocumentVerificationPage() {
                   </div>
 
                   {/* Document Type */}
-                  <div>
-                    <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-slate-400" />
-                      {doc.documentType}
+                  <div className="col-span-3 min-w-0">
+                    <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5 truncate">
+                      <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">{doc.documentType}</span>
                     </p>
                     <p className="text-xs text-slate-400 mt-0.5 ml-5">
                       {(doc.fileSize / 1024 / 1024).toFixed(2)} MB
@@ -198,18 +196,18 @@ export default function DocumentVerificationPage() {
                   </div>
 
                   {/* Uploaded */}
-                  <p className="text-sm text-slate-600 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    {format(new Date(doc.uploadedAt), "MMM d, yyyy")}
+                  <p className="col-span-2 text-sm text-slate-600 flex items-center gap-1.5 min-w-0 truncate">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="truncate">{format(new Date(doc.uploadedAt), "MMM d, yyyy")}</span>
                   </p>
 
                   {/* Status */}
-                  <div>
+                  <div className="col-span-2 min-w-0">
                     <DocumentStatusBadge status={doc.status} />
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-1.5 justify-end">
+                  <div className="col-span-2 flex items-center gap-1.5 justify-end">
                     <Button
                       variant="ghost"
                       size="sm"

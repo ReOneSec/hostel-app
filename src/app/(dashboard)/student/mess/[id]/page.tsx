@@ -6,6 +6,7 @@ import { useSession } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft, Receipt, Plus, Users, Calendar, ArrowDownToLine, ArrowUpFromLine, User, CheckCircle2 } from "lucide-react";
+import { DetailPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -90,12 +91,7 @@ export default function StudentMessSessionDetails() {
     }
   }
 
-  if (isLoading) return (
-    <div className="flex flex-col items-center justify-center h-[60vh]">
-      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      <p className="text-sm text-slate-400 mt-3">Loading session details…</p>
-    </div>
-  );
+  if (isLoading) return <DetailPageSkeleton />;
   if (!data) return <div className="flex justify-center items-center h-[60vh] text-slate-500">Session not found</div>;
 
   const isClosed = data.session.status === "CLOSED";

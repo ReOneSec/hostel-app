@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -147,10 +148,7 @@ export default function PaymentVerificationPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            <p className="text-xs text-slate-400 mt-3">Loading payments…</p>
-          </div>
+          <TablePageSkeleton />
         ) : payments.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
             <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mb-4">

@@ -24,48 +24,47 @@ export async function getHostelsForUser(session: Session) {
 }
 
 export async function getBillingConfig(hostelId: string) {
-  const rentConfigs = await prisma.rentConfig.findMany({
-    where: { hostelId, effectiveTo: null },
-    include: {
-      user: {
-        select: { id: true, username: true, studentProfile: { select: { fullName: true } } }
+  // Run all 5 independent queries in parallel
+  const [rentConfigs, establishmentFees, bedFees, activeStudents, rooms] = await Promise.all([
+    prisma.rentConfig.findMany({
+      where: { hostelId, effectiveTo: null },
+      include: {
+        user: {
+          select: { id: true, username: true, studentProfile: { select: { fullName: true } } }
+        }
       }
-    }
-  });
-
-  const establishmentFees = await prisma.establishmentFee.findMany({
-    where: { hostelId, effectiveTo: null }
-  });
-
-  const bedFees = await prisma.bedFee.findMany({
-    where: { hostelId, effectiveTo: null },
-    include: {
-      room: { select: { roomNumber: true } },
-      bed: { select: { bedLabel: true } }
-    }
-  });
-
-  const activeStudents = await prisma.hostelAssignment.findMany({
-    where: { hostelId, status: "ACTIVE" },
-    include: {
-      user: {
-        select: {
-          id: true,
-          username: true,
-          studentProfile: { select: { fullName: true } },
-          bedAssignments: {
-            where: { status: "ACTIVE" },
-            include: { bed: { include: { room: true } } }
+    }),
+    prisma.establishmentFee.findMany({
+      where: { hostelId, effectiveTo: null }
+    }),
+    prisma.bedFee.findMany({
+      where: { hostelId, effectiveTo: null },
+      include: {
+        room: { select: { roomNumber: true } },
+        bed: { select: { bedLabel: true } }
+      }
+    }),
+    prisma.hostelAssignment.findMany({
+      where: { hostelId, status: "ACTIVE" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            studentProfile: { select: { fullName: true } },
+            bedAssignments: {
+              where: { status: "ACTIVE" },
+              include: { bed: { include: { room: true } } }
+            }
           }
         }
       }
-    }
-  });
-
-  const rooms = await prisma.room.findMany({
-    where: { hostelId, isActive: true },
-    include: { beds: { where: { isActive: true } } }
-  });
+    }),
+    prisma.room.findMany({
+      where: { hostelId, isActive: true },
+      include: { beds: { where: { isActive: true } } }
+    })
+  ]);
 
   return {
     rentConfigs,
@@ -77,23 +76,29 @@ export async function getBillingConfig(hostelId: string) {
 }
 
 export async function getBillingRegister(hostelId: string, year: number) {
-  const assignments = await prisma.hostelAssignment.findMany({
-    where: { hostelId },
-    include: {
-      user: {
-        select: {
-          id: true,
-          username: true,
-          studentProfile: { select: { fullName: true } },
-          bedAssignments: {
-            where: { status: "ACTIVE" },
-            include: { bed: { include: { room: true } } }
+  // Fetch assignments and rent configs in parallel
+  const [assignments, allRentConfigs] = await Promise.all([
+    prisma.hostelAssignment.findMany({
+      where: { hostelId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            studentProfile: { select: { fullName: true } },
+            bedAssignments: {
+              where: { status: "ACTIVE" },
+              include: { bed: { include: { room: true } } }
+            }
           }
         }
-      }
-    },
-    orderBy: { assignedAt: 'asc' }
-  });
+      },
+      orderBy: { assignedAt: 'asc' }
+    }),
+    prisma.rentConfig.findMany({
+      where: { hostelId, effectiveTo: null }
+    })
+  ]);
 
   type UserRegisterData = {
     id: string;
@@ -135,14 +140,15 @@ export async function getBillingRegister(hostelId: string, year: number) {
 
   const userIds = Array.from(usersMap.keys());
 
-  const rentConfigs = await prisma.rentConfig.findMany({
-    where: { hostelId, userId: { in: userIds }, effectiveTo: null }
-  });
+  // Build rent map from already-fetched data (filter in JS, not another query)
   const rentMap = new Map<string, number>();
-  for (const r of rentConfigs) {
-    rentMap.set(r.userId, Number(r.amount));
+  for (const r of allRentConfigs) {
+    if (userIds.includes(r.userId)) {
+      rentMap.set(r.userId, Number(r.amount));
+    }
   }
 
+  // Only need bills query now (rent configs already fetched above)
   const allBills = await prisma.bill.findMany({
     where: { hostelId, userId: { in: userIds } }
   });
@@ -154,12 +160,14 @@ export async function getBillingRegister(hostelId: string, year: number) {
 
     const bedFeeBill = yearBills.find(b => Number(b.bedFee) > 0);
     const bedFee = {
+      id: bedFeeBill ? bedFeeBill.id : null,
       amount: bedFeeBill ? Number(bedFeeBill.bedFee) : 0,
       status: bedFeeBill ? bedFeeBill.status : "NOT_BILLED"
     };
 
     const estFeeBill = userBills.find(b => Number(b.establishmentFee) > 0);
     const estFee = {
+      id: estFeeBill ? estFeeBill.id : null,
       amount: estFeeBill ? Number(estFeeBill.establishmentFee) : 0,
       status: estFeeBill ? estFeeBill.status : "NOT_BILLED"
     };
@@ -169,6 +177,7 @@ export async function getBillingRegister(hostelId: string, year: number) {
       const b = yearBills.find(x => x.month === m);
       if (b) {
         monthly[m] = {
+          id: b.id,
           amount: Number(b.rentAmount),
           totalAmount: Number(b.totalAmount),
           status: b.status

@@ -11,6 +11,7 @@ import {
   Loader2, Plus, ArrowLeft, Calendar, User, 
   CheckCircle2, AlertTriangle, AlertCircle, TrendingUp, TrendingDown, RefreshCcw, HandCoins, Receipt, FileText, Settings, ArrowDownToLine, ArrowUpFromLine, CheckCircle
 } from "lucide-react";
+import { DetailPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -167,12 +168,7 @@ export default function MessSessionDetails() {
     }
   }
 
-  if (isLoading) return (
-    <div className="flex flex-col items-center justify-center h-[60vh]">
-      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      <p className="text-sm text-slate-400 mt-3">Loading session details…</p>
-    </div>
-  );
+  if (isLoading) return <DetailPageSkeleton />;
   if (!data) return <div className="flex justify-center items-center h-[60vh] text-slate-500">Session not found</div>;
 
   const isClosed = data.session.status === "CLOSED";

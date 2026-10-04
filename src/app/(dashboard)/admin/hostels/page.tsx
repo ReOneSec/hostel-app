@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { CardGridSkeleton } from "@/components/skeletons/page-skeletons";
 
 const createHostelSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -133,21 +134,7 @@ export default function AdminHostelsPage() {
 
       {/* Content */}
       {isLoading ? (
-        /* Skeleton Loader */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 animate-pulse">
-              <div className="h-5 bg-slate-200 rounded w-2/3 mb-3" />
-              <div className="h-3 bg-slate-100 rounded w-1/2 mb-6" />
-              <div className="grid grid-cols-2 gap-4">
-                <div className="h-16 bg-slate-100 rounded-lg" />
-                <div className="h-16 bg-slate-100 rounded-lg" />
-              </div>
-              <div className="h-4 bg-slate-100 rounded w-full mt-4" />
-              <div className="h-9 bg-slate-100 rounded-lg w-full mt-4" />
-            </div>
-          ))}
-        </div>
+        <CardGridSkeleton cards={3} />
       ) : filteredHostels.length === 0 ? (
         /* Empty State */
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">

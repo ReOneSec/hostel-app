@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { format } from "date-fns";
 import {
   Activity,
@@ -66,7 +67,7 @@ const COMMON_ACTIONS = [
   "ACCOUNT_PASSWORD_RESET"
 ];
 
-function ActionBadge({ action }: { action: string }) {
+function ActionBadge({ action, className: customClassName = "" }: { action: string, className?: string }) {
   let className = "bg-slate-100 text-slate-700 border-slate-200";
   if (action.includes("CREATED") || action.includes("APPROVED") || action.includes("ACTIVATED")) {
     className = "bg-green-50 text-green-700 border-green-200";
@@ -79,7 +80,7 @@ function ActionBadge({ action }: { action: string }) {
   }
 
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium border uppercase tracking-wider ${className}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium border uppercase tracking-wider ${className} ${customClassName}`}>
       {action}
     </span>
   );
@@ -179,10 +180,7 @@ export default function AuditLogsPage() {
 
         {/* Table/List View */}
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            <p className="text-xs text-slate-400 mt-3">Loading logs…</p>
-          </div>
+          <TablePageSkeleton />
         ) : filteredLogs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
             <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
@@ -288,7 +286,7 @@ export default function AuditLogsPage() {
 
       {/* Details Dialog */}
       <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
-        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-2xl w-full p-0 overflow-hidden">
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-5xl sm:max-w-5xl w-full p-0 overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100">
             <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
               <ShieldAlert className="w-4 h-4 text-blue-600" />
@@ -305,7 +303,7 @@ export default function AuditLogsPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50/50">
                 <div>
                   <p className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">Actor</p>
-                  <p className="text-sm font-medium text-slate-800 truncate" title={selectedLog.user?.email}>
+                  <p className="text-sm font-medium text-slate-800 break-words" title={selectedLog.user?.email}>
                     {selectedLog.user?.username}
                   </p>
                 </div>
@@ -315,7 +313,7 @@ export default function AuditLogsPage() {
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">Action</p>
-                  <ActionBadge action={selectedLog.action} />
+                  <ActionBadge action={selectedLog.action} className="whitespace-normal break-all" />
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">IP Address</p>
@@ -327,7 +325,7 @@ export default function AuditLogsPage() {
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-1">Entity ID</p>
-                  <p className="text-sm font-mono text-slate-500 truncate" title={selectedLog.entityId || ""}>{selectedLog.entityId || "N/A"}</p>
+                  <p className="text-sm font-mono text-slate-500 break-all" title={selectedLog.entityId || ""}>{selectedLog.entityId || "N/A"}</p>
                 </div>
               </div>
 
@@ -339,8 +337,8 @@ export default function AuditLogsPage() {
                       <div className="w-2 h-2 rounded-full bg-red-400" />
                       Previous Values
                     </h3>
-                    <div className="bg-red-50 text-red-800 p-3 rounded-lg border border-red-100 overflow-x-auto text-xs font-mono leading-relaxed">
-                      <pre>{JSON.stringify(selectedLog.oldValues, null, 2)}</pre>
+                    <div className="bg-red-50 text-red-800 p-3 rounded-lg border border-red-100 text-xs font-mono leading-relaxed">
+                      <pre className="whitespace-pre-wrap break-all">{JSON.stringify(selectedLog.oldValues, null, 2)}</pre>
                     </div>
                   </div>
                 )}
@@ -351,8 +349,8 @@ export default function AuditLogsPage() {
                       <div className="w-2 h-2 rounded-full bg-green-400" />
                       New Values
                     </h3>
-                    <div className="bg-green-50 text-green-800 p-3 rounded-lg border border-green-100 overflow-x-auto text-xs font-mono leading-relaxed">
-                      <pre>{JSON.stringify(selectedLog.newValues, null, 2)}</pre>
+                    <div className="bg-green-50 text-green-800 p-3 rounded-lg border border-green-100 text-xs font-mono leading-relaxed">
+                      <pre className="whitespace-pre-wrap break-all">{JSON.stringify(selectedLog.newValues, null, 2)}</pre>
                     </div>
                   </div>
                 )}

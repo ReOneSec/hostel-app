@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { 
   Loader2, Receipt, CreditCard, CheckCircle2, XCircle, AlertTriangle, Building2, User, KeyRound, Clock, FolderOpen
 } from "lucide-react";
@@ -49,6 +50,12 @@ export function AdminBillingClient({
   const [editRent, setEditRent] = useState("");
   const [editBedFee, setEditBedFee] = useState("");
   const [editEstFee, setEditEstFee] = useState("");
+  
+  // Bill Status States
+  const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
+  const [isBillStatusDialogOpen, setIsBillStatusDialogOpen] = useState(false);
+  const [billStatusValue, setBillStatusValue] = useState<string>("PAID");
+  const [isUpdatingBill, setIsUpdatingBill] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -277,13 +284,30 @@ export function AdminBillingClient({
     }
   }
 
+  async function handleUpdateBillStatus(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedBillId) return;
+    setIsUpdatingBill(true);
+    
+    try {
+      const res = await fetch(`/api/billing/bills/${selectedBillId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: billStatusValue }),
+      });
+      if (!res.ok) throw new Error("Failed to update bill status");
+      toast.success("Bill status updated successfully");
+      setIsBillStatusDialogOpen(false);
+      fetchRegisterData();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsUpdatingBill(false);
+    }
+  }
+
   if (isLoading && !hostels.length) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <p className="text-sm text-slate-400 mt-3">Loading billing data…</p>
-      </div>
-    );
+    return <TablePageSkeleton />;
   }
 
   return (
@@ -734,7 +758,7 @@ export function AdminBillingClient({
               
               <div className="p-0">
                 {isRegisterLoading ? (
-                  <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>
+                  <TablePageSkeleton rows={5} />
                 ) : (
                   <div className="overflow-x-auto w-full">
                     {/* EXCEPTION: Horizontal scroll permitted here due to massive column count */}
@@ -777,34 +801,50 @@ export function AdminBillingClient({
                                 
                                 {/* Bed Fee */}
                                 <td className="px-3 py-2.5">
-                                  <div className="flex items-center gap-1.5">
-                                    {student.bedFee.amount > 0 ? (
-                                      <>
-                                        <span className="font-medium text-slate-700">{student.bedFee.amount}</span>
-                                        {student.bedFee.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
-                                        {student.bedFee.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
-                                        {(student.bedFee.status === "GENERATED" || student.bedFee.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500" />}
-                                      </>
-                                    ) : (
-                                      <span className="text-slate-300">-</span>
-                                    )}
-                                  </div>
+                                  {student.bedFee.amount > 0 ? (
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        if (student.bedFee.id) {
+                                          setSelectedBillId(student.bedFee.id);
+                                          setBillStatusValue(student.bedFee.status);
+                                          setIsBillStatusDialogOpen(true);
+                                        }
+                                      }}
+                                      className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
+                                    >
+                                      <span className="font-medium text-slate-700">{student.bedFee.amount}</span>
+                                      {student.bedFee.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
+                                      {student.bedFee.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
+                                      {(student.bedFee.status === "GENERATED" || student.bedFee.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500" />}
+                                    </button>
+                                  ) : (
+                                    <span className="text-slate-300 ml-2">-</span>
+                                  )}
                                 </td>
 
                                 {/* Est Fee */}
                                 <td className="px-3 py-2.5">
-                                  <div className="flex items-center gap-1.5">
-                                    {student.estFee.amount > 0 ? (
-                                      <>
-                                        <span className="font-medium text-slate-700">{student.estFee.amount}</span>
-                                        {student.estFee.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
-                                        {student.estFee.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
-                                        {(student.estFee.status === "GENERATED" || student.estFee.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500" />}
-                                      </>
-                                    ) : (
-                                      <span className="text-slate-300">-</span>
-                                    )}
-                                  </div>
+                                  {student.estFee.amount > 0 ? (
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        if (student.estFee.id) {
+                                          setSelectedBillId(student.estFee.id);
+                                          setBillStatusValue(student.estFee.status);
+                                          setIsBillStatusDialogOpen(true);
+                                        }
+                                      }}
+                                      className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
+                                    >
+                                      <span className="font-medium text-slate-700">{student.estFee.amount}</span>
+                                      {student.estFee.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
+                                      {student.estFee.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
+                                      {(student.estFee.status === "GENERATED" || student.estFee.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500" />}
+                                    </button>
+                                  ) : (
+                                    <span className="text-slate-300 ml-2">-</span>
+                                  )}
                                 </td>
 
                                 {/* Base Rent */}
@@ -818,12 +858,22 @@ export function AdminBillingClient({
                                   return (
                                     <td key={m} className="px-3 py-2.5 text-center border-l border-slate-50">
                                       {bill ? (
-                                        <div className="flex items-center justify-center gap-1.5">
+                                        <button 
+                                          type="button"
+                                          onClick={() => {
+                                            if (bill.id) {
+                                              setSelectedBillId(bill.id);
+                                              setBillStatusValue(bill.status);
+                                              setIsBillStatusDialogOpen(true);
+                                            }
+                                          }}
+                                          className="flex items-center justify-center gap-1.5 w-full h-full py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
+                                        >
                                           <span className="font-medium text-slate-700">{bill.amount}</span>
                                           {bill.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
                                           {bill.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
                                           {(bill.status === "GENERATED" || bill.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500" />}
-                                        </div>
+                                        </button>
                                       ) : (
                                         <span className="text-slate-200">-</span>
                                       )}
@@ -920,6 +970,44 @@ export function AdminBillingClient({
               </Button>
               <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-sm cursor-pointer">
                 {isSubmitting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bill Status Dialog */}
+      <Dialog open={isBillStatusDialogOpen} onOpenChange={setIsBillStatusDialogOpen}>
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-sm w-full p-0 overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-100">
+            <DialogTitle className="text-base font-bold text-slate-900">Update Bill Status</DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 mt-0.5">
+              Manually mark this bill as paid or unpaid.
+            </DialogDescription>
+          </div>
+          <form onSubmit={handleUpdateBillStatus}>
+            <div className="px-6 py-5 space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600">Payment Status</Label>
+                <Select value={billStatusValue} onValueChange={setBillStatusValue}>
+                  <SelectTrigger className="h-9 border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20">
+                    <SelectValue placeholder="Select Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="GENERATED">Unpaid (Generated)</SelectItem>
+                    <SelectItem value="OVERDUE">Overdue</SelectItem>
+                    <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
+                    <SelectItem value="PAID">Paid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+              <Button type="button" variant="ghost" onClick={() => setIsBillStatusDialogOpen(false)} disabled={isUpdatingBill} className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isUpdatingBill} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-sm cursor-pointer">
+                {isUpdatingBill ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : "Save Status"}
               </Button>
             </div>
           </form>

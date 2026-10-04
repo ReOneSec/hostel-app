@@ -34,22 +34,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[MIDDLEWARE] Processing ${pathname}`);
-    console.log(`[MIDDLEWARE] Headers Host:`, request.headers.get("host"));
-    console.log(`[MIDDLEWARE] Cookies received:`, request.cookies.getAll().map(c => c.name));
-  }
-
   // Update Supabase session
   const { supabaseResponse, user } = await updateSession(request);
-  
-  if (process.env.NODE_ENV === "development") {
-    if (!user) {
-      console.log(`[MIDDLEWARE] User is NULL for ${pathname}`);
-    } else {
-      console.log(`[MIDDLEWARE] User found: ${user.email}`);
-    }
-  }
 
   // Allow public routes
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
@@ -76,7 +62,6 @@ export async function middleware(request: NextRequest) {
   }
 
   const role = user.app_metadata?.role || "STUDENT";
-  const isProfileComplete = user.user_metadata?.isProfileComplete ?? true;
   const needsSelfieUpdate = user.user_metadata?.needsSelfieUpdate ?? false;
 
   // Removed Profile Completion Gate. Handled by global persistent Modal now.

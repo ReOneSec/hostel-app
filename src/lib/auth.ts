@@ -20,7 +20,8 @@ export interface Session {
 export const auth = cache(async (): Promise<Session | null> => {
   const supabase = await createClient();
   
-  // Get session quickly from cookie without network request
+  // Only use getSession() — reads from cookie, NO network call.
+  // The middleware already verified the token via getUser(), so we can trust the session here.
   const { data: { session } } = await supabase.auth.getSession();
   const email = session?.user?.email;
 
@@ -31,31 +32,21 @@ export const auth = cache(async (): Promise<Session | null> => {
     return null;
   }
 
-  // Run DB lookup and token verification concurrently
-  const [dbUser, { data: { user } }] = await Promise.all([
-    prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        status: true,
-        isFirstLogin: true,
-        isProfileComplete: true,
-        needsSelfieUpdate: true,
-        privacyConsentAt: true,
-        username: true,
-      }
-    }),
-    supabase.auth.getUser()
-  ]);
-
-  if (!user || !user.email) {
-    if (process.env.NODE_ENV === "development") {
-      console.error("[AUTH] Supabase user verification failed", user);
+  // Single DB lookup — no redundant getUser() call
+  const dbUser = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      status: true,
+      isFirstLogin: true,
+      isProfileComplete: true,
+      needsSelfieUpdate: true,
+      privacyConsentAt: true,
+      username: true,
     }
-    return null;
-  }
+  });
 
   if (!dbUser) {
     if (process.env.NODE_ENV === "development") {

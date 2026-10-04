@@ -33,43 +33,45 @@ export async function getUsersList(params: {
     ];
   }
 
-  const users = await prisma.user.findMany({
-    where,
-    skip: (page - 1) * perPage,
-    take: perPage,
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      role: true,
-      status: true,
-      isProfileComplete: true,
-      createdAt: true,
-      studentProfile: {
-        select: {
-          fullName: true,
-          mobile: true,
+  // Run both queries in parallel instead of sequentially
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      skip: (page - 1) * perPage,
+      take: perPage,
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        role: true,
+        status: true,
+        isProfileComplete: true,
+        createdAt: true,
+        studentProfile: {
+          select: {
+            fullName: true,
+            mobile: true,
+          }
+        },
+        hostelAssignments: {
+          where: { status: "ACTIVE" },
+          include: {
+            hostel: { select: { name: true } }
+          }
+        },
+        roomAssignments: {
+          where: { status: "ACTIVE" },
+          include: { room: true }
+        },
+        bedAssignments: {
+          where: { status: "ACTIVE" },
+          include: { bed: true }
         }
       },
-      hostelAssignments: {
-        where: { status: "ACTIVE" },
-        include: {
-          hostel: { select: { name: true } }
-        }
-      },
-      roomAssignments: {
-        where: { status: "ACTIVE" },
-        include: { room: true }
-      },
-      bedAssignments: {
-        where: { status: "ACTIVE" },
-        include: { bed: true }
-      }
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const total = await prisma.user.count({ where });
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.user.count({ where })
+  ]);
 
   return {
     data: users,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Building2, Loader2, BedDouble, CheckCircle2, AlertTriangle, Users } from "lucide-react";
@@ -28,12 +29,7 @@ export default function OccupancyReportPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <p className="text-sm text-slate-400 mt-3">Loading occupancy data…</p>
-      </div>
-    );
+    return <TablePageSkeleton />;
   }
 
   if (!data) return (

@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, ExternalLink, Receipt, CheckCircle2, XCircle, Clock, Search, Calendar, User, FileText, CheckCircle } from "lucide-react";
+import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -149,10 +150,7 @@ export default function ManagerPaymentsPage() {
 
         <div className="overflow-x-auto">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" />
-              <p className="text-sm text-slate-400">Loading payment queue...</p>
-            </div>
+            <TablePageSkeleton />
           ) : payments.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center px-4">
               <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center mb-4">

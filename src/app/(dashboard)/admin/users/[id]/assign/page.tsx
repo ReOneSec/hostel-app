@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import { FormPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -135,11 +136,7 @@ export default function AssignStudentPage({ params }: { params: Promise<{ id: st
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <FormPageSkeleton />;
   }
 
   const hasActiveAssignment = user?.hostelAssignments?.length > 0;

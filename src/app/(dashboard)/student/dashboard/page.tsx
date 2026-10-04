@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "@/hooks/use-auth";
+import { StudentDashboardSkeleton } from "@/components/skeletons/page-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,10 +63,7 @@ export default function StudentDashboardPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-24 bg-white rounded-xl border border-slate-200 shadow-sm">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" />
-          <p className="text-sm text-slate-400 font-medium">Loading your dashboard...</p>
-        </div>
+        <StudentDashboardSkeleton />
       ) : (
         <div className="grid gap-6 md:grid-cols-12">
           

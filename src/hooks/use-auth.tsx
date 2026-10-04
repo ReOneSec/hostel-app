@@ -1,115 +1,42 @@
 import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { createClient } from "@/utils/supabase/client";
 import type { Session as CustomSession } from "@/lib/auth";
 
-export function useSession() {
-  const [data, setData] = useState<CustomSession | null>(null);
-  const [status, setStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
+const fetcher = (url: string) => fetch(url).then((res) => {
+  if (!res.ok) throw new Error("Failed to fetch session");
+  return res.json();
+});
 
+export function useSession() {
+  const [supabaseUser, setSupabaseUser] = useState<any>(null);
+  const [supabaseStatus, setSupabaseStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
+
+  // Track the raw supabase auth state
   useEffect(() => {
     const supabase = createClient();
 
-    const fetchSession = async () => {
+    const fetchInitialSession = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Fetch fresh data from our DB to ensure role and completion status are accurate
-        try {
-          const res = await fetch('/api/users/me');
-          if (res.ok) {
-            const dbUser = await res.json();
-            setData({
-              user: {
-                id: dbUser.data.id,
-                email: dbUser.data.email,
-                role: dbUser.data.role,
-                status: dbUser.data.status,
-                isFirstLogin: dbUser.data.isFirstLogin,
-                isProfileComplete: dbUser.data.isProfileComplete,
-                needsSelfieUpdate: dbUser.data.needsSelfieUpdate,
-                privacyConsentAt: dbUser.data.privacyConsentAt !== undefined 
-                  ? (dbUser.data.privacyConsentAt ? new Date(dbUser.data.privacyConsentAt) : null) 
-                  : (user.user_metadata?.privacyConsentAt ? new Date(user.user_metadata.privacyConsentAt) : null),
-                username: dbUser.data.username || dbUser.data.email.split('@')[0],
-              }
-            });
-            setStatus("authenticated");
-            return;
-          }
-        } catch (e) {
-          console.error("Failed to fetch fresh user data", e);
-        }
-        
-        // Fallback to supabase metadata if API fails
-        setData({
-          user: {
-            id: user.id,
-            email: user.email!,
-            role: user.app_metadata?.role as any || "STUDENT",
-            status: user.user_metadata?.status || "ACTIVE",
-            isFirstLogin: user.user_metadata?.isFirstLogin ?? false,
-            isProfileComplete: user.user_metadata?.isProfileComplete ?? false,
-            needsSelfieUpdate: user.user_metadata?.needsSelfieUpdate ?? false,
-            privacyConsentAt: user.user_metadata?.privacyConsentAt ? new Date(user.user_metadata.privacyConsentAt) : null,
-            username: user.user_metadata?.username ?? user.email!.split('@')[0],
-          }
-        });
-        setStatus("authenticated");
+        setSupabaseUser(user);
+        setSupabaseStatus("authenticated");
       } else {
-        setData(null);
-        setStatus("unauthenticated");
+        setSupabaseUser(null);
+        setSupabaseStatus("unauthenticated");
       }
     };
 
-    fetchSession();
+    fetchInitialSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
-          // Fetch fresh data from our DB to ensure role and completion status are accurate
-          try {
-            const res = await fetch('/api/users/me');
-            if (res.ok) {
-              const dbUser = await res.json();
-              setData({
-                user: {
-                  id: dbUser.data.id,
-                  email: dbUser.data.email,
-                  role: dbUser.data.role,
-                  status: dbUser.data.status,
-                  isFirstLogin: dbUser.data.isFirstLogin,
-                  isProfileComplete: dbUser.data.isProfileComplete,
-                  needsSelfieUpdate: dbUser.data.needsSelfieUpdate,
-                  privacyConsentAt: dbUser.data.privacyConsentAt !== undefined 
-                    ? (dbUser.data.privacyConsentAt ? new Date(dbUser.data.privacyConsentAt) : null) 
-                    : (session.user.user_metadata?.privacyConsentAt ? new Date(session.user.user_metadata.privacyConsentAt) : null),
-                  username: dbUser.data.username || dbUser.data.email.split('@')[0],
-                }
-              });
-              setStatus("authenticated");
-              return;
-            }
-          } catch (e) {
-            console.error("Failed to fetch fresh user data on auth change", e);
-          }
-
-          // Fallback to supabase metadata
-          setData({
-            user: {
-              id: session.user.id,
-              email: session.user.email!,
-              role: session.user.app_metadata?.role as any || "STUDENT",
-              status: session.user.user_metadata?.status || "ACTIVE",
-              isFirstLogin: session.user.user_metadata?.isFirstLogin ?? false,
-              isProfileComplete: session.user.user_metadata?.isProfileComplete ?? false,
-              needsSelfieUpdate: session.user.user_metadata?.needsSelfieUpdate ?? false,
-              privacyConsentAt: session.user.user_metadata?.privacyConsentAt ? new Date(session.user.user_metadata.privacyConsentAt) : null,
-              username: session.user.user_metadata?.username ?? session.user.email!.split('@')[0],
-            }
-          });
-          setStatus("authenticated");
+          setSupabaseUser(session.user);
+          setSupabaseStatus("authenticated");
         } else {
-          setData(null);
-          setStatus("unauthenticated");
+          setSupabaseUser(null);
+          setSupabaseStatus("unauthenticated");
         }
       }
     );
@@ -119,14 +46,77 @@ export function useSession() {
     };
   }, []);
 
+  // Fetch from our new DB session endpoint using SWR
+  // SWR automatically deduplicates multiple simultaneous calls and handles caching
+  const { data: dbResponse, error, isLoading, mutate } = useSWR(
+    supabaseUser ? '/api/users/session' : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+    }
+  );
+
+  // Derive the final status combining Supabase and DB states
+  let status: "loading" | "authenticated" | "unauthenticated" = supabaseStatus;
+  if (status === "authenticated" && isLoading) {
+    status = "loading";
+  }
+
+  // Derive the final session data
+  let data: CustomSession | null = null;
+  
+  if (supabaseStatus === "authenticated" && supabaseUser) {
+    if (dbResponse?.data) {
+      const dbUser = dbResponse.data;
+      data = {
+        user: {
+          id: dbUser.id,
+          email: dbUser.email,
+          role: dbUser.role,
+          status: dbUser.status,
+          isFirstLogin: dbUser.isFirstLogin,
+          isProfileComplete: dbUser.isProfileComplete,
+          needsSelfieUpdate: dbUser.needsSelfieUpdate,
+          privacyConsentAt: dbUser.privacyConsentAt 
+            ? new Date(dbUser.privacyConsentAt) 
+            : (supabaseUser.user_metadata?.privacyConsentAt ? new Date(supabaseUser.user_metadata.privacyConsentAt) : null),
+          username: dbUser.username || dbUser.email.split('@')[0],
+        }
+      };
+    } else if (error) {
+      // Fallback to supabase metadata if API fails or hasn't loaded yet and error occurred
+      data = {
+        user: {
+          id: supabaseUser.id,
+          email: supabaseUser.email!,
+          role: supabaseUser.app_metadata?.role as any || "STUDENT",
+          status: supabaseUser.user_metadata?.status || "ACTIVE",
+          isFirstLogin: supabaseUser.user_metadata?.isFirstLogin ?? false,
+          isProfileComplete: supabaseUser.user_metadata?.isProfileComplete ?? false,
+          needsSelfieUpdate: supabaseUser.user_metadata?.needsSelfieUpdate ?? false,
+          privacyConsentAt: supabaseUser.user_metadata?.privacyConsentAt ? new Date(supabaseUser.user_metadata.privacyConsentAt) : null,
+          username: supabaseUser.user_metadata?.username ?? supabaseUser.email!.split('@')[0],
+        }
+      };
+    } else if (isLoading) {
+      // Optional: you can choose to provide the fallback data here too while it's loading,
+      // but usually returning null for data when status is "loading" is safer.
+      data = null;
+    }
+  }
+
   const update = async (metadata?: Record<string, any>) => {
     const supabase = createClient();
     if (metadata) {
       await supabase.auth.updateUser({
         data: metadata
       });
+      // Optionally mutate SWR cache if user metadata was updated in our DB as well
+      mutate();
     } else {
       await supabase.auth.refreshSession();
+      mutate();
     }
   };
 

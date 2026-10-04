@@ -6,6 +6,7 @@ import { useSession } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowRight, BookOpen, UtensilsCrossed, Calendar } from "lucide-react";
+import { MessPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 
 export default function StudentMessDashboard() {
@@ -49,12 +50,7 @@ export default function StudentMessDashboard() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 bg-white rounded-xl border border-slate-200 shadow-sm">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" />
-        <p className="text-sm text-slate-400 font-medium">Loading mess history...</p>
-      </div>
-    );
+    return <MessPageSkeleton />;
   }
 
   return (

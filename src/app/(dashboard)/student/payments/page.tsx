@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, ExternalLink, Receipt, CreditCard, Download, Clock, XCircle, CheckCircle2 } from "lucide-react";
+import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { generateReceiptPDF } from "@/lib/pdf-generator";
 
@@ -101,10 +102,7 @@ export default function StudentPaymentsPage() {
 
         <div className="overflow-x-auto">
           {isLoading ? (
-             <div className="flex flex-col items-center justify-center py-24 text-slate-500">
-              <Loader2 className="w-8 h-8 animate-spin mb-3 text-blue-600" />
-              <p className="text-sm font-medium">Loading payments...</p>
-            </div>
+             <TablePageSkeleton />
           ) : payments.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
               <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center mb-4 border border-slate-100">

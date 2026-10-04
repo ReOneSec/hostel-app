@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, Receipt, Calendar, CreditCard, AlertCircle, Download, CheckCircle2, ChevronRight, FileText } from "lucide-react";
+import { BillsPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { generateInvoicePDF } from "@/lib/pdf-generator";
@@ -51,12 +52,7 @@ export default function StudentBillsPage() {
   const previousBills = bills.length > 1 ? bills.slice(1) : [];
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 bg-white rounded-xl border border-slate-200 shadow-sm">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" />
-        <p className="text-sm text-slate-400 font-medium">Loading your bills...</p>
-      </div>
-    );
+    return <BillsPageSkeleton />;
   }
 
   return (

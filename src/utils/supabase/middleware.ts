@@ -15,9 +15,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            const relaxedOptions = { ...options, secure: process.env.NODE_ENV === "production" ? true : false, sameSite: "lax" as const };
-            console.log(`[COOKIE SET] name=${name}, domain=${relaxedOptions.domain}, secure=${relaxedOptions.secure}`);
+          cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
           })
           supabaseResponse = NextResponse.next({
