@@ -1,5 +1,30 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import type { Session } from "@/lib/auth";
+
+export function serializeDecimals<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === "object") {
+    if (
+      obj instanceof Prisma.Decimal ||
+      (typeof (obj as any).toNumber === "function" && typeof (obj as any).toFixed === "function")
+    ) {
+      return (obj as any).toNumber();
+    }
+    if (obj instanceof Date) {
+      return obj.toISOString() as unknown as T;
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(serializeDecimals) as unknown as T;
+    }
+    const result: any = {};
+    for (const key of Object.keys(obj)) {
+      result[key] = serializeDecimals((obj as any)[key]);
+    }
+    return result;
+  }
+  return obj;
+}
 
 export async function getHostelsForUser(session: Session) {
   let whereClause: any = {};
@@ -20,17 +45,25 @@ export async function getHostelsForUser(session: Session) {
     orderBy: { name: "asc" }
   });
 
-  return hostels;
+  return serializeDecimals(hostels);
 }
 
 export async function getBillingConfig(hostelId: string) {
-  // Run all 5 independent queries in parallel
-  const [rentConfigs, establishmentFees, bedFees, activeStudents, rooms] = await Promise.all([
+  // Run independent queries in parallel
+  const [rentConfigs, establishmentFees, bedFees, hostelAssignments, bedAssignmentsInHostel, rooms] = await Promise.all([
     prisma.rentConfig.findMany({
       where: { hostelId, effectiveTo: null },
       include: {
         user: {
-          select: { id: true, username: true, studentProfile: { select: { fullName: true } } }
+          select: {
+            id: true,
+            username: true,
+            studentProfile: { select: { fullName: true } },
+            bedAssignments: {
+              where: { status: "ACTIVE" },
+              include: { bed: { include: { room: true } } }
+            }
+          }
         }
       }
     }),
@@ -60,24 +93,65 @@ export async function getBillingConfig(hostelId: string) {
         }
       }
     }),
+    prisma.bedAssignment.findMany({
+      where: {
+        status: "ACTIVE",
+        bed: { room: { hostelId } }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            studentProfile: { select: { fullName: true } },
+            bedAssignments: {
+              where: { status: "ACTIVE" },
+              include: { bed: { include: { room: true } } }
+            }
+          }
+        }
+      }
+    }),
     prisma.room.findMany({
       where: { hostelId, isActive: true },
       include: { beds: { where: { isActive: true } } }
     })
   ]);
 
-  return {
+  // Combine and deduplicate users by ID
+  const studentsMap = new Map<string, any>();
+  for (const ha of hostelAssignments) {
+    if (ha.user && !studentsMap.has(ha.user.id)) {
+      studentsMap.set(ha.user.id, ha.user);
+    }
+  }
+  for (const ba of bedAssignmentsInHostel) {
+    if (ba.user && !studentsMap.has(ba.user.id)) {
+      studentsMap.set(ba.user.id, ba.user);
+    }
+  }
+
+  const activeStudents = Array.from(studentsMap.values());
+
+  // Sort students alphabetically by student name
+  activeStudents.sort((a, b) => {
+    const nameA = a.studentProfile?.fullName?.trim() || a.username || "";
+    const nameB = b.studentProfile?.fullName?.trim() || b.username || "";
+    return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+  });
+
+  return serializeDecimals({
     rentConfigs,
     establishmentFees,
     bedFees,
-    activeStudents: activeStudents.map(a => a.user),
+    activeStudents,
     rooms
-  };
+  });
 }
 
 export async function getBillingRegister(hostelId: string, year: number) {
-  // Fetch assignments and rent configs in parallel
-  const [assignments, allRentConfigs] = await Promise.all([
+  // Fetch assignments, bed assignments and rent configs in parallel
+  const [assignments, bedAssignmentsInHostel, allRentConfigs] = await Promise.all([
     prisma.hostelAssignment.findMany({
       where: { hostelId },
       include: {
@@ -94,6 +168,25 @@ export async function getBillingRegister(hostelId: string, year: number) {
         }
       },
       orderBy: { assignedAt: 'asc' }
+    }),
+    prisma.bedAssignment.findMany({
+      where: {
+        status: "ACTIVE",
+        bed: { room: { hostelId } }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            studentProfile: { select: { fullName: true } },
+            bedAssignments: {
+              where: { status: "ACTIVE" },
+              include: { bed: { include: { room: true } } }
+            }
+          }
+        }
+      }
     }),
     prisma.rentConfig.findMany({
       where: { hostelId, effectiveTo: null }
@@ -116,7 +209,7 @@ export async function getBillingRegister(hostelId: string, year: number) {
     if (!usersMap.has(a.userId)) {
       usersMap.set(a.userId, {
         id: a.userId,
-        name: a.user.studentProfile?.fullName || a.user.username,
+        name: a.user.studentProfile?.fullName?.trim() || a.user.username,
         username: a.user.username,
         studentProfile: a.user.studentProfile,
         bedAssignments: a.user.bedAssignments,
@@ -138,6 +231,22 @@ export async function getBillingRegister(hostelId: string, year: number) {
     }
   }
 
+  // Also include any active bed assignments in this hostel not already captured in usersMap
+  for (const ba of bedAssignmentsInHostel) {
+    if (ba.user && !usersMap.has(ba.userId)) {
+      usersMap.set(ba.userId, {
+        id: ba.userId,
+        name: ba.user.studentProfile?.fullName?.trim() || ba.user.username,
+        username: ba.user.username,
+        studentProfile: ba.user.studentProfile,
+        bedAssignments: ba.user.bedAssignments,
+        joiningDate: ba.assignedAt,
+        leftDate: null,
+        isActive: true
+      });
+    }
+  }
+
   const userIds = Array.from(usersMap.keys());
 
   // Build rent map from already-fetched data (filter in JS, not another query)
@@ -150,7 +259,21 @@ export async function getBillingRegister(hostelId: string, year: number) {
 
   // Only need bills query now (rent configs already fetched above)
   const allBills = await prisma.bill.findMany({
-    where: { hostelId, userId: { in: userIds } }
+    where: { hostelId, userId: { in: userIds } },
+    include: {
+      payments: {
+        orderBy: { paymentDate: "desc" },
+        select: {
+          id: true,
+          amount: true,
+          paymentDate: true,
+          verifiedAt: true,
+          utrNumber: true,
+          transactionId: true,
+          status: true,
+        },
+      },
+    },
   });
 
   const result = [];
@@ -176,11 +299,15 @@ export async function getBillingRegister(hostelId: string, year: number) {
     for (let m = 1; m <= 12; m++) {
       const b = yearBills.find(x => x.month === m);
       if (b) {
+        const latestPayment = b.payments?.[0];
         monthly[m] = {
           id: b.id,
           amount: Number(b.rentAmount),
           totalAmount: Number(b.totalAmount),
-          status: b.status
+          status: b.status,
+          paidDate: latestPayment?.paymentDate || latestPayment?.verifiedAt || null,
+          utrNumber: latestPayment?.utrNumber || latestPayment?.transactionId || null,
+          payments: b.payments || [],
         };
       } else {
         monthly[m] = null;
@@ -199,8 +326,10 @@ export async function getBillingRegister(hostelId: string, year: number) {
   result.sort((a, b) => {
     if (a.isActive && !b.isActive) return -1;
     if (!a.isActive && b.isActive) return 1;
-    return new Date(a.joiningDate).getTime() - new Date(b.joiningDate).getTime();
+    const nameA = a.name?.trim() || a.username || "";
+    const nameB = b.name?.trim() || b.username || "";
+    return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
   });
 
-  return result;
+  return serializeDecimals(result);
 }

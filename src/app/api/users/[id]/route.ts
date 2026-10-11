@@ -85,7 +85,21 @@ export async function GET(
         bills: {
           where: { status: { in: ["GENERATED", "PARTIALLY_PAID", "OVERDUE"] } },
           orderBy: { generatedAt: "desc" },
-          take: 1
+          take: 1,
+          include: {
+            payments: {
+              orderBy: { paymentDate: "desc" },
+              select: {
+                id: true,
+                amount: true,
+                paymentDate: true,
+                verifiedAt: true,
+                utrNumber: true,
+                transactionId: true,
+                status: true,
+              },
+            },
+          },
         },
         hostelAssignments: {
           include: {

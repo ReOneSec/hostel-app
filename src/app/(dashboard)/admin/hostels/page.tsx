@@ -199,7 +199,7 @@ export default function AdminHostelsPage() {
                   <span className="text-xs text-slate-400">Manager</span>
                   <span className="text-xs font-medium text-slate-700">
                     {hostel.manager
-                      ? hostel.manager.profile?.fullName || hostel.manager.username
+                      ? hostel.manager.studentProfile?.fullName?.trim() || hostel.manager.profile?.fullName?.trim() || hostel.manager.username
                       : <span className="text-slate-400 italic">Unassigned</span>}
                   </span>
                 </div>

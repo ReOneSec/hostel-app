@@ -271,7 +271,10 @@ export default function PaymentsReportPage() {
                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Due Date</span>
                       </div>
                       
-                      {data.overdueStudents.map((s: any) => (
+                      {data.overdueStudents
+                        .slice()
+                        .sort((a: any, b: any) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+                        .map((s: any) => (
                         <div key={s.userId} className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/70 transition-colors items-center">
                           <span className="text-sm font-medium text-slate-800 truncate pr-2">{s.name}</span>
                           <span className="text-xs text-slate-600 truncate pr-2">{s.hostel}</span>
@@ -287,7 +290,10 @@ export default function PaymentsReportPage() {
 
                     {/* Mobile Card View */}
                     <div className="md:hidden p-4 space-y-3">
-                      {data.overdueStudents.map((s: any) => (
+                      {data.overdueStudents
+                        .slice()
+                        .sort((a: any, b: any) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+                        .map((s: any) => (
                         <div key={s.userId} className="border border-slate-100 rounded-xl p-4 bg-slate-50/30">
                           <div className="flex items-start justify-between mb-3">
                             <div className="min-w-0 pr-3">

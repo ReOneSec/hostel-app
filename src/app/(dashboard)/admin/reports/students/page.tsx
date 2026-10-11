@@ -76,11 +76,13 @@ export default function StudentsReportPage() {
     URL.revokeObjectURL(url);
   }
 
-  const filteredStudents = (data?.students || []).filter((s: any) =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.email.toLowerCase().includes(search.toLowerCase()) ||
-    s.hostel.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredStudents = (data?.students || [])
+    .filter((s: any) =>
+      s.name.toLowerCase().includes(search.toLowerCase()) ||
+      s.email.toLowerCase().includes(search.toLowerCase()) ||
+      s.hostel.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a: any, b: any) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto w-full">

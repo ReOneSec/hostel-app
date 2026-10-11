@@ -44,9 +44,49 @@ export async function PATCH(
       return errorResponse("Forbidden. Only Super Admins can modify Super Admins.", 403);
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: targetUserId },
-      data: { status: data.status },
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: targetUserId },
+        data: { status: data.status },
+      });
+
+      // If deactivated or suspended, vacate their current active assignments and free beds
+      if (data.status === "INACTIVE" || data.status === "SUSPENDED") {
+        const now = new Date();
+        const activeHostelAssignment = await tx.hostelAssignment.findFirst({
+          where: { userId: targetUserId, status: "ACTIVE" }
+        });
+
+        await tx.hostelAssignment.updateMany({
+          where: { userId: targetUserId, status: "ACTIVE" },
+          data: { status: "INACTIVE", leftAt: now }
+        });
+
+        await tx.roomAssignment.updateMany({
+          where: { userId: targetUserId, status: "ACTIVE" },
+          data: { status: "INACTIVE", leftAt: now }
+        });
+
+        await tx.bedAssignment.updateMany({
+          where: { userId: targetUserId, status: "ACTIVE" },
+          data: { status: "INACTIVE", leftAt: now }
+        });
+
+        if (activeHostelAssignment) {
+          await tx.lifecycleEvent.create({
+            data: {
+              userId: targetUserId,
+              eventType: "LEFT",
+              eventDate: now,
+              hostelId: activeHostelAssignment.hostelId,
+              recordedBy: session.user.id,
+              notes: `Account marked as ${data.status}`
+            }
+          });
+        }
+      }
+
+      return user;
     });
 
     await createAuditLog({

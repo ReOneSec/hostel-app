@@ -105,7 +105,7 @@ export default function AssignStudentPage({ params }: { params: Promise<{ id: st
       return;
     }
 
-    const hasActiveAssignment = user?.hostelAssignments?.length > 0;
+    const hasActiveAssignment = user?.hostelAssignments?.some((a: any) => a.status === "ACTIVE");
     const endpoint = hasActiveAssignment 
       ? `/api/users/${user.id}/transfer` 
       : `/api/users/${user.id}/assign`;
@@ -139,7 +139,7 @@ export default function AssignStudentPage({ params }: { params: Promise<{ id: st
     return <FormPageSkeleton />;
   }
 
-  const hasActiveAssignment = user?.hostelAssignments?.length > 0;
+  const hasActiveAssignment = user?.hostelAssignments?.some((a: any) => a.status === "ACTIVE");
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">

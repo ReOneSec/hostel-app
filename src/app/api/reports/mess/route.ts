@@ -46,16 +46,18 @@ export async function GET(req: NextRequest) {
       const totalGuestMeals = s.guestMeals.reduce((sum, g) => sum + g.guestCount, 0);
       const totalStudentMeals = s.studentMealCounts.reduce((sum, m) => sum + m.mealCount, 0);
 
-      const settlements = s.settlements.map((st) => ({
-        userId: st.userId,
-        name: st.user.studentProfile?.fullName || st.user.email,
-        mealCount: st.mealCount,
-        mealCost: Number(st.mealCost),
-        commonCharge: Number(st.universalCommonCharge),
-        totalContribution: Number(st.totalContribution),
-        totalLiability: Number(st.totalLiability),
-        netSettlement: Number(st.netSettlement),
-      }));
+      const settlements = s.settlements
+        .map((st) => ({
+          userId: st.userId,
+          name: st.user.studentProfile?.fullName || st.user.email,
+          mealCount: st.mealCount,
+          mealCost: Number(st.mealCost),
+          commonCharge: Number(st.universalCommonCharge),
+          totalContribution: Number(st.totalContribution),
+          totalLiability: Number(st.totalLiability),
+          netSettlement: Number(st.netSettlement),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 
       return {
         sessionId: s.id,

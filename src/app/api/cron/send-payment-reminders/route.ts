@@ -53,12 +53,11 @@ export async function GET(req: Request) {
 
     // Audit log
     const admin = await prisma.user.findFirst({ where: { role: "SUPER_ADMIN" }});
-    const auditUserId = admin ? admin.id : "SYSTEM_CRON";
 
-    if (emailsSent > 0) {
+    if (emailsSent > 0 && admin) {
       await prisma.auditLog.create({
         data: {
-          userId: auditUserId,
+          userId: admin.id,
           action: "SEND_PAYMENT_REMINDERS",
           entity: "Bill",
           newValues: { month: currentMonth, year: currentYear, emailsSent }

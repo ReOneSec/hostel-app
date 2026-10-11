@@ -14,6 +14,18 @@ export async function GET(req: Request) {
       where: { userId: user.id },
       include: {
         hostel: { select: { name: true } },
+        payments: {
+          orderBy: { paymentDate: "desc" },
+          select: {
+            id: true,
+            amount: true,
+            paymentDate: true,
+            verifiedAt: true,
+            utrNumber: true,
+            transactionId: true,
+            status: true,
+          },
+        },
         user: { 
           select: { 
             username: true, 

@@ -115,6 +115,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       }
     }
 
+    const sortByUser = (a: any, b: any) => {
+      const nameA = a.user?.fullName || a.user?.email || "";
+      const nameB = b.user?.fullName || b.user?.email || "";
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    };
+
     return NextResponse.json({ 
       data: {
         session: messSession,
@@ -122,8 +128,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         waterExpenses: waterExpensesRaw.map(mapUser),
         guestMeals,
         initialContributions: initialContributionsRaw.map(mapUser),
-        mealCounts: mealCountsRaw.map(mapUser),
-        settlements: settlementsRaw.map(mapUser),
+        mealCounts: mealCountsRaw.map(mapUser).sort(sortByUser),
+        settlements: settlementsRaw.map(mapUser).sort(sortByUser),
         liveEstimate
       } 
     });

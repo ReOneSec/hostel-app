@@ -91,6 +91,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    overdueStudents.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
     return successResponse({
       month,
       year,

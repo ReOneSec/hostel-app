@@ -13,6 +13,7 @@ import {
   MapPin, 
   Phone, 
   Users, 
+  User,
   Plus, 
   Loader2, 
   Settings,
@@ -49,6 +50,7 @@ import { Progress } from "@/components/ui/progress";
 
 const createRoomSchema = z.object({
   roomNumber: z.string().min(1, "Room number is required"),
+  previousRoomNumber: z.string().optional().nullable(),
   type: z.enum(["SINGLE", "DOUBLE", "TRIPLE", "DORMITORY"]),
   floor: z.number().int().optional(),
 });
@@ -57,9 +59,71 @@ type CreateRoomFormData = z.infer<typeof createRoomSchema>;
 
 const updateRoomSchema = z.object({
   roomNumber: z.string().min(1, "Room number is required"),
+  previousRoomNumber: z.string().optional().nullable(),
   type: z.enum(["SINGLE", "DOUBLE", "TRIPLE", "DORMITORY"]),
 });
 type UpdateRoomFormData = z.infer<typeof updateRoomSchema>;
+
+interface RoomOccupant {
+  id: string;
+  name: string;
+  bedLabel?: string;
+  email?: string;
+}
+
+function getRoomOccupants(room: any): RoomOccupant[] {
+  if (!room) return [];
+  const occupantsMap = new Map<string, RoomOccupant>();
+
+  // Extract from active bed assignments
+  if (Array.isArray(room.beds)) {
+    room.beds.forEach((bed: any) => {
+      if (Array.isArray(bed.bedAssignments)) {
+        bed.bedAssignments.forEach((ba: any) => {
+          if (ba && (ba.status === "ACTIVE" || !ba.status) && ba.user) {
+            const name =
+              ba.user.studentProfile?.fullName?.trim() ||
+              ba.user.profile?.fullName?.trim() ||
+              ba.user.username?.trim() ||
+              "Student";
+            occupantsMap.set(ba.user.id || `${bed.id}-${name}`, {
+              id: ba.user.id || `${bed.id}-${name}`,
+              name,
+              bedLabel: bed.bedLabel || undefined,
+              email: ba.user.email || undefined,
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // Extract from active room assignments (fallback)
+  if (Array.isArray(room.roomAssignments)) {
+    room.roomAssignments.forEach((ra: any) => {
+      if (ra && (ra.status === "ACTIVE" || !ra.status) && ra.user) {
+        const userId = ra.user.id || ra.userId;
+        if (userId && !occupantsMap.has(userId)) {
+          const name =
+            ra.user.studentProfile?.fullName?.trim() ||
+            ra.user.profile?.fullName?.trim() ||
+            ra.user.username?.trim() ||
+            "Student";
+          occupantsMap.set(userId, {
+            id: userId,
+            name,
+            bedLabel: undefined,
+            email: ra.user.email || undefined,
+          });
+        }
+      }
+    });
+  }
+
+  return Array.from(occupantsMap.values()).sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+}
 
 export default function HostelDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -89,7 +153,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
     formState: { errors },
   } = useForm<CreateRoomFormData>({
     resolver: zodResolver(createRoomSchema),
-    defaultValues: { type: "DOUBLE", floor: 1 }
+    defaultValues: { type: "DOUBLE", floor: 1, previousRoomNumber: "" }
   });
 
   const {
@@ -101,7 +165,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
     formState: { errors: errorsEditRoom },
   } = useForm<UpdateRoomFormData>({
     resolver: zodResolver(updateRoomSchema),
-    defaultValues: { type: "DOUBLE" }
+    defaultValues: { type: "DOUBLE", previousRoomNumber: "" }
   });
 
   const {
@@ -129,8 +193,8 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
         fetch(`/api/hostels/${resolvedParams.id}/occupancy`),
         fetch(`/api/hostels/${resolvedParams.id}/managers`),
         fetch(`/api/hostels/${resolvedParams.id}/monthly-managers`),
-        fetch(`/api/users?role=HOSTEL_MANAGER,SUPER_ADMIN`),
-        fetch(`/api/users?role=STUDENT,MONTHLY_MANAGER`)
+        fetch(`/api/users?role=HOSTEL_MANAGER,SUPER_ADMIN&perPage=100`),
+        fetch(`/api/users?role=STUDENT,MONTHLY_MANAGER&perPage=100&sortBy=name`)
       ]);
       
       if (!hostelRes.ok) throw new Error("Failed to fetch hostel");
@@ -147,7 +211,13 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
       setHostelManagers(hManagersData.data || []);
       setMonthlyManagers(mManagersData.data || []);
       setStaffUsers(Array.isArray(staffData.data) ? staffData.data : (staffData.data?.data || []));
-      setStudentUsers(Array.isArray(studentsData.data) ? studentsData.data : (studentsData.data?.data || []));
+      const rawStudents = Array.isArray(studentsData.data) ? studentsData.data : (studentsData.data?.data || []);
+      const sortedStudents = [...rawStudents].sort((a: any, b: any) => {
+        const nameA = a.studentProfile?.fullName?.trim() || a.username || "";
+        const nameB = b.studentProfile?.fullName?.trim() || b.username || "";
+        return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+      });
+      setStudentUsers(sortedStudents);
       resetSettings({
         name: hostelData.data.name,
         address: hostelData.data.address || "",
@@ -321,49 +391,178 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
     return { groupedRooms: sortedGroups, otherRooms: other };
   }, [hostel?.rooms]);
 
-  const renderRoomCard = (room: any) => (
-    <Link key={room.id} href={`/admin/hostels/${hostel.id}/rooms/${room.id}/beds`} className="block h-full">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden hover:shadow-md hover:border-blue-300 transition-all cursor-pointer h-full group flex flex-col">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-            Room {room.roomNumber}
-          </h3>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setEditingRoom(room);
-                setEditRoomValue("roomNumber", room.roomNumber);
-                setEditRoomValue("type", room.type);
-                setIsEditDialogOpen(true);
-              }}
-            >
-              <Pencil className="w-3.5 h-3.5" />
-            </Button>
-            <span className="text-xs font-semibold px-2 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200 uppercase tracking-wider">
-              {room.type}
-            </span>
-          </div>
-        </div>
-        <div className="p-5 flex-1 flex flex-col justify-end">
-          <div className="flex items-center gap-4 text-sm text-slate-500">
-            <div className="flex items-center gap-1.5">
-              <Building2 className="w-4 h-4 text-slate-400" />
-              Floor {room.floor || "-"}
+  const renderRoomCard = (room: any) => {
+    const occupants = getRoomOccupants(room);
+    const totalBeds = room._count?.beds ?? room.beds?.length ?? 0;
+    const isOccupied = occupants.length > 0;
+    const isFull = totalBeds > 0 && occupants.length >= totalBeds;
+
+    return (
+      <div key={room.id} className="relative group/room h-full">
+        {/* Floating Tooltip / Popover on Hover */}
+        <div className="pointer-events-none absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 w-72 max-w-[calc(100vw-32px)] opacity-0 invisible translate-y-1.5 group-hover/room:opacity-100 group-hover/room:visible group-hover/room:translate-y-0 transition-all duration-200 ease-out z-50">
+          <div className="bg-slate-900/95 text-white backdrop-blur-md border border-slate-700/80 rounded-xl shadow-2xl p-3.5 ring-1 ring-white/10">
+            {/* Tooltip Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="font-bold text-sm text-white truncate">
+                  Room {room.roomNumber}
+                </span>
+                {room.previousRoomNumber && (
+                  <span className="text-[10px] text-slate-400 truncate">
+                    ({room.previousRoomNumber.toLowerCase().startsWith('prev') ? room.previousRoomNumber : `Prev: ${room.previousRoomNumber}`})
+                  </span>
+                )}
+              </div>
+              <span
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
+                  isFull
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                    : isOccupied
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                    : "bg-slate-800 text-slate-400 border-slate-700"
+                }`}
+              >
+                {isOccupied ? `${occupants.length}/${totalBeds || occupants.length} Occupied` : "Vacant"}
+              </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <BedDouble className="w-4 h-4 text-slate-400" />
-              {room._count?.beds || 0} Beds
+
+            {/* Occupants List */}
+            {isOccupied ? (
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                  <Users className="w-3 h-3 text-blue-400" /> Occupied Students ({occupants.length})
+                </p>
+                {occupants.map((occ, idx) => (
+                  <div
+                    key={occ.id || idx}
+                    className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/80 border border-slate-700/60"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm">
+                      {occ.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-white truncate leading-tight">
+                        {occ.name}
+                      </p>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-300 mt-0.5">
+                        {occ.bedLabel ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded font-medium">
+                            Bed {occ.bedLabel}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Assigned</span>
+                        )}
+                        {occ.email && (
+                          <span className="text-slate-400 truncate max-w-[120px] text-[10px]">
+                            {occ.email}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-2.5 px-3 rounded-lg bg-slate-800/40 border border-slate-700/40 text-center">
+                <p className="text-xs text-slate-300 font-medium">No students assigned</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Room is completely vacant</p>
+              </div>
+            )}
+          </div>
+          {/* Arrow Caret */}
+          <div className="w-0 h-0 border-solid border-t-slate-900/95 border-t-8 border-x-transparent border-x-8 border-b-0 mx-auto -mt-px filter drop-shadow-sm" />
+        </div>
+
+        {/* Room Card */}
+        <Link href={`/admin/hostels/${hostel.id}/rooms/${room.id}/beds`} className="block h-full">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden hover:shadow-md hover:border-blue-300 transition-all cursor-pointer h-full group flex flex-col">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                  Room {room.roomNumber}
+                </h3>
+                {room.previousRoomNumber && (
+                  <p className="text-xs text-slate-400 font-normal mt-0.5">
+                    {room.previousRoomNumber.toLowerCase().startsWith('prev') ? room.previousRoomNumber : `Prev: ${room.previousRoomNumber}`}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setEditingRoom(room);
+                    setEditRoomValue("roomNumber", room.roomNumber);
+                    setEditRoomValue("previousRoomNumber", room.previousRoomNumber || "");
+                    setEditRoomValue("type", room.roomType || room.type);
+                    setIsEditDialogOpen(true);
+                  }}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
+                <span className="text-xs font-semibold px-2 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200 uppercase tracking-wider">
+                  {room.roomType || room.type}
+                </span>
+              </div>
+            </div>
+            <div className="p-5 flex-1 flex flex-col justify-between">
+              <div className="flex items-center gap-4 text-sm text-slate-500">
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-slate-400" />
+                  Floor {room.floor || "-"}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <BedDouble className="w-4 h-4 text-slate-400" />
+                  {room._count?.beds || 0} Beds
+                </div>
+              </div>
+
+              {/* Occupant Quick Indicator */}
+              <div className="flex items-center justify-between text-xs pt-3 mt-3 border-t border-slate-100">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      isFull
+                        ? "bg-rose-500"
+                        : isOccupied
+                        ? "bg-emerald-500"
+                        : "bg-slate-300"
+                    }`}
+                  />
+                  <span
+                    className={`font-medium ${
+                      isFull
+                        ? "text-rose-700"
+                        : isOccupied
+                        ? "text-emerald-700"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {isOccupied ? `${occupants.length} Occupied` : "Vacant"}
+                  </span>
+                </div>
+                {isOccupied && (
+                  <span className="text-[11px] text-blue-600 font-medium group-hover:underline flex items-center gap-1 truncate max-w-[150px]">
+                    <User className="w-3 h-3 shrink-0" />
+                    <span className="truncate">
+                      {occupants.length === 1
+                        ? occupants[0].name
+                        : `${occupants[0].name.split(" ")[0]} +${occupants.length - 1}`}
+                    </span>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </Link>
       </div>
-    </Link>
-  );
+    );
+  };
 
   if (isLoading) {
     return <DetailPageSkeleton />;
@@ -454,6 +653,11 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
                   <Label htmlFor="roomNumber">Room Number/Label *</Label>
                   <Input id="roomNumber" placeholder="e.g. 101, 102A" {...register("roomNumber")} />
                   {errors.roomNumber && <p className="text-xs text-destructive">{errors.roomNumber.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="previousRoomNumber">Previous Room Name (Optional)</Label>
+                  <Input id="previousRoomNumber" placeholder="e.g. Old 101, Ground A" {...register("previousRoomNumber")} />
+                  {errors.previousRoomNumber && <p className="text-xs text-destructive">{errors.previousRoomNumber.message}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -648,7 +852,7 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
           </DialogHeader>
           <form onSubmit={handleSubmitEditRoom(onSubmitEditRoom)} className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-roomNumber">Room Number/Name</Label>
+              <Label htmlFor="edit-roomNumber">Room Number/Name *</Label>
               <Input
                 id="edit-roomNumber"
                 placeholder="e.g., 101, A1, Ground-1"
@@ -656,6 +860,18 @@ export default function HostelDetailPage({ params }: { params: Promise<{ id: str
               />
               {errorsEditRoom.roomNumber && (
                 <p className="text-sm text-red-500">{errorsEditRoom.roomNumber.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-previousRoomNumber">Previous Room Name</Label>
+              <Input
+                id="edit-previousRoomNumber"
+                placeholder="e.g., Old 101, Ground A (optional)"
+                {...registerEditRoom("previousRoomNumber")}
+              />
+              {errorsEditRoom.previousRoomNumber && (
+                <p className="text-sm text-red-500">{errorsEditRoom.previousRoomNumber.message}</p>
               )}
             </div>
             

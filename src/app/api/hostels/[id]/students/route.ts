@@ -35,9 +35,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           }
         }
       },
-      orderBy: {
-        email: 'asc'
-      }
+      orderBy: [
+        { studentProfile: { fullName: 'asc' } },
+        { username: 'asc' }
+      ]
     });
 
     // Flatten the studentProfile.fullName for easier consumption
@@ -48,6 +49,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       fullName: s.studentProfile?.fullName || s.username,
       phone: s.studentProfile?.mobile
     }));
+
+    // Sort alphabetically by student name
+    formattedStudents.sort((a, b) => {
+      const nameA = a.fullName || a.username || a.email;
+      const nameB = b.fullName || b.username || b.email;
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+    });
 
     return NextResponse.json({ data: formattedStudents });
   } catch (error: any) {

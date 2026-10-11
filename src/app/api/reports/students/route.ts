@@ -60,7 +60,10 @@ export async function GET(req: NextRequest) {
           select: { id: true },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [
+        { studentProfile: { fullName: "asc" } },
+        { username: "asc" }
+      ],
     });
 
     const students = users.map((u) => ({
@@ -77,6 +80,8 @@ export async function GET(req: NextRequest) {
       joinedAt: u.hostelAssignments[0]?.assignedAt || u.createdAt,
       transferCount: u.lifecycleEvents.length,
     }));
+
+    students.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 
     const summary = {
       totalStudents: students.length,

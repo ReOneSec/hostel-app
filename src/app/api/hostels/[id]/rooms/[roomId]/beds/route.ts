@@ -20,7 +20,16 @@ export async function GET(
       include: {
         bedAssignments: {
           where: { status: "ACTIVE" },
-          include: { user: { select: { id: true, studentProfile: { select: { fullName: true } } } } }
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                studentProfile: { select: { fullName: true } }
+              }
+            }
+          }
         }
       },
       orderBy: { bedLabel: "asc" }

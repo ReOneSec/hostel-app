@@ -10,7 +10,7 @@ export default async function AdminUsersPage() {
     redirect("/login");
   }
 
-  const { data: initialUsers } = await getUsersList({ perPage: 20 });
+  const { data: initialUsers, meta: initialMeta } = await getUsersList({ page: 1, perPage: 50, sortBy: "name" });
 
-  return <UsersClient initialUsers={initialUsers as any} />;
+  return <UsersClient initialUsers={initialUsers as any} initialMeta={initialMeta} />;
 }

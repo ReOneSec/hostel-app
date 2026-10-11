@@ -189,8 +189,45 @@ export default function OccupancyReportPage() {
                     </div>
                     
                     {hostel.rooms.map((room: any) => (
-                      <div key={room.roomId} className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] px-5 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
-                        <span className="text-sm font-medium text-slate-800">Room {room.roomNumber}</span>
+                      <div key={room.roomId} className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] px-5 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center group/row">
+                        <div className="relative">
+                          <span className="text-sm font-medium text-slate-800">Room {room.roomNumber}</span>
+                          {room.previousRoomNumber && (
+                            <span className="block text-[11px] text-slate-400 font-normal">
+                              {room.previousRoomNumber.toLowerCase().startsWith('prev') ? room.previousRoomNumber : `Prev: ${room.previousRoomNumber}`}
+                            </span>
+                          )}
+
+                          {/* Hover Tooltip for Occupants */}
+                          {room.occupants && room.occupants.length > 0 && (
+                            <div className="pointer-events-none absolute left-0 bottom-[calc(100%+8px)] w-64 opacity-0 invisible translate-y-1 group-hover/row:opacity-100 group-hover/row:visible group-hover/row:translate-y-0 transition-all duration-200 z-50">
+                              <div className="bg-slate-900/95 text-white backdrop-blur-md border border-slate-700/80 rounded-xl shadow-2xl p-3 ring-1 ring-white/10">
+                                <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                                  <span className="text-xs font-bold text-white">Room {room.roomNumber}</span>
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                    {room.occupants.length} Occupied
+                                  </span>
+                                </div>
+                                <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                                  {room.occupants.map((occ: any, i: number) => (
+                                    <div key={occ.id || i} className="flex items-center gap-2 p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/50">
+                                      <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                                        {occ.name.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-semibold text-white truncate">{occ.name}</p>
+                                        {occ.bedLabel && (
+                                          <p className="text-[10px] text-blue-300">Bed {occ.bedLabel}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="w-0 h-0 border-solid border-t-slate-900/95 border-t-6 border-x-transparent border-x-6 border-b-0 ml-4 -mt-px" />
+                            </div>
+                          )}
+                        </div>
                         <span className="text-xs text-slate-500 capitalize">{room.roomType || "Standard"}</span>
                         <span className="text-sm font-medium text-slate-700 text-center">{room.totalBeds}</span>
                         <span className="text-sm font-semibold text-slate-900 text-center">{room.occupiedBeds}</span>
@@ -211,11 +248,27 @@ export default function OccupancyReportPage() {
                   {/* Mobile Card View */}
                   <div className="md:hidden p-4 space-y-3">
                     {hostel.rooms.map((room: any) => (
-                      <div key={room.roomId} className="border border-slate-100 rounded-xl p-4 bg-slate-50/30">
+                      <div key={room.roomId} className="border border-slate-100 rounded-xl p-4 bg-slate-50/30 relative group/mroom">
                         <div className="flex items-center justify-between mb-3">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-slate-800 truncate">Room {room.roomNumber}</p>
+                            {room.previousRoomNumber && (
+                              <p className="text-[11px] text-slate-400 font-normal truncate">
+                                {room.previousRoomNumber.toLowerCase().startsWith('prev') ? room.previousRoomNumber : `Prev: ${room.previousRoomNumber}`}
+                              </p>
+                            )}
                             <p className="text-xs text-slate-400 capitalize">{room.roomType || "Standard"}</p>
+
+                            {/* Mobile occupants list if present */}
+                            {room.occupants && room.occupants.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {room.occupants.map((occ: any, i: number) => (
+                                  <span key={occ.id || i} className="inline-flex items-center gap-1 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded mr-1">
+                                    {occ.name} {occ.bedLabel ? `(${occ.bedLabel})` : ""}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           {room.vacantBeds === 0 ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border uppercase tracking-wider bg-red-50 text-red-700 border-red-200">Full</span>

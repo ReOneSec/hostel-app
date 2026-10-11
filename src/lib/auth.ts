@@ -20,10 +20,15 @@ export interface Session {
 export const auth = cache(async (): Promise<Session | null> => {
   const supabase = await createClient();
   
-  // Only use getSession() — reads from cookie, NO network call.
-  // The middleware already verified the token via getUser(), so we can trust the session here.
+  // Try getSession() first — reads from cookie
   const { data: { session } } = await supabase.auth.getSession();
-  const email = session?.user?.email;
+  let email = session?.user?.email;
+
+  // Fallback to getUser() to ensure robust token extraction across route handlers
+  if (!email) {
+    const { data: { user } } = await supabase.auth.getUser();
+    email = user?.email;
+  }
 
   if (!email) {
     if (process.env.NODE_ENV === "development") {

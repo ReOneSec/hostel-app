@@ -1,7 +1,9 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getHostelsForUser, getBillingConfig, getBillingRegister } from "@/lib/services/billing";
+import { getHostelsForUser, getBillingConfig, getBillingRegister, serializeDecimals } from "@/lib/services/billing";
 import { AdminBillingClient } from "./billing-client";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminBillingPage() {
   const session = await auth();
@@ -10,7 +12,8 @@ export default async function AdminBillingPage() {
     redirect("/login");
   }
 
-  const hostels = await getHostelsForUser(session);
+  const rawHostels = await getHostelsForUser(session);
+  const hostels = serializeDecimals(rawHostels);
   const initialYear = new Date().getFullYear().toString();
   
   let configData = null;
@@ -19,8 +22,8 @@ export default async function AdminBillingPage() {
   if (hostels.length > 0) {
     const firstHostelId = hostels[0].id;
     try {
-      configData = await getBillingConfig(firstHostelId);
-      registerData = await getBillingRegister(firstHostelId, parseInt(initialYear));
+      configData = serializeDecimals(await getBillingConfig(firstHostelId));
+      registerData = serializeDecimals(await getBillingRegister(firstHostelId, parseInt(initialYear)));
     } catch (error) {
       console.error("Error fetching initial billing data:", error);
     }

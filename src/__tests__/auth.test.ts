@@ -37,7 +37,7 @@ describe('Auth Helper Property Tests', () => {
   });
 
   afterEach(() => {
-    process.env.NODE_ENV = originalEnv;
+    (process.env as any).NODE_ENV = originalEnv;
   });
 
   it('P2: Auth session field exactness', async () => {
@@ -108,7 +108,7 @@ describe('Auth Helper Property Tests', () => {
       fc.asyncProperty(
         fc.boolean(),
         async (isSuccess) => {
-          process.env.NODE_ENV = 'production';
+          (process.env as any).NODE_ENV = 'production';
           const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
           const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 

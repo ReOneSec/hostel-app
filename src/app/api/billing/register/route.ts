@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getBillingRegister } from "@/lib/services/billing";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   try {
     const session = await auth();
     const user = session?.user;
-    if (!user || user.role !== "SUPER_ADMIN") {
+    if (!user || (user.role !== "SUPER_ADMIN" && user.role !== "HOSTEL_MANAGER")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

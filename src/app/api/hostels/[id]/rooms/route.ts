@@ -18,9 +18,41 @@ export async function GET(
     const rooms = await prisma.room.findMany({
       where: { hostelId },
       include: {
-        beds: true,
+        beds: {
+          where: { isActive: true },
+          include: {
+            bedAssignments: {
+              where: { status: "ACTIVE" },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    studentProfile: { select: { fullName: true } }
+                  }
+                }
+              }
+            }
+          },
+          orderBy: { bedLabel: "asc" }
+        },
+        roomAssignments: {
+          where: { status: "ACTIVE" },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                studentProfile: { select: { fullName: true } }
+              }
+            }
+          }
+        },
         _count: {
           select: {
+            beds: true,
             roomAssignments: { where: { status: "ACTIVE" } }
           }
         }
@@ -37,6 +69,7 @@ export async function GET(
 
 const createRoomSchema = z.object({
   roomNumber: z.string().min(1),
+  previousRoomNumber: z.string().optional().nullable(),
   type: z.enum(["SINGLE", "DOUBLE", "TRIPLE", "DORMITORY"]),
   floor: z.number().int().optional(),
 });
@@ -68,6 +101,7 @@ export async function POST(
     const room = await prisma.room.create({
       data: {
         roomNumber: data.roomNumber,
+        previousRoomNumber: data.previousRoomNumber?.trim() || null,
         roomType: data.type,
         hostelId,
       },

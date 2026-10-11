@@ -26,7 +26,30 @@ export async function GET(req: NextRequest) {
               include: {
                 bedAssignments: {
                   where: { status: "ACTIVE" },
-                  select: { id: true, userId: true },
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        email: true,
+                        studentProfile: { select: { fullName: true } },
+                      },
+                    },
+                  },
+                },
+              },
+              orderBy: { bedLabel: "asc" },
+            },
+            roomAssignments: {
+              where: { status: "ACTIVE" },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    studentProfile: { select: { fullName: true } },
+                  },
                 },
               },
             },
@@ -40,13 +63,42 @@ export async function GET(req: NextRequest) {
       const rooms = hostel.rooms.map((room) => {
         const totalBeds = room.beds.length;
         const occupiedBeds = room.beds.filter((b) => b.bedAssignments.length > 0).length;
+
+        const occupantsMap = new Map<string, { id: string; name: string; bedLabel?: string; email?: string }>();
+        room.beds.forEach((b) => {
+          b.bedAssignments.forEach((ba) => {
+            if (ba.user) {
+              const name = ba.user.studentProfile?.fullName?.trim() || ba.user.username?.trim() || "Student";
+              occupantsMap.set(ba.user.id, {
+                id: ba.user.id,
+                name,
+                bedLabel: b.bedLabel || undefined,
+                email: ba.user.email || undefined,
+              });
+            }
+          });
+        });
+
+        room.roomAssignments?.forEach((ra) => {
+          if (ra.user && !occupantsMap.has(ra.user.id)) {
+            const name = ra.user.studentProfile?.fullName?.trim() || ra.user.username?.trim() || "Student";
+            occupantsMap.set(ra.user.id, {
+              id: ra.user.id,
+              name,
+              email: ra.user.email || undefined,
+            });
+          }
+        });
+
         return {
           roomId: room.id,
           roomNumber: room.roomNumber,
+          previousRoomNumber: room.previousRoomNumber,
           roomType: room.roomType,
           totalBeds,
           occupiedBeds,
           vacantBeds: totalBeds - occupiedBeds,
+          occupants: Array.from(occupantsMap.values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })),
         };
       });
 

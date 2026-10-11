@@ -21,13 +21,17 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search");
     const page = searchParams.has("page") ? parseInt(searchParams.get("page")!, 10) : undefined;
     const perPage = searchParams.has("perPage") ? parseInt(searchParams.get("perPage")!, 10) : undefined;
+    const sortBy = searchParams.get("sortBy") as any;
+    const sortOrder = searchParams.get("sortOrder") as any;
 
     const result = await getUsersList({
       role,
       status,
       search,
       page,
-      perPage
+      perPage,
+      sortBy,
+      sortOrder,
     });
 
     return successResponse(result);
@@ -65,6 +69,14 @@ export async function POST(req: NextRequest) {
 
     if (existingUser) {
       return errorResponse("User with this email already exists", 400);
+    }
+
+    const existingUsername = await prisma.user.findUnique({
+      where: { username: data.username },
+    });
+
+    if (existingUsername) {
+      return errorResponse("User with this username already exists", 400);
     }
 
     const password = data.password;

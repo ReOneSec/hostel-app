@@ -23,7 +23,39 @@ export async function GET(
         },
         rooms: {
           include: {
-            _count: { select: { beds: true } }
+            _count: { select: { beds: true } },
+            beds: {
+              where: { isActive: true },
+              include: {
+                bedAssignments: {
+                  where: { status: "ACTIVE" },
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        email: true,
+                        studentProfile: { select: { fullName: true } }
+                      }
+                    }
+                  }
+                }
+              },
+              orderBy: { bedLabel: "asc" }
+            },
+            roomAssignments: {
+              where: { status: "ACTIVE" },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    studentProfile: { select: { fullName: true } }
+                  }
+                }
+              }
+            }
           },
           orderBy: { roomNumber: "asc" }
         }

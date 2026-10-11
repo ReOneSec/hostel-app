@@ -84,8 +84,29 @@ export async function POST(
         }
       });
 
+      let replacedUserId: string | null = null;
       let assignment;
       if (existing) {
+        if (existing.userId !== userId) {
+          replacedUserId = existing.userId;
+          const otherSessions = await tx.monthlyManagerSession.count({
+            where: {
+              userId: replacedUserId,
+              isActive: true,
+              id: { not: existing.id }
+            }
+          });
+          if (otherSessions === 0) {
+            const replacedUser = await tx.user.findUnique({ where: { id: replacedUserId } });
+            if (replacedUser && replacedUser.role === "MONTHLY_MANAGER") {
+              await tx.user.update({
+                where: { id: replacedUserId },
+                data: { role: "STUDENT" }
+              });
+            }
+          }
+        }
+
         // Update existing regardless of whether it's the same user or a different user
         // so that isActive becomes true again if they were previously removed
         assignment = await tx.monthlyManagerSession.update({
@@ -119,14 +140,15 @@ export async function POST(
         });
       }
 
-      return assignment;
+      return { assignment, replacedUserId };
     });
 
-    // Update Supabase Auth user_metadata
-    if (user.role === "STUDENT") {
-      try {
-        const supabaseAdmin = createAdminClient();
-        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 10000 });
+    // Update Supabase Auth metadata for both new user and replaced user
+    try {
+      const supabaseAdmin = createAdminClient();
+      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 10000 });
+      
+      if (user.role === "STUDENT") {
         const authUser = users.find((u: any) => u.email === user.email);
         if (authUser) {
           await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
@@ -134,9 +156,22 @@ export async function POST(
             app_metadata: { role: "MONTHLY_MANAGER" }
           });
         }
-      } catch (err) {
-        console.error("Failed to update Supabase metadata", err);
       }
+
+      if (result.replacedUserId) {
+        const replacedDbUser = await prisma.user.findUnique({ where: { id: result.replacedUserId } });
+        if (replacedDbUser && replacedDbUser.role === "STUDENT") {
+          const authUser = users.find((u: any) => u.email === replacedDbUser.email);
+          if (authUser) {
+            await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
+              user_metadata: { ...authUser.user_metadata, role: "STUDENT" },
+              app_metadata: { role: "STUDENT" }
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update Supabase metadata", err);
     }
 
     await createAuditLog({
@@ -149,7 +184,7 @@ export async function POST(
       userAgent: getUserAgent(req.headers),
     });
 
-    return successResponse(result, 201);
+    return successResponse(result.assignment, 201);
   } catch (error) {
     if (error instanceof z.ZodError) return errorResponse("Validation error", 400);
     console.error("[MonthlyManagers POST]", error);

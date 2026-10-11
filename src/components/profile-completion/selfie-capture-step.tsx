@@ -16,14 +16,16 @@ import { compressImageClientSide } from "@/lib/image-compression";
 
 interface SelfieCaptureStepProps {
   onCaptured: () => void;
-  onPrev: () => void;
+  onPrev?: () => void;
   isCaptured: boolean;
+  triggerType?: "PROFILE_COMPLETION" | "TRANSFER";
 }
 
 export function SelfieCaptureStep({
   onCaptured,
   onPrev,
   isCaptured,
+  triggerType = "PROFILE_COMPLETION",
 }: SelfieCaptureStepProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -131,7 +133,7 @@ export function SelfieCaptureStep({
       formData.append("file", blob, "selfie.jpg");
       formData.append("capturedAt", new Date().toISOString());
       formData.append("deviceInfo", navigator.userAgent);
-      formData.append("triggerType", "PROFILE_COMPLETION");
+      formData.append("triggerType", triggerType);
       if (latitude !== null) formData.append("latitude", String(latitude));
       if (longitude !== null) formData.append("longitude", String(longitude));
 
@@ -291,21 +293,23 @@ export function SelfieCaptureStep({
       )}
 
       {/* Navigation */}
-      <div className="flex justify-between pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            stopCamera();
-            onPrev();
-          }}
-          className="cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Previous
-        </Button>
-        <div /> {/* Spacer — final submit is in parent */}
-      </div>
+      {onPrev && (
+        <div className="flex justify-between pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              stopCamera();
+              onPrev();
+            }}
+            className="cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Previous
+          </Button>
+          <div /> {/* Spacer — final submit is in parent */}
+        </div>
+      )}
     </div>
   );
 }

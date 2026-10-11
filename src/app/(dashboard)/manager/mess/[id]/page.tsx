@@ -61,7 +61,13 @@ export default function MessSessionDetails() {
       if (json.data?.session?.hostelId) {
         const resStudents = await fetch(`/api/hostels/${json.data.session.hostelId}/students`);
         const sData = await resStudents.json();
-        setStudents(sData.data || []);
+        const rawStudents = sData.data || [];
+        const sortedStudents = [...rawStudents].sort((a: any, b: any) => {
+          const nameA = a.fullName || a.username || a.email || "";
+          const nameB = b.fullName || b.username || b.email || "";
+          return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+        });
+        setStudents(sortedStudents);
         
         // Populate meal counts
         const initialMeals: any = {};
@@ -553,7 +559,13 @@ export default function MessSessionDetails() {
                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Net Settlement</span>
                   </div>
                   
-                  {data.settlements.map((s: any) => (
+                  {[...data.settlements]
+                    .sort((a: any, b: any) => {
+                      const nameA = a.user?.fullName || a.user?.email || "";
+                      const nameB = b.user?.fullName || b.user?.email || "";
+                      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+                    })
+                    .map((s: any) => (
                     <div key={s.id} className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1.5fr_1.5fr] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
                       <span className="text-sm font-medium text-slate-800 truncate pr-2">{s.user.fullName || s.user.email}</span>
                       <span className="text-sm font-semibold text-slate-700 text-right">{s.mealCount}</span>
@@ -633,7 +645,13 @@ export default function MessSessionDetails() {
                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Est. Net Settlement</span>
                       </div>
                       
-                      {data.liveEstimate.settlements.map((s: any) => (
+                      {[...data.liveEstimate.settlements]
+                        .sort((a: any, b: any) => {
+                          const nameA = data.mealCounts?.find((x: any) => x.userId === a.userId)?.user?.fullName || "";
+                          const nameB = data.mealCounts?.find((x: any) => x.userId === b.userId)?.user?.fullName || "";
+                          return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+                        })
+                        .map((s: any) => (
                         <div key={s.userId} className="grid grid-cols-[1.5fr_1fr_1.5fr_1.5fr_1.5fr] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
                           <span className="text-sm font-medium text-slate-800 truncate pr-2">
                             {data.mealCounts?.find((x: any) => x.userId === s.userId)?.user?.fullName || "Student"}

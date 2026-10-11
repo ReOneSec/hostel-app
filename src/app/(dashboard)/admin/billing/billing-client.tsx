@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { 
-  Loader2, Receipt, CreditCard, CheckCircle2, XCircle, AlertTriangle, Building2, User, KeyRound, Clock, FolderOpen
+  Loader2, Receipt, CreditCard, CheckCircle2, XCircle, AlertTriangle, Building2, User, KeyRound, Clock, FolderOpen,
+  Search, RefreshCw, Table as TableIcon, Download
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { generateInvoicePDF } from "@/lib/pdf-generator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,6 +37,12 @@ export function AdminBillingClient({
   const [registerData, setRegisterData] = useState<any[]>(initialRegisterData);
   const [selectedYear, setSelectedYear] = useState(initialYear);
   const [isRegisterLoading, setIsRegisterLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Search Filters
+  const [studentSearch, setStudentSearch] = useState("");
+  const [registerSearch, setRegisterSearch] = useState("");
+  const isFirstMount = useRef(true);
   
   // Form States
   const [rentAmount, setRentAmount] = useState("");
@@ -56,6 +64,27 @@ export function AdminBillingClient({
   const [isBillStatusDialogOpen, setIsBillStatusDialogOpen] = useState(false);
   const [billStatusValue, setBillStatusValue] = useState<string>("PAID");
   const [isUpdatingBill, setIsUpdatingBill] = useState(false);
+
+  // Month Payment Status States
+  const [monthEditTarget, setMonthEditTarget] = useState<{
+    studentId: string;
+    studentName: string;
+    baseRent: number;
+    month: number;
+    monthName: string;
+    year: number;
+    bill: {
+      id: string | null;
+      amount: number;
+      status: string;
+      paidDate?: any;
+      utrNumber?: any;
+      payments?: any[];
+    } | null;
+  } | null>(null);
+  const [monthStatusValue, setMonthStatusValue] = useState<string>("PAID");
+  const [monthAmountValue, setMonthAmountValue] = useState<string>("");
+  const [isUpdatingMonth, setIsUpdatingMonth] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -67,7 +96,8 @@ export function AdminBillingClient({
       return;
     }
 
-    if (selectedHostel === initialHostels[0]?.id && initialConfigData) {
+    if (isFirstMount.current && selectedHostel === initialHostels[0]?.id && initialConfigData) {
+      isFirstMount.current = false;
       setConfigData(initialConfigData);
       setEstFeeAmount(initialConfigData.establishmentFees?.[0]?.amount?.toString() || "");
       setIsLoading(false);
@@ -79,12 +109,66 @@ export function AdminBillingClient({
   useEffect(() => {
     if (!selectedHostel) return;
     
-    if (selectedHostel === initialHostels[0]?.id && selectedYear === initialYear) {
+    if (isFirstMount.current && selectedHostel === initialHostels[0]?.id && selectedYear === initialYear) {
       setRegisterData(initialRegisterData);
     } else {
       fetchRegisterData();
     }
   }, [selectedHostel, selectedYear]);
+
+  async function handleRefresh() {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([fetchConfig(), fetchRegisterData()]);
+      toast.success("Billing data refreshed successfully");
+    } catch {
+      toast.error("Failed to refresh billing data");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
+  const filteredStudents = useMemo(() => {
+    if (!configData?.activeStudents) return [];
+    let list = configData.activeStudents;
+    if (studentSearch.trim()) {
+      const q = studentSearch.toLowerCase().trim();
+      list = list.filter((s: any) => {
+        const name = (s.studentProfile?.fullName || "").toLowerCase();
+        const username = (s.username || "").toLowerCase();
+        const bed = s.bedAssignments?.[0]?.bed;
+        const room = (bed?.room?.roomNumber || "").toLowerCase();
+        const bedLabel = (bed?.bedLabel || "").toLowerCase();
+        return name.includes(q) || username.includes(q) || room.includes(q) || bedLabel.includes(q);
+      });
+    }
+    return [...list].sort((a: any, b: any) => {
+      const nameA = a.studentProfile?.fullName?.trim() || a.username || "";
+      const nameB = b.studentProfile?.fullName?.trim() || b.username || "";
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    });
+  }, [configData?.activeStudents, studentSearch]);
+
+  const filteredRegister = useMemo(() => {
+    if (!registerData) return [];
+    let list = registerData;
+    if (registerSearch.trim()) {
+      const q = registerSearch.toLowerCase().trim();
+      list = list.filter((s: any) => {
+        const name = (s.name || "").toLowerCase();
+        const username = (s.username || "").toLowerCase();
+        const bed = s.bedAssignments?.[0]?.bed;
+        const room = (bed?.room?.roomNumber || "").toLowerCase();
+        const bedLabel = (bed?.bedLabel || "").toLowerCase();
+        return name.includes(q) || username.includes(q) || room.includes(q) || bedLabel.includes(q);
+      });
+    }
+    return [...list].sort((a: any, b: any) => {
+      const nameA = a.name?.trim() || a.username || "";
+      const nameB = b.name?.trim() || b.username || "";
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    });
+  }, [registerData, registerSearch]);
 
   async function fetchRegisterData() {
     setIsRegisterLoading(true);
@@ -295,7 +379,8 @@ export function AdminBillingClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: billStatusValue }),
       });
-      if (!res.ok) throw new Error("Failed to update bill status");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Failed to update bill status");
       toast.success("Bill status updated successfully");
       setIsBillStatusDialogOpen(false);
       fetchRegisterData();
@@ -303,6 +388,69 @@ export function AdminBillingClient({
       toast.error(error.message);
     } finally {
       setIsUpdatingBill(false);
+    }
+  }
+
+  function handleOpenMonthEdit(student: any, month: number, bill: any) {
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthName = monthNames[month - 1];
+    setMonthEditTarget({
+      studentId: student.id,
+      studentName: student.name,
+      baseRent: student.baseRent,
+      month,
+      monthName,
+      year: parseInt(selectedYear, 10),
+      bill: bill
+        ? {
+            id: bill.id,
+            amount: bill.amount,
+            status: bill.status,
+            paidDate: bill.paidDate,
+            utrNumber: bill.utrNumber,
+            payments: bill.payments,
+          }
+        : null,
+    });
+
+    if (bill) {
+      setMonthStatusValue(bill.status);
+      setMonthAmountValue(bill.amount !== undefined ? bill.amount.toString() : "");
+    } else {
+      setMonthStatusValue("PAID");
+      setMonthAmountValue(student.baseRent > 0 ? student.baseRent.toString() : "0");
+    }
+  }
+
+  async function handleSaveMonthStatus(e: React.FormEvent) {
+    e.preventDefault();
+    if (!monthEditTarget || !selectedHostel) return;
+    setIsUpdatingMonth(true);
+
+    try {
+      const res = await fetch("/api/billing/bills/month-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hostelId: selectedHostel,
+          userId: monthEditTarget.studentId,
+          month: monthEditTarget.month,
+          year: monthEditTarget.year,
+          status: monthStatusValue,
+          amount: monthAmountValue !== "" ? parseFloat(monthAmountValue) : undefined,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update payment status");
+
+      toast.success(json.message || "Payment status updated successfully");
+      setMonthEditTarget(null);
+      fetchRegisterData();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update payment status");
+    } finally {
+      setIsUpdatingMonth(false);
     }
   }
 
@@ -333,6 +481,16 @@ export function AdminBillingClient({
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing || isLoading}
+            className="h-9 rounded-lg border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-sm font-medium cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
           <Button 
             onClick={handleGenerateBills} 
             disabled={isGenerating}
@@ -346,10 +504,26 @@ export function AdminBillingClient({
 
       {!isLoading && configData ? (
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 md:w-[400px] bg-slate-100 p-1 rounded-lg">
-            <TabsTrigger value="overview" className="text-xs sm:text-sm rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">Overview</TabsTrigger>
-            <TabsTrigger value="students" className="text-xs sm:text-sm rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">Students</TabsTrigger>
-            <TabsTrigger value="register" className="text-xs sm:text-sm rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">Register</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 md:w-[480px] bg-slate-100 p-1 rounded-lg">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="students" className="text-xs sm:text-sm rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center justify-center gap-1.5">
+              <span>Students</span>
+              {configData.activeStudents?.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-slate-200/90 text-[11px] font-semibold text-slate-700">
+                  {configData.activeStudents.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="register" className="text-xs sm:text-sm rounded-md py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center justify-center gap-1.5">
+              <span>Register</span>
+              {registerData?.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-slate-200/90 text-[11px] font-semibold text-slate-700">
+                  {registerData.length}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-5 space-y-5">
@@ -424,59 +598,158 @@ export function AdminBillingClient({
                   </div>
                 </div>
                 <div className="p-5">
-                  <form onSubmit={handleSetRent} className="flex flex-col sm:flex-row items-end gap-3 mb-6">
-                    <div className="space-y-1.5 flex-[2]">
-                      <Label className="text-xs font-semibold text-slate-600">Student</Label>
+                  <form onSubmit={handleSetRent} className="space-y-4 mb-6">
+                    <div className="space-y-1.5 w-full">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold text-slate-700">Select Student</Label>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          {studentSearch ? `${filteredStudents.length} of ${configData.activeStudents?.length || 0} students` : `${configData.activeStudents?.length || 0} students`}
+                        </span>
+                      </div>
+
+                      {/* Quick Search Input */}
+                      <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Input 
+                          placeholder="Type name, room (e.g. L01) or bed to filter list..." 
+                          value={studentSearch} 
+                          onChange={(e) => setStudentSearch(e.target.value)} 
+                          className="h-9 pl-9 pr-8 text-xs border-slate-200 rounded-lg bg-slate-50/70 focus:bg-white transition-colors" 
+                        />
+                        {studentSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setStudentSearch("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 font-bold p-0.5"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
                       <Select value={selectedStudent} onValueChange={(val) => setSelectedStudent(val || "")}>
-                        <SelectTrigger className="h-9 border-slate-200 rounded-lg text-sm bg-white">
-                          <SelectValue placeholder="Select student">
-                            {selectedStudent 
-                              ? (configData.activeStudents?.find((s: any) => s.id === selectedStudent)?.studentProfile?.fullName || 
-                                 configData.activeStudents?.find((s: any) => s.id === selectedStudent)?.username) 
-                              : null}
+                        <SelectTrigger className="h-10 border-slate-200 rounded-lg text-sm bg-white w-full hover:border-slate-300 transition-colors shadow-sm">
+                          <SelectValue placeholder={studentSearch ? `Select from ${filteredStudents.length} matching students...` : "Select student..."}>
+                            {selectedStudent ? (() => {
+                              const s = configData.activeStudents?.find((st: any) => st.id === selectedStudent);
+                              if (!s) return null;
+                              const name = s.studentProfile?.fullName?.trim() || s.username;
+                              const bed = s.bedAssignments?.[0]?.bed;
+                              return (
+                                <div className="flex items-center justify-between w-full gap-2 pr-1">
+                                  <span className="font-semibold text-slate-800 truncate">{name}</span>
+                                  {bed ? (
+                                    <span className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200/80 rounded px-2 py-0.5 shrink-0">
+                                      Room {bed.room?.roomNumber} · Bed {bed.bedLabel}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-slate-400 bg-slate-100 rounded px-2 py-0.5 shrink-0">
+                                      No Bed
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })() : null}
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent>
-                          {configData.activeStudents?.map((s: any) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.studentProfile?.fullName || s.username}
-                            </SelectItem>
-                          ))}
+                        <SelectContent 
+                          align="start" 
+                          alignItemWithTrigger={false}
+                          className="max-h-80 w-[min(calc(100vw-32px),540px)] min-w-[340px] sm:min-w-[480px] p-1.5 shadow-xl border-slate-200"
+                        >
+                          {filteredStudents.length > 0 ? (
+                            filteredStudents.map((s: any) => {
+                              const name = s.studentProfile?.fullName?.trim() || s.username;
+                              const bed = s.bedAssignments?.[0]?.bed;
+                              return (
+                                <SelectItem 
+                                  key={s.id} 
+                                  value={s.id}
+                                  className="py-2.5 px-3 rounded-lg cursor-pointer hover:bg-slate-50 focus:bg-blue-50/70"
+                                >
+                                  <div className="flex items-center justify-between w-full gap-4 text-left">
+                                    <div className="min-w-0">
+                                      <p className="font-semibold text-slate-900 text-sm">{name}</p>
+                                      <p className="text-[11px] text-slate-400">@{s.username}</p>
+                                    </div>
+                                    {bed ? (
+                                      <span className="inline-flex items-center gap-1 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/80 rounded-md px-2.5 py-1 whitespace-nowrap shrink-0">
+                                        Room {bed.room?.roomNumber} · Bed {bed.bedLabel}
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center text-xs text-slate-400 bg-slate-100 rounded-md px-2 py-1 whitespace-nowrap shrink-0">
+                                        No Bed
+                                      </span>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              );
+                            })
+                          ) : (
+                            <div className="py-6 text-center text-xs text-slate-400">
+                              No students found matching "{studentSearch}"
+                            </div>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1.5 flex-1">
-                      <Label className="text-xs font-semibold text-slate-600">Amount (₹)</Label>
-                      <Input 
-                        type="number" min="0" step="0.01" 
-                        value={rentAmount} 
-                        onChange={(e) => setRentAmount(e.target.value)} 
-                        className="h-9 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" 
-                      />
+
+                    <div className="flex flex-col sm:flex-row items-end gap-3 pt-1">
+                      <div className="space-y-1.5 flex-1 w-full">
+                        <Label className="text-xs font-semibold text-slate-700">Custom Rent Amount (₹)</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">₹</span>
+                          <Input 
+                            type="number" min="0" step="0.01" 
+                            value={rentAmount} 
+                            onChange={(e) => setRentAmount(e.target.value)} 
+                            placeholder="e.g. 2500"
+                            className="h-10 pl-7 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" 
+                          />
+                        </div>
+                      </div>
+                      <Button 
+                        type="submit" 
+                        disabled={isSubmitting} 
+                        className="h-10 px-6 rounded-lg bg-slate-900 text-white hover:bg-slate-800 text-sm font-semibold cursor-pointer shrink-0 w-full sm:w-auto shadow-sm"
+                      >
+                        {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Set Custom Rent"}
+                      </Button>
                     </div>
-                    <Button type="submit" disabled={isSubmitting} className="h-9 rounded-lg bg-slate-900 text-white hover:bg-slate-800 text-sm cursor-pointer">
-                      {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Set"}
-                    </Button>
                   </form>
 
-                  <div className="rounded-xl border border-slate-100 overflow-hidden bg-slate-50/50 max-h-[250px] overflow-y-auto">
-                    <div className="grid grid-cols-[2fr_1fr_1fr] px-4 py-2.5 border-b border-slate-100 bg-slate-100/50 sticky top-0">
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</span>
+                  <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50/50 max-h-[280px] overflow-y-auto">
+                    <div className="grid grid-cols-[2fr_1fr_1fr] px-4 py-2.5 border-b border-slate-200 bg-slate-100/70 sticky top-0 z-10">
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student & Room</span>
                       <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Rent</span>
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">From</span>
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Effective From</span>
                     </div>
                     {configData.rentConfigs?.length > 0 ? (
-                      configData.rentConfigs.map((rc: any) => (
-                        <div key={rc.id} className="grid grid-cols-[2fr_1fr_1fr] px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-white transition-colors items-center">
-                          <span className="text-sm font-medium text-slate-800 truncate">{rc.user?.studentProfile?.fullName || rc.user?.username}</span>
-                          <span className="text-sm font-semibold text-green-700 text-right">₹{parseFloat(rc.amount).toFixed(0)}</span>
-                          <span className="text-xs text-slate-500 text-right">{format(new Date(rc.effectiveFrom), "MMM d, yy")}</span>
-                        </div>
-                      ))
+                      configData.rentConfigs.map((rc: any) => {
+                        const studentName = rc.user?.studentProfile?.fullName?.trim() || rc.user?.username;
+                        const bed = rc.user?.bedAssignments?.[0]?.bed;
+                        return (
+                          <div key={rc.id} className="grid grid-cols-[2fr_1fr_1fr] px-4 py-3 border-b border-slate-100 last:border-0 hover:bg-white transition-colors items-center">
+                            <div className="min-w-0 pr-2">
+                              <p className="text-sm font-semibold text-slate-800 truncate">{studentName}</p>
+                              {bed && (
+                                <p className="text-[11px] text-blue-600 font-medium">
+                                  Room {bed.room?.roomNumber} · Bed {bed.bedLabel}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-sm font-semibold text-green-700 text-right">₹{parseFloat(rc.amount).toFixed(0)}</span>
+                            <span className="text-xs text-slate-500 text-right">{format(new Date(rc.effectiveFrom), "MMM d, yy")}</span>
+                          </div>
+                        );
+                      })
                     ) : (
                       <div className="p-8 text-center text-xs text-slate-400">No custom rent configured.</div>
                     )}
                   </div>
+                  <p className="text-[11px] text-slate-400 mt-2 px-1">
+                    Showing {configData.rentConfigs?.length || 0} students with custom rent overrides. Other students default to base rent of ₹0.
+                  </p>
                 </div>
               </div>
 
@@ -590,15 +863,36 @@ export function AdminBillingClient({
 
           <TabsContent value="students" className="mt-5">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
                     <User className="w-3.5 h-3.5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-800">Student Billing List</h3>
-                    <p className="text-xs text-slate-400">Current fee breakdown per student</p>
+                    <h3 className="text-sm font-semibold text-slate-800">
+                      Student Billing List ({filteredStudents.length}{configData.activeStudents?.length !== filteredStudents.length ? ` of ${configData.activeStudents?.length}` : ""})
+                    </h3>
+                    <p className="text-xs text-slate-400">Current fee breakdown per student in this hostel</p>
                   </div>
+                </div>
+
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Search name, room, bed..."
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    className="h-8 pl-8 text-xs border-slate-200 rounded-lg bg-white"
+                  />
+                  {studentSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setStudentSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               </div>
               <>
@@ -612,8 +906,8 @@ export function AdminBillingClient({
                     <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider text-right">Total/Mo</span>
                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">Action</span>
                   </div>
-                  {configData.activeStudents?.length > 0 ? (
-                    configData.activeStudents.map((student: any) => {
+                  {filteredStudents.length > 0 ? (
+                    filteredStudents.map((student: any) => {
                       const rentConfig = configData.rentConfigs?.find((rc: any) => rc.userId === student.id);
                       const rentAmount = rentConfig ? parseFloat(rentConfig.amount) : 0;
                       
@@ -633,7 +927,9 @@ export function AdminBillingClient({
 
                       return (
                         <div key={student.id} className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1.5fr_1fr] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/70 transition-colors items-center">
-                          <span className="text-sm font-medium text-slate-800 truncate">{student.studentProfile?.fullName || student.username}</span>
+                          <span className="text-sm font-medium text-slate-800 truncate" title={student.studentProfile?.fullName?.trim() || student.username}>
+                            {student.studentProfile?.fullName?.trim() || student.username}
+                          </span>
                           <span className="text-xs text-slate-500">
                             {activeBed ? `Rm ${activeBed.room?.roomNumber} / Bd ${activeBed.bedLabel}` : "Unassigned"}
                           </span>
@@ -655,14 +951,16 @@ export function AdminBillingClient({
                       );
                     })
                   ) : (
-                    <div className="p-12 text-center text-sm text-slate-400">No active students found.</div>
+                    <div className="p-12 text-center text-sm text-slate-400">
+                      {studentSearch ? "No students matching your search." : "No active students found in this hostel."}
+                    </div>
                   )}
                 </div>
 
                 {/* Mobile Card View */}
                 <div className="md:hidden p-4 space-y-3">
-                  {configData.activeStudents?.length > 0 ? (
-                    configData.activeStudents.map((student: any) => {
+                  {filteredStudents.length > 0 ? (
+                    filteredStudents.map((student: any) => {
                       const rentConfig = configData.rentConfigs?.find((rc: any) => rc.userId === student.id);
                       const rentAmount = rentConfig ? parseFloat(rentConfig.amount) : 0;
                       
@@ -684,7 +982,7 @@ export function AdminBillingClient({
                         <div key={student.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50/30">
                           <div className="flex items-start justify-between mb-3">
                             <div>
-                              <p className="text-sm font-semibold text-slate-800">{student.studentProfile?.fullName || student.username}</p>
+                              <p className="text-sm font-semibold text-slate-800">{student.studentProfile?.fullName?.trim() || student.username}</p>
                               <p className="text-xs text-slate-500 mt-0.5">
                                 {activeBed ? `Rm ${activeBed.room?.roomNumber} / Bd ${activeBed.bedLabel}` : "Unassigned"}
                               </p>
@@ -720,7 +1018,9 @@ export function AdminBillingClient({
                       );
                     })
                   ) : (
-                    <div className="p-12 text-center text-sm text-slate-400">No active students found.</div>
+                    <div className="p-12 text-center text-sm text-slate-400">
+                      {studentSearch ? "No students matching your search." : "No active students found in this hostel."}
+                    </div>
                   )}
                 </div>
               </>
@@ -732,27 +1032,51 @@ export function AdminBillingClient({
               <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
-                    <Receipt className="w-3.5 h-3.5 text-green-600" />
+                    <TableIcon className="w-3.5 h-3.5 text-green-600" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-800">Rent Register</h3>
+                    <h3 className="text-sm font-semibold text-slate-800">
+                      Annual Billing Register ({filteredRegister.length}{registerData?.length !== filteredRegister.length ? ` of ${registerData?.length}` : ""})
+                    </h3>
                     <p className="text-xs text-slate-400">Spreadsheet view of monthly billing</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-medium text-slate-500">Year:</Label>
-                  <Select value={selectedYear} onValueChange={(v) => setSelectedYear(v || new Date().getFullYear().toString())}>
-                    <SelectTrigger className="w-24 h-8 border-slate-200 rounded-lg text-xs bg-white">
-                      <SelectValue>
-                        {selectedYear}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({length: 5}, (_, i) => new Date().getFullYear() - i).map(year => (
-                        <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-60">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      placeholder="Search register..."
+                      value={registerSearch}
+                      onChange={(e) => setRegisterSearch(e.target.value)}
+                      className="h-8 pl-8 text-xs border-slate-200 rounded-lg bg-white"
+                    />
+                    {registerSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setRegisterSearch("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Label className="text-xs font-medium text-slate-500">Year:</Label>
+                    <Select value={selectedYear} onValueChange={(v) => setSelectedYear(v || new Date().getFullYear().toString())}>
+                      <SelectTrigger className="w-24 h-8 border-slate-200 rounded-lg text-xs bg-white">
+                        <SelectValue>
+                          {selectedYear}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({length: 5}, (_, i) => new Date().getFullYear() - i).map(year => (
+                          <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
               
@@ -778,8 +1102,8 @@ export function AdminBillingClient({
                         </tr>
                       </thead>
                       <tbody>
-                        {registerData?.length > 0 ? (
-                          registerData.map((student: any) => {
+                        {filteredRegister?.length > 0 ? (
+                          filteredRegister.map((student: any) => {
                             const rentAmount = student.baseRent;
                             const estFeeAmount = configData?.establishmentFees?.[0] ? parseFloat(configData.establishmentFees[0].amount) : 0;
                             const activeBed = student.bedAssignments?.[0]?.bed;
@@ -856,27 +1180,28 @@ export function AdminBillingClient({
                                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => {
                                   const bill = student.monthly[m];
                                   return (
-                                    <td key={m} className="px-3 py-2.5 text-center border-l border-slate-50">
-                                      {bill ? (
-                                        <button 
-                                          type="button"
-                                          onClick={() => {
-                                            if (bill.id) {
-                                              setSelectedBillId(bill.id);
-                                              setBillStatusValue(bill.status);
-                                              setIsBillStatusDialogOpen(true);
-                                            }
-                                          }}
-                                          className="flex items-center justify-center gap-1.5 w-full h-full py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
-                                        >
-                                          <span className="font-medium text-slate-700">{bill.amount}</span>
-                                          {bill.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
-                                          {bill.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
-                                          {(bill.status === "GENERATED" || bill.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500" />}
-                                        </button>
-                                      ) : (
-                                        <span className="text-slate-200">-</span>
-                                      )}
+                                    <td key={m} className="px-1.5 py-1 text-center border-l border-slate-100">
+                                      <button 
+                                        type="button"
+                                        onClick={() => handleOpenMonthEdit(student, m, bill)}
+                                        className={`group/btn flex items-center justify-center gap-1 w-full min-w-[58px] h-7 px-1.5 rounded-md text-xs transition-all cursor-pointer ${
+                                          bill 
+                                            ? "hover:bg-slate-100 hover:ring-1 hover:ring-slate-300" 
+                                            : "text-slate-300 hover:text-blue-600 hover:bg-blue-50/80 hover:ring-1 hover:ring-blue-300"
+                                        }`}
+                                        title={`Click to edit ${student.name}'s ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1]} payment status`}
+                                      >
+                                        {bill ? (
+                                          <>
+                                            <span className="font-semibold text-slate-700">{bill.amount}</span>
+                                            {bill.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />}
+                                            {bill.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                                            {(bill.status === "GENERATED" || bill.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                                          </>
+                                        ) : (
+                                          <span className="font-mono text-slate-300 group-hover/btn:text-blue-600 group-hover/btn:font-bold">-</span>
+                                        )}
+                                      </button>
                                     </td>
                                   );
                                 })}
@@ -899,7 +1224,7 @@ export function AdminBillingClient({
                         ) : (
                           <tr>
                             <td colSpan={19} className="px-4 py-8 text-center text-sm text-slate-400">
-                              No students found for this year.
+                              {registerSearch ? "No students matching your search." : "No students found for this year."}
                             </td>
                           </tr>
                         )}
@@ -989,7 +1314,7 @@ export function AdminBillingClient({
             <div className="px-6 py-5 space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-600">Payment Status</Label>
-                <Select value={billStatusValue} onValueChange={setBillStatusValue}>
+                <Select value={billStatusValue} onValueChange={(val) => setBillStatusValue(val || "PAID")}>
                   <SelectTrigger className="h-9 border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20">
                     <SelectValue placeholder="Select Status" />
                   </SelectTrigger>
@@ -1011,6 +1336,167 @@ export function AdminBillingClient({
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Month Payment Status Dialog */}
+      <Dialog open={!!monthEditTarget} onOpenChange={(open) => !open && setMonthEditTarget(null)}>
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-sm w-full p-0 overflow-hidden">
+          {monthEditTarget && (
+            <form onSubmit={handleSaveMonthStatus}>
+              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex items-center gap-2 text-blue-600 mb-1">
+                  <Receipt className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {monthEditTarget.monthName} {monthEditTarget.year}
+                  </span>
+                </div>
+                <DialogTitle className="text-base font-bold text-slate-900 truncate">
+                  {monthEditTarget.studentName}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                  Set or update payment status for this month.
+                </DialogDescription>
+              </div>
+
+              <div className="px-6 py-5 space-y-4">
+                {/* Payment Status Dropdown */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Payment Status</Label>
+                  <Select value={monthStatusValue} onValueChange={(val) => setMonthStatusValue(val || "PAID")}>
+                    <SelectTrigger className="h-9 border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20">
+                      <SelectValue placeholder="Select Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PAID">
+                        <span className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                          <span>Paid</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="GENERATED">
+                        <span className="flex items-center gap-2">
+                          <XCircle className="w-3.5 h-3.5 text-red-500" />
+                          <span>Unpaid (Generated)</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="PARTIALLY_PAID">
+                        <span className="flex items-center gap-2">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Partially Paid</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="OVERDUE">
+                        <span className="flex items-center gap-2">
+                          <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Overdue</span>
+                        </span>
+                      </SelectItem>
+                      {monthEditTarget.bill && (
+                        <SelectItem value="NOT_BILLED">
+                          <span className="flex items-center gap-2 text-slate-500">
+                            <span>Unbilled / Remove Record (-)</span>
+                          </span>
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Monthly Amount Field */}
+                {monthStatusValue !== "NOT_BILLED" && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="monthAmount" className="text-xs font-semibold text-slate-700">
+                        Monthly Rent / Bill Amount (₹)
+                      </Label>
+                      {monthEditTarget.baseRent > 0 && (
+                        <span className="text-[11px] text-slate-400">
+                          Base: ₹{monthEditTarget.baseRent}
+                        </span>
+                      )}
+                    </div>
+                    <Input
+                      id="monthAmount"
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Enter amount"
+                      value={monthAmountValue}
+                      onChange={(e) => setMonthAmountValue(e.target.value)}
+                      className="h-9 border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20"
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-2 bg-slate-50/50">
+                {monthEditTarget.bill ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (!monthEditTarget?.bill) return;
+                      const targetBill = monthEditTarget.bill;
+                      const hostelObj = hostels.find((h) => h.id === selectedHostel);
+                      const amount = monthAmountValue !== "" ? parseFloat(monthAmountValue) : targetBill.amount || monthEditTarget.baseRent;
+                      generateInvoicePDF({
+                        id: targetBill.id,
+                        rentAmount: amount,
+                        bedFee: 0,
+                        establishmentFee: 0,
+                        messCharge: 0,
+                        totalAmount: amount,
+                        paidAmount: monthStatusValue === "PAID" ? amount : 0,
+                        status: monthStatusValue,
+                        month: monthEditTarget.month,
+                        year: monthEditTarget.year,
+                        dueDate: new Date(monthEditTarget.year, monthEditTarget.month - 1, 7),
+                        generatedAt: new Date(monthEditTarget.year, monthEditTarget.month - 1, 1),
+                        hostel: { name: hostelObj?.name || "Mirror Hostels" },
+                        user: {
+                          username: monthEditTarget.studentName,
+                          studentProfile: { fullName: monthEditTarget.studentName },
+                        },
+                      });
+                    }}
+                    className="text-slate-700 border-slate-200 hover:bg-slate-100 rounded-lg h-9 text-xs font-semibold cursor-pointer gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-500" />
+                    Download Invoice
+                  </Button>
+                ) : (
+                  <div />
+                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setMonthEditTarget(null)}
+                    disabled={isUpdatingMonth}
+                    className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isUpdatingMonth}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-sm cursor-pointer"
+                  >
+                    {isUpdatingMonth ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Payment Status"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>

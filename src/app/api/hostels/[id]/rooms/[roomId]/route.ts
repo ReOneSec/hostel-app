@@ -30,6 +30,7 @@ export async function GET(
 
 const updateRoomSchema = z.object({
   roomNumber: z.string().min(1, "Room name/number is required").optional(),
+  previousRoomNumber: z.string().optional().nullable(),
   type: z.enum(["SINGLE", "DOUBLE", "TRIPLE", "DORMITORY"]).optional(),
 });
 
@@ -69,6 +70,9 @@ export async function PATCH(
       where: { id: roomId },
       data: {
         roomNumber: data.roomNumber !== undefined ? data.roomNumber : undefined,
+        previousRoomNumber: data.previousRoomNumber !== undefined
+          ? (data.previousRoomNumber?.trim() || null)
+          : undefined,
         roomType: data.type !== undefined ? data.type : undefined,
       },
     });

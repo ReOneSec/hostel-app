@@ -78,7 +78,13 @@ export default function MessManagerDashboard() {
       // Fetch students for monthly manager dropdown
       const resStudents = await fetch(`/api/hostels/${myHostel}/students`);
       const studentsData = await resStudents.json();
-      setStudents(studentsData.data || []);
+      const rawStudents = studentsData.data || [];
+      const sortedStudents = [...rawStudents].sort((a: any, b: any) => {
+        const nameA = a.fullName || a.username || a.email || "";
+        const nameB = b.fullName || b.username || b.email || "";
+        return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+      });
+      setStudents(sortedStudents);
 
     } catch (e) {
       toast.error("Failed to load mess data");

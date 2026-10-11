@@ -34,6 +34,13 @@ function PaymentUploadForm() {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const month = searchParams.get("month");
+  const year = searchParams.get("year");
+  const amountParam = searchParams.get("amount");
+  const billPeriod = month && year
+    ? `${new Date(Number(year), Number(month) - 1).toLocaleString("default", { month: "long", year: "numeric" })} Bill`
+    : null;
+
   const {
     register,
     handleSubmit,
@@ -43,10 +50,16 @@ function PaymentUploadForm() {
   } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      amount: searchParams.get("amount") || "",
+      amount: amountParam || "",
       categories: ["ALL"],
     }
   });
+
+  useEffect(() => {
+    if (amountParam) {
+      setValue("amount", amountParam);
+    }
+  }, [amountParam, setValue]);
 
   useEffect(() => {
     if (!billId) {
@@ -155,6 +168,22 @@ function PaymentUploadForm() {
         </div>
 
         <div className="p-6">
+          {billPeriod && (
+            <div className="mb-6 p-4 bg-blue-50/80 border border-blue-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <CalendarIcon className="w-4 h-4 text-blue-600 shrink-0" />
+                <span className="text-sm font-semibold text-blue-900">
+                  Submitting payment for: <span className="font-bold underline decoration-blue-400">{billPeriod}</span>
+                </span>
+              </div>
+              {amountParam && (
+                <span className="text-xs font-bold text-blue-700 bg-white px-2.5 py-1 rounded-md border border-blue-200 shadow-xs self-start sm:self-auto">
+                  Total Due: ₹{parseFloat(amountParam).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              )}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-1.5">

@@ -51,6 +51,7 @@ const createBedSchema = z.object({
 
 const updateRoomSchema = z.object({
   roomNumber: z.string().min(1, "Room name is required"),
+  previousRoomNumber: z.string().optional().nullable(),
   type: z.enum(["SINGLE", "DOUBLE", "TRIPLE", "DORMITORY"]),
 });
 
@@ -110,6 +111,7 @@ export default function RoomBedsPage({ params }: { params: Promise<{ id: string;
       
       resetRoom({
         roomNumber: roomJson.data.roomNumber,
+        previousRoomNumber: roomJson.data.previousRoomNumber || "",
         type: roomJson.data.roomType,
       });
     } catch (error) {
@@ -192,6 +194,11 @@ export default function RoomBedsPage({ params }: { params: Promise<{ id: string;
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
               Room {room?.roomNumber || "Configuration"}
             </h1>
+            {room?.previousRoomNumber && (
+              <p className="text-xs text-slate-400 font-medium mt-0.5">
+                {room.previousRoomNumber.toLowerCase().startsWith('prev') ? room.previousRoomNumber : `Prev: ${room.previousRoomNumber}`}
+              </p>
+            )}
             <p className="text-muted-foreground mt-1 text-sm">
               Manage beds and view current occupants in this room.
             </p>
@@ -222,6 +229,11 @@ export default function RoomBedsPage({ params }: { params: Promise<{ id: string;
                 <Label htmlFor="roomNumber">Room Name/Number *</Label>
                 <Input id="roomNumber" {...registerRoom("roomNumber")} />
                 {roomErrors.roomNumber && <p className="text-xs text-destructive">{roomErrors.roomNumber.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="previousRoomNumber">Previous Room Name</Label>
+                <Input id="previousRoomNumber" placeholder="e.g. Old 101 (optional)" {...registerRoom("previousRoomNumber")} />
+                {roomErrors.previousRoomNumber && <p className="text-xs text-destructive">{roomErrors.previousRoomNumber.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">Room Type *</Label>
@@ -307,12 +319,17 @@ export default function RoomBedsPage({ params }: { params: Promise<{ id: string;
                   {isOccupied ? (
                     <div className="flex flex-col gap-2 p-3 bg-background rounded-md border shadow-sm mt-2">
                       <div className="flex items-center gap-2 text-sm font-medium">
-                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                           <User className="w-3.5 h-3.5 text-primary" />
                         </div>
-                        {activeAssignment.user.profile?.fullName || 'Unknown Student'}
+                        <span className="truncate" title={activeAssignment.user?.studentProfile?.fullName || activeAssignment.user?.username || undefined}>
+                          {activeAssignment.user?.studentProfile?.fullName?.trim() ||
+                            activeAssignment.user?.profile?.fullName?.trim() ||
+                            activeAssignment.user?.username?.trim() ||
+                            'Unknown Student'}
+                        </span>
                       </div>
-                      <Link href={`/admin/users/${activeAssignment.userId}`} className="text-xs text-primary hover:underline ml-8">
+                      <Link href={`/admin/users/${activeAssignment.userId || activeAssignment.user?.id}`} className="text-xs text-primary hover:underline ml-8">
                         View Profile
                       </Link>
                     </div>

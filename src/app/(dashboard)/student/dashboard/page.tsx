@@ -45,7 +45,8 @@ export default function StudentDashboardPage() {
     }
   }, [session?.user?.id]);
 
-  const latestBill = userData?.bills?.[0];
+  const pendingBill = userData?.bills?.find((b: any) => b.status !== "PAID");
+  const latestBill = pendingBill || userData?.bills?.[0];
   const documents = userData?.documents || [];
   const approvedDocs = documents.filter((d: any) => d.status === "APPROVED" || d.status === "VERIFIED").length;
   const totalDocs = documents.length;
@@ -148,7 +149,9 @@ export default function StudentDashboardPage() {
                     <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 flex justify-between items-center">
                       <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
                         <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                        Current Bill
+                        {latestBill 
+                          ? `${new Date(latestBill.year, latestBill.month - 1).toLocaleString('default', { month: 'short' })} Bill` 
+                          : "Current Bill"}
                       </h3>
                       {latestBill && (
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border uppercase tracking-wider ${
@@ -200,7 +203,10 @@ export default function StudentDashboardPage() {
                       <div className="p-3 bg-slate-50 border-t border-slate-100 flex gap-2">
                         <Button 
                           className="flex-1 h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer shadow-sm"
-                          onClick={() => router.push(`/student/payments/upload?billId=${latestBill.id}`)}
+                          onClick={() => {
+                            const due = Math.max(0, Number(latestBill.totalAmount) - Number(latestBill.paidAmount));
+                            router.push(`/student/payments/upload?billId=${latestBill.id}&amount=${due}&month=${latestBill.month}&year=${latestBill.year}`);
+                          }}
                         >
                           Upload Proof
                         </Button>

@@ -73,4 +73,32 @@ describe('Users API Property Tests', () => {
       )
     );
   });
+
+  it('orders students alphabetically by studentProfile.fullName and username', async () => {
+    prismaMock.user.findMany.mockClear();
+    prismaMock.user.findMany.mockResolvedValue([]);
+    prismaMock.user.count.mockResolvedValue(0);
+
+    await getUsersList({ role: 'STUDENT' });
+
+    const callArgs = prismaMock.user.findMany.mock.calls[0][0];
+    expect(callArgs?.orderBy).toEqual([
+      { studentProfile: { fullName: 'asc' } },
+      { username: 'asc' }
+    ]);
+  });
+
+  it('orders by name when sortBy is name', async () => {
+    prismaMock.user.findMany.mockClear();
+    prismaMock.user.findMany.mockResolvedValue([]);
+    prismaMock.user.count.mockResolvedValue(0);
+
+    await getUsersList({ sortBy: 'name', sortOrder: 'asc' });
+
+    const callArgs = prismaMock.user.findMany.mock.calls[0][0];
+    expect(callArgs?.orderBy).toEqual([
+      { studentProfile: { fullName: 'asc' } },
+      { username: 'asc' }
+    ]);
+  });
 });

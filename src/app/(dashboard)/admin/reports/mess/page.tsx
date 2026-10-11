@@ -225,7 +225,10 @@ export default function MessReportPage() {
                             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Settlement</span>
                           </div>
                           
-                          {session.settlements.map((st: any) => (
+                          {session.settlements
+                            .slice()
+                            .sort((a: any, b: any) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+                            .map((st: any) => (
                             <div key={st.userId} className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] px-5 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors items-center">
                               <span className="text-sm font-medium text-slate-800 truncate pr-2">{st.name}</span>
                               <span className="text-sm text-slate-600 text-center">{st.mealCount}</span>
@@ -247,7 +250,10 @@ export default function MessReportPage() {
 
                         {/* Mobile Card View */}
                         <div className="md:hidden p-4 space-y-3">
-                          {session.settlements.map((st: any) => (
+                          {session.settlements
+                            .slice()
+                            .sort((a: any, b: any) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+                            .map((st: any) => (
                             <div key={st.userId} className="border border-slate-100 rounded-xl p-4 bg-slate-50/30">
                               <div className="flex items-center justify-between mb-3">
                                 <span className="text-sm font-semibold text-slate-800 truncate pr-2">{st.name}</span>

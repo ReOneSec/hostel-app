@@ -63,6 +63,9 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   const [isEditJoiningDateOpen, setIsEditJoiningDateOpen] = useState(false);
   const [newJoiningDate, setNewJoiningDate] = useState("");
   const [isUpdatingJoiningDate, setIsUpdatingJoiningDate] = useState(false);
+  const [isEditEmailOpen, setIsEditEmailOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [editingRemarkId, setEditingRemarkId] = useState<string | null>(null);
   const [editingRemarkContent, setEditingRemarkContent] = useState("");
@@ -207,6 +210,38 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
     }
   }
 
+  async function handleUpdateEmail(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    const trimmed = newEmail.trim().toLowerCase();
+    if (!trimmed) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    if (trimmed === user.email.toLowerCase()) {
+      toast.error("New email is identical to current email");
+      return;
+    }
+
+    setIsUpdatingEmail(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}/email`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update email");
+
+      toast.success("Email address updated successfully");
+      setIsEditEmailOpen(false);
+      fetchUser();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update email");
+    } finally {
+      setIsUpdatingEmail(false);
+    }
+  }
+
   async function handleDownloadPDF() {
     setIsGeneratingPDF(true);
     try {
@@ -270,10 +305,21 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                 <StatusBadge status={user.status} />
               </div>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <p className="text-sm text-slate-400 flex items-center gap-1.5">
-                  <Mail className="w-3 h-3" />
-                  {user.email}
-                </p>
+                <div className="inline-flex items-center gap-1.5 text-sm text-slate-500 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 px-2 py-0.5 rounded-lg transition-colors group">
+                  <Mail className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  <span className="font-mono text-xs text-slate-600">{user.email}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewEmail(user.email);
+                      setIsEditEmailOpen(true);
+                    }}
+                    className="ml-1 p-0.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded transition-all cursor-pointer"
+                    title="Change Email Address"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                </div>
                 <span className="text-slate-300 hidden sm:inline">•</span>
                 <RoleBadge role={user.role} />
               </div>
@@ -281,6 +327,18 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           </div>
 
           <div className="flex items-center gap-2 flex-wrap sm:shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setNewEmail(user.email);
+                setIsEditEmailOpen(true);
+              }}
+              className="h-8 rounded-lg text-xs border-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer gap-1.5"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Change Email</span>
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -374,32 +432,34 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           </div>
 
           {/* Current Hostel */}
-          {user.hostelAssignments?.length > 0 ? (
-            <div className="bg-white rounded-xl border border-blue-200 shadow-sm ring-1 ring-blue-100/80 overflow-hidden">
-              <div className="px-5 py-4 border-b border-blue-100 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                    <Building2 className="w-3.5 h-3.5 text-blue-600" />
+          {(() => {
+            const activeHostelAssignment = user.hostelAssignments?.find((a: any) => a.status === "ACTIVE");
+            return activeHostelAssignment ? (
+              <div className="bg-white rounded-xl border border-blue-200 shadow-sm ring-1 ring-blue-100/80 overflow-hidden">
+                <div className="px-5 py-4 border-b border-blue-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-blue-700">Current Hostel</h3>
                   </div>
-                  <h3 className="text-sm font-semibold text-blue-700">Current Hostel</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push(`/admin/users/${user.id}/assign`)}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-7 px-2 rounded-lg text-xs cursor-pointer"
+                  >
+                    Transfer
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push(`/admin/users/${user.id}/assign`)}
-                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-7 px-2 rounded-lg text-xs cursor-pointer"
-                >
-                  Transfer
-                </Button>
+                <div className="p-5">
+                  <p className="text-lg font-bold text-slate-900">{activeHostelAssignment.hostel.name}</p>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Room {user.roomAssignments?.[0]?.room.roomNumber || "N/A"} • Bed {user.bedAssignments?.[0]?.bed.bedLabel || "N/A"}
+                  </p>
+                </div>
               </div>
-              <div className="p-5">
-                <p className="text-lg font-bold text-slate-900">{user.hostelAssignments[0].hostel.name}</p>
-                <p className="text-sm text-slate-500 mt-1">
-                  Room {user.roomAssignments?.[0]?.room.roomNumber || "N/A"} • Bed {user.bedAssignments?.[0]?.bed.bedLabel || "N/A"}
-                </p>
-              </div>
-            </div>
-          ) : (
+            ) : (
             <div className="bg-white rounded-xl border border-dashed border-slate-300 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
@@ -416,7 +476,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                 </Button>
               </div>
             </div>
-          )}
+          ); })()}
 
           {/* Selfie */}
           {user.selfies?.length > 0 && (
@@ -726,6 +786,68 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               Save Date
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Email Dialog */}
+      <Dialog open={isEditEmailOpen} onOpenChange={setIsEditEmailOpen}>
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-md w-full p-0 overflow-hidden">
+          <form onSubmit={handleUpdateEmail}>
+            <div className="px-6 py-5 border-b border-slate-100">
+              <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Mail className="w-4 h-4 text-blue-600" />
+                Change Email Address
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500 mt-1">
+                Update the login and notification email for this user. This updates both authentication and profile records.
+              </DialogDescription>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <Label className="text-xs font-semibold text-slate-500 mb-1.5 block">Current Email</Label>
+                <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-600">
+                  {user.email}
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="newEmailInput" className="text-xs font-semibold text-slate-700 mb-1.5 block">
+                  New Email Address
+                </Label>
+                <Input
+                  id="newEmailInput"
+                  type="email"
+                  placeholder="e.g. anowar@mirror.std"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="h-9 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  autoFocus
+                  required
+                />
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  The user will immediately use this new email to sign in with their existing password.
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsEditEmailOpen(false)}
+                disabled={isUpdatingEmail}
+                className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isUpdatingEmail || !newEmail.trim() || newEmail.trim().toLowerCase() === user.email.toLowerCase()}
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-sm cursor-pointer"
+              >
+                {isUpdatingEmail && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                Save Email
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
