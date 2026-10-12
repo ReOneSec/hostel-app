@@ -22,7 +22,6 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { generateInvoicePDF } from "@/lib/pdf-generator";
 
 export default function StudentDashboardPage() {
   const { data: session } = useSession();
@@ -214,7 +213,10 @@ export default function StudentDashboardPage() {
                           variant="outline" 
                           size="icon"
                           className="h-9 w-9 text-slate-600 border-slate-200 hover:bg-slate-100 rounded-lg cursor-pointer shrink-0"
-                          onClick={() => generateInvoicePDF(latestBill, userData?.studentProfile)}
+                          onClick={async () => {
+                            const { generateInvoicePDF } = await import("@/lib/pdf-generator");
+                            generateInvoicePDF(latestBill, userData?.studentProfile);
+                          }}
                           title="Download Invoice"
                         >
                           <Download className="w-4 h-4" />

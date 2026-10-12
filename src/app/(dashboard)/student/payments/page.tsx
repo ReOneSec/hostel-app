@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ExternalLink, Receipt, CreditCard, Download, Clock, XCircle, CheckCircle2 } from "lucide-react";
 import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
-import { generateReceiptPDF } from "@/lib/pdf-generator";
 
 type PaymentData = {
   id: string;
@@ -170,7 +169,10 @@ export default function StudentPaymentsPage() {
                       <Button 
                         size="sm"
                         className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm cursor-pointer"
-                        onClick={() => generateReceiptPDF(payment)}
+                        onClick={async () => {
+                          const { generateReceiptPDF } = await import("@/lib/pdf-generator");
+                          generateReceiptPDF(payment);
+                        }}
                       >
                         <Download className="w-3.5 h-3.5 mr-1.5" />
                         Receipt

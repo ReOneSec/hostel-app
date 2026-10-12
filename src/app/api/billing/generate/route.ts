@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { generateBulkBills } from "@/lib/billing";
 
@@ -15,6 +16,11 @@ export async function POST(req: Request) {
     const year = today.getFullYear();
 
     const generatedCount = await generateBulkBills(month, year, user.id);
+
+    try {
+      revalidateTag("dashboard-stats", "max");
+      revalidateTag("report-payments", "max");
+    } catch {}
 
     return NextResponse.json({ 
       data: { 

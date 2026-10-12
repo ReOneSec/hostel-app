@@ -21,7 +21,6 @@ import {
 import { BillsPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { generateInvoicePDF } from "@/lib/pdf-generator";
 
 export default function StudentBillsPage() {
   const [bills, setBills] = useState<any[]>([]);
@@ -256,7 +255,10 @@ export default function StudentBillsPage() {
                   <div className="flex w-full sm:w-auto gap-2">
                     <Button 
                       variant="outline"
-                      onClick={() => generateInvoicePDF(selectedBill, selectedBill.user?.studentProfile)}
+                      onClick={async () => {
+                        const { generateInvoicePDF } = await import("@/lib/pdf-generator");
+                        generateInvoicePDF(selectedBill, selectedBill.user?.studentProfile);
+                      }}
                       className="flex-1 sm:flex-none h-10 bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-lg shadow-sm cursor-pointer"
                     >
                       <Download className="w-4 h-4 mr-2 text-slate-400" />
@@ -346,8 +348,9 @@ export default function StudentBillsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
+                            const { generateInvoicePDF } = await import("@/lib/pdf-generator");
                             generateInvoicePDF(bill, bill.user?.studentProfile);
                           }}
                           className="h-7 w-7 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md cursor-pointer"

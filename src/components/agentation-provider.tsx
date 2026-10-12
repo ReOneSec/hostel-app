@@ -1,16 +1,28 @@
 "use client";
 
-import { Agentation } from "agentation";
+import { useEffect, useState } from "react";
 
 export function AgentationProvider() {
-  if (process.env.NODE_ENV !== "development") {
+  const [AgentationComponent, setAgentationComponent] = useState<any>(null);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      import("agentation")
+        .then((mod) => {
+          setAgentationComponent(() => mod.Agentation);
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  if (process.env.NODE_ENV !== "development" || !AgentationComponent) {
     return null;
   }
 
   return (
-    <Agentation 
-      endpoint="http://localhost:3000" 
-      onSessionCreated={(sessionId) => {
+    <AgentationComponent
+      endpoint="http://localhost:3000"
+      onSessionCreated={(sessionId: string) => {
         console.log("Agentation session started:", sessionId);
       }}
     />

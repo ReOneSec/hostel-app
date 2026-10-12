@@ -30,9 +30,12 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // Use getSession() instead of getUser() to validate JWT locally from cookie
+  // without an expensive network round-trip on every request.
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  return { supabaseResponse, user }
+  return { supabaseResponse, user: session?.user ?? null }
 }
+

@@ -55,17 +55,11 @@ export const auth = cache(async (): Promise<Session | null> => {
     try {
       const supabase = await createClient();
       
-      // Try getSession() first — reads from cookie
+      // Read session from local cookie JWT — no outbound network call
       const { data: { session } } = await supabase.auth.getSession();
       email = session?.user?.email;
-
-      // Fallback to getUser() to ensure robust token extraction across route handlers
-      if (!email) {
-        const { data: { user } } = await supabase.auth.getUser();
-        email = user?.email;
-      }
     } catch {
-      // Cookie reading fallback failed
+      // Cookie reading failed
     }
   }
 

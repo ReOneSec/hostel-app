@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { generateInvoicePDF } from "@/lib/pdf-generator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1436,11 +1435,12 @@ export function AdminBillingClient({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
+                    onClick={async () => {
                       if (!monthEditTarget?.bill) return;
                       const targetBill = monthEditTarget.bill;
                       const hostelObj = hostels.find((h) => h.id === selectedHostel);
                       const amount = monthAmountValue !== "" ? parseFloat(monthAmountValue) : targetBill.amount || monthEditTarget.baseRent;
+                      const { generateInvoicePDF } = await import("@/lib/pdf-generator");
                       generateInvoicePDF({
                         id: targetBill.id,
                         rentAmount: amount,

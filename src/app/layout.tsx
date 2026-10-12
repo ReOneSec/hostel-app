@@ -28,7 +28,7 @@ export default function RootLayout({
           {children}
           <Toaster richColors position="top-right" />
         </TooltipProvider>
-        <AgentationProvider />
+        {process.env.NODE_ENV === "development" && <AgentationProvider />}
       </body>
     </html>
   );

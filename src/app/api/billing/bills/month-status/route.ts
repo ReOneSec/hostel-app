@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog, getIpAddress, getUserAgent } from "@/lib/audit";
@@ -117,6 +118,11 @@ export async function POST(req: Request) {
         userAgent: getUserAgent(req.headers),
       });
 
+      try {
+        revalidateTag("dashboard-stats", "max");
+        revalidateTag("report-payments", "max");
+      } catch {}
+
       return NextResponse.json({
         success: true,
         message: "Payment status updated successfully",
@@ -179,6 +185,11 @@ export async function POST(req: Request) {
         ipAddress: getIpAddress(req.headers),
         userAgent: getUserAgent(req.headers),
       });
+
+      try {
+        revalidateTag("dashboard-stats", "max");
+        revalidateTag("report-payments", "max");
+      } catch {}
 
       return NextResponse.json({
         success: true,

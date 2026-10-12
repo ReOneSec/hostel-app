@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Clock, FileText, Loader2, MapPin, Phone, Shield, User, KeyRound, Building2, Mail, Pencil, CheckCircle2, XCircle, Calendar, CalendarPlus, Trash, Edit, Download } from "lucide-react";
 import { toast } from "sonner";
-import { generateAdmissionFormPDF } from "@/lib/pdf-generator";
 
 // Role Badge
 function RoleBadge({ role }: { role: string }) {
@@ -245,6 +244,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   async function handleDownloadPDF() {
     setIsGeneratingPDF(true);
     try {
+      const { generateAdmissionFormPDF } = await import("@/lib/pdf-generator");
       await generateAdmissionFormPDF(user);
     } catch (error) {
       toast.error("Failed to generate PDF");

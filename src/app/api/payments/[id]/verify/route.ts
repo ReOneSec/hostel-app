@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { sendEmail, paymentStatusEmail } from "@/lib/email";
 import { successResponse, errorResponse } from "@/lib/api-response";
@@ -96,6 +97,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       userId: payment.user.id,
       type: "PAYMENT_STATUS",
     });
+
+    try {
+      revalidateTag("dashboard-stats", "max");
+      revalidateTag("report-payments", "max");
+    } catch {}
 
     return successResponse(updatedPayment);
   } catch (error: any) {

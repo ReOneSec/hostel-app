@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, AlertCircle, FileText, Camera, CheckCircle, XCircle, Clock, Download, Edit3, User } from "lucide-react";
 import { format } from "date-fns";
-import { generateAdmissionFormPDF } from "@/lib/pdf-generator";
 
 export default function StudentProfilePage() {
   const { data: session } = useSession();
@@ -79,6 +78,7 @@ export default function StudentProfilePage() {
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
     try {
+      const { generateAdmissionFormPDF } = await import("@/lib/pdf-generator");
       await generateAdmissionFormPDF(userData);
     } catch (error) {
       toast.error("Failed to generate PDF");

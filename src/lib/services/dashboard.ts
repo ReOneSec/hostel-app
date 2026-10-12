@@ -1,17 +1,23 @@
 import { prisma } from "@/lib/prisma";
+import { unstable_cache } from "next/cache";
 
-export async function getDashboardStats() {
-  const [totalHostels, totalStudents, bedsOccupied] = await Promise.all([
-    prisma.hostel.count(),
-    prisma.user.count({ where: { role: "STUDENT", status: "ACTIVE" } }),
-    prisma.bedAssignment.count({ where: { status: "ACTIVE" } }),
-  ]);
-
+async function fetchDashboardStats() {
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
-  const [billsSum, overdueSum] = await Promise.all([
+  // Parallelise all queries in a single Promise.all (FIX 6)
+  const [
+    totalHostels,
+    totalStudents,
+    bedsOccupied,
+    billsSum,
+    overdueSum,
+    recentUsers,
+  ] = await Promise.all([
+    prisma.hostel.count(),
+    prisma.user.count({ where: { role: "STUDENT", status: "ACTIVE" } }),
+    prisma.bedAssignment.count({ where: { status: "ACTIVE" } }),
     prisma.bill.aggregate({
       where: { month, year },
       _sum: {
@@ -30,6 +36,11 @@ export async function getDashboardStats() {
         paidAmount: true,
       },
     }),
+    prisma.user.findMany({
+      take: 3,
+      orderBy: { createdAt: "desc" },
+      select: { username: true, role: true, createdAt: true },
+    }),
   ]);
 
   const totalBilled = billsSum._sum.totalAmount ? Number(billsSum._sum.totalAmount) : 0;
@@ -39,12 +50,6 @@ export async function getDashboardStats() {
   const overdueBilled = overdueSum._sum.totalAmount ? Number(overdueSum._sum.totalAmount) : 0;
   const overdueCollected = overdueSum._sum.paidAmount ? Number(overdueSum._sum.paidAmount) : 0;
   const totalOverdue = overdueBilled - overdueCollected;
-
-  const recentUsers = await prisma.user.findMany({
-    take: 3,
-    orderBy: { createdAt: "desc" },
-    select: { username: true, role: true, createdAt: true },
-  });
 
   return {
     stats: {
@@ -64,4 +69,21 @@ export async function getDashboardStats() {
       date: u.createdAt,
     })),
   };
+}
+
+// Wrap dashboard stats in unstable_cache with 60s TTL and tag invalidation (FIX 7)
+const cachedDashboardStats = unstable_cache(
+  fetchDashboardStats,
+  ["dashboard-stats"],
+  {
+    revalidate: 60,
+    tags: ["dashboard-stats"],
+  }
+);
+
+export async function getDashboardStats() {
+  if (process.env.NODE_ENV === "test") {
+    return fetchDashboardStats();
+  }
+  return cachedDashboardStats();
 }

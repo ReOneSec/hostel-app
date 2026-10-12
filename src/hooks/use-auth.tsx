@@ -3,40 +3,55 @@ import useSWR from "swr";
 import { createClient } from "@/utils/supabase/client";
 import type { Session as CustomSession } from "@/lib/auth";
 
+const SESSION_CACHE_KEY = "mirror_auth_session";
+
+function getStoredSession(): CustomSession | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(SESSION_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setStoredSession(session: CustomSession | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (session) {
+      localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(session));
+    } else {
+      localStorage.removeItem(SESSION_CACHE_KEY);
+    }
+  } catch {
+    // LocalStorage quota or access error
+  }
+}
+
 const fetcher = (url: string) => fetch(url).then((res) => {
   if (!res.ok) throw new Error("Failed to fetch session");
   return res.json();
 });
 
 export function useSession() {
-  const [supabaseUser, setSupabaseUser] = useState<any>(null);
-  const [supabaseStatus, setSupabaseStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
+  const [cachedSession, setCachedSession] = useState<CustomSession | null>(null);
 
-  // Track the raw supabase auth state
+  // 1. Instantly hydrate from localStorage for instantaneous chrome rendering (FIX 4)
+  useEffect(() => {
+    const stored = getStoredSession();
+    if (stored) {
+      setCachedSession(stored);
+    }
+  }, []);
+
+  // 2. Auth listener for cross-tab or explicit sign-out events
   useEffect(() => {
     const supabase = createClient();
-
-    const fetchInitialSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setSupabaseUser(user);
-        setSupabaseStatus("authenticated");
-      } else {
-        setSupabaseUser(null);
-        setSupabaseStatus("unauthenticated");
-      }
-    };
-
-    fetchInitialSession();
-
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          setSupabaseUser(session.user);
-          setSupabaseStatus("authenticated");
-        } else {
-          setSupabaseUser(null);
-          setSupabaseStatus("unauthenticated");
+      (event, session) => {
+        if (event === "SIGNED_OUT" || !session) {
+          setStoredSession(null);
+          setCachedSession(null);
         }
       }
     );
@@ -46,30 +61,22 @@ export function useSession() {
     };
   }, []);
 
-  // Fetch from our new DB session endpoint using SWR
-  // SWR automatically deduplicates multiple simultaneous calls and handles caching
+  // 3. SWR revalidation in the background without blocking render on browser-side getUser()
   const { data: dbResponse, error, isLoading, mutate } = useSWR(
-    supabaseUser ? '/api/users/session' : null,
+    "/api/users/session",
     fetcher,
     {
       revalidateOnFocus: false,
       revalidateIfStale: false,
+      shouldRetryOnError: false,
     }
   );
 
-  // Derive the final status combining Supabase and DB states
-  let status: "loading" | "authenticated" | "unauthenticated" = supabaseStatus;
-  if (status === "authenticated" && isLoading) {
-    status = "loading";
-  }
-
-  // Derive the final session data
-  let data: CustomSession | null = null;
-  
-  if (supabaseStatus === "authenticated" && supabaseUser) {
+  // 4. Update display cache upon fresh server session
+  useEffect(() => {
     if (dbResponse?.data) {
       const dbUser = dbResponse.data;
-      data = {
+      const freshSession: CustomSession = {
         user: {
           id: dbUser.id,
           email: dbUser.email,
@@ -78,41 +85,50 @@ export function useSession() {
           isFirstLogin: dbUser.isFirstLogin,
           isProfileComplete: dbUser.isProfileComplete,
           needsSelfieUpdate: dbUser.needsSelfieUpdate,
-          privacyConsentAt: dbUser.privacyConsentAt 
-            ? new Date(dbUser.privacyConsentAt) 
-            : (supabaseUser.user_metadata?.privacyConsentAt ? new Date(supabaseUser.user_metadata.privacyConsentAt) : null),
-          username: dbUser.username || dbUser.email.split('@')[0],
-        }
+          privacyConsentAt: dbUser.privacyConsentAt ? new Date(dbUser.privacyConsentAt) : null,
+          username: dbUser.username || dbUser.email.split("@")[0],
+        },
       };
+      setStoredSession(freshSession);
+      setCachedSession(freshSession);
     } else if (error) {
-      // Fallback to supabase metadata if API fails or hasn't loaded yet and error occurred
-      data = {
-        user: {
-          id: supabaseUser.id,
-          email: supabaseUser.email!,
-          role: supabaseUser.app_metadata?.role as any || "STUDENT",
-          status: supabaseUser.user_metadata?.status || "ACTIVE",
-          isFirstLogin: supabaseUser.user_metadata?.isFirstLogin ?? false,
-          isProfileComplete: supabaseUser.user_metadata?.isProfileComplete ?? false,
-          needsSelfieUpdate: supabaseUser.user_metadata?.needsSelfieUpdate ?? false,
-          privacyConsentAt: supabaseUser.user_metadata?.privacyConsentAt ? new Date(supabaseUser.user_metadata.privacyConsentAt) : null,
-          username: supabaseUser.user_metadata?.username ?? supabaseUser.email!.split('@')[0],
-        }
-      };
-    } else if (isLoading) {
-      // Optional: you can choose to provide the fallback data here too while it's loading,
-      // but usually returning null for data when status is "loading" is safer.
-      data = null;
+      setStoredSession(null);
+      setCachedSession(null);
     }
+  }, [dbResponse, error]);
+
+  // Derive session: live server data overrides local cache once loaded
+  const activeSession: CustomSession | null = dbResponse?.data
+    ? {
+        user: {
+          id: dbResponse.data.id,
+          email: dbResponse.data.email,
+          role: dbResponse.data.role,
+          status: dbResponse.data.status,
+          isFirstLogin: dbResponse.data.isFirstLogin,
+          isProfileComplete: dbResponse.data.isProfileComplete,
+          needsSelfieUpdate: dbResponse.data.needsSelfieUpdate,
+          privacyConsentAt: dbResponse.data.privacyConsentAt
+            ? new Date(dbResponse.data.privacyConsentAt)
+            : null,
+          username: dbResponse.data.username || dbResponse.data.email.split("@")[0],
+        },
+      }
+    : cachedSession;
+
+  let status: "loading" | "authenticated" | "unauthenticated" = "loading";
+  if (activeSession) {
+    status = "authenticated";
+  } else if (!isLoading && (error || !dbResponse)) {
+    status = "unauthenticated";
   }
 
   const update = async (metadata?: Record<string, any>) => {
     const supabase = createClient();
     if (metadata) {
       await supabase.auth.updateUser({
-        data: metadata
+        data: metadata,
       });
-      // Optionally mutate SWR cache if user metadata was updated in our DB as well
       mutate();
     } else {
       await supabase.auth.refreshSession();
@@ -120,10 +136,11 @@ export function useSession() {
     }
   };
 
-  return { data, status, update };
+  return { data: activeSession, status, update };
 }
 
 export async function signOut() {
+  setStoredSession(null);
   const supabase = createClient();
   await supabase.auth.signOut();
   window.location.href = "/login";

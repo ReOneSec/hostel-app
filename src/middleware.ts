@@ -86,9 +86,13 @@ export async function middleware(request: NextRequest) {
       rateResponse.headers.set("Retry-After", String(rateCheck.retryAfter));
       return rateResponse;
     }
+
+    // Early-return for all API routes — allow route handlers and auth() to handle their own auth
+    const apiResponse = NextResponse.next();
+    setCorsHeaders(apiResponse.headers, origin);
+    return apiResponse;
   }
 
-  
   // Use X-Forwarded headers if behind a proxy (like Cloudflare Tunnel)
   const forwardedHost = request.headers.get("x-forwarded-host");
   const forwardedProto = request.headers.get("x-forwarded-proto") || "http";
@@ -105,7 +109,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Update Supabase session
+  // Update Supabase session for page routes
   const { supabaseResponse, user } = await updateSession(request);
 
   // Allow public routes
@@ -117,17 +121,9 @@ export async function middleware(request: NextRequest) {
         new URL(getDashboardRoute(role), baseUrl)
       );
     }
-    if (pathname.startsWith("/api/")) {
-      setCorsHeaders(supabaseResponse.headers, origin);
-    }
     return supabaseResponse;
   }
 
-  // Allow API routes to handle their own auth (except protected dashboard routes)
-  if (pathname.startsWith("/api/")) {
-    setCorsHeaders(supabaseResponse.headers, origin);
-    return supabaseResponse;
-  }
 
 
   // Not authenticated → redirect to login
