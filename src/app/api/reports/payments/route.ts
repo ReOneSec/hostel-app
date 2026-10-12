@@ -133,6 +133,8 @@ const getCachedPaymentReport = (hostelId: string | null, month: number, year: nu
   )();
 };
 
+import { getAnnualFinancialReport } from "@/lib/services/reports";
+
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
@@ -143,9 +145,14 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const hostelId = searchParams.get("hostelId");
     const now = new Date();
-    const month = parseInt(searchParams.get("month") || String(now.getMonth() + 1));
     const year = parseInt(searchParams.get("year") || String(now.getFullYear()));
 
+    if (searchParams.get("view") === "annual") {
+      const data = await getAnnualFinancialReport(hostelId, year);
+      return successResponse(data);
+    }
+
+    const month = parseInt(searchParams.get("month") || String(now.getMonth() + 1));
     const data = await getCachedPaymentReport(hostelId, month, year);
     return successResponse(data);
   } catch (error) {

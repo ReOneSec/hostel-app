@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
+import Link from "next/link";
 import { 
   Loader2, Receipt, CreditCard, CheckCircle2, XCircle, AlertTriangle, Building2, User, KeyRound, Clock, FolderOpen,
-  Search, RefreshCw, Table as TableIcon, Download
+  Search, RefreshCw, Table as TableIcon, Download, Wallet, ArrowUpRight
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -41,7 +42,8 @@ export function AdminBillingClient({
   // Search Filters
   const [studentSearch, setStudentSearch] = useState("");
   const [registerSearch, setRegisterSearch] = useState("");
-  const isFirstMount = useRef(true);
+  const isFirstMountConfig = useRef(true);
+  const isFirstMountRegister = useRef(true);
   
   // Form States
   const [rentAmount, setRentAmount] = useState("");
@@ -85,8 +87,81 @@ export function AdminBillingClient({
   const [monthAmountValue, setMonthAmountValue] = useState<string>("");
   const [isUpdatingMonth, setIsUpdatingMonth] = useState(false);
   
+  // Standalone Fee Edit States (Bed Fee & Establishment Fee)
+  const [feeEditTarget, setFeeEditTarget] = useState<{
+    studentId: string;
+    studentName: string;
+    feeType: "BED_FEE" | "ESTABLISHMENT_FEE";
+    title: string;
+    amount: number;
+    status: string;
+    year: number;
+  } | null>(null);
+  const [feeStatusValue, setFeeStatusValue] = useState<string>("PAID");
+  const [feeAmountValue, setFeeAmountValue] = useState<string>("");
+  const [isUpdatingFee, setIsUpdatingFee] = useState(false);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const monthlyFinancials = useMemo(() => {
+    if (!registerData || !registerData.length) return null;
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const months = monthNames.map((name, index) => {
+      const m = index + 1;
+      let billed = 0;
+      let collected = 0;
+      let overdue = 0;
+      let count = 0;
+      let overdueCount = 0;
+
+      for (const student of registerData) {
+        const mData = student.monthly?.[m];
+        if (mData) {
+          count++;
+          const amt = Number(mData.totalAmount ?? mData.amount ?? 0);
+          billed += amt;
+          if (mData.status === "PAID") {
+            collected += amt;
+          } else if (mData.status === "OVERDUE") {
+            overdue += amt;
+            overdueCount++;
+          } else if (mData.status === "PARTIALLY_PAID") {
+            const paid = Number(mData.paidAmount ?? 0);
+            collected += paid;
+            overdue += Math.max(0, amt - paid);
+            overdueCount++;
+          }
+        }
+      }
+
+      const rate = billed > 0 ? Math.round((collected / billed) * 100) : 0;
+      return {
+        month: m,
+        monthName: name,
+        billed,
+        collected,
+        overdue,
+        pending: Math.max(0, billed - collected - overdue),
+        rate,
+        count,
+        overdueCount,
+      };
+    });
+
+    const totalBilled = months.reduce((acc, m) => acc + m.billed, 0);
+    const totalCollected = months.reduce((acc, m) => acc + m.collected, 0);
+    const totalOverdue = months.reduce((acc, m) => acc + m.overdue, 0);
+    const totalRate = totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 100) : 0;
+
+    return {
+      months,
+      totalBilled,
+      totalCollected,
+      totalOverdue,
+      totalRate,
+    };
+  }, [registerData]);
 
   useEffect(() => {
     if (!selectedHostel) {
@@ -95,30 +170,30 @@ export function AdminBillingClient({
       return;
     }
 
-    if (isFirstMount.current && selectedHostel === initialHostels[0]?.id && initialConfigData) {
-      isFirstMount.current = false;
+    if (isFirstMountConfig.current && selectedHostel === initialHostels[0]?.id && initialConfigData) {
+      isFirstMountConfig.current = false;
       setConfigData(initialConfigData);
       setEstFeeAmount(initialConfigData.establishmentFees?.[0]?.amount?.toString() || "");
       setIsLoading(false);
-    } else {
-      fetchConfig();
+      return;
     }
+    fetchConfig();
   }, [selectedHostel]);
 
   useEffect(() => {
     if (!selectedHostel) return;
     
-    if (isFirstMount.current && selectedHostel === initialHostels[0]?.id && selectedYear === initialYear) {
-      setRegisterData(initialRegisterData);
-    } else {
-      fetchRegisterData();
+    if (isFirstMountRegister.current && selectedHostel === initialHostels[0]?.id && selectedYear === initialYear && initialRegisterData?.length > 0) {
+      isFirstMountRegister.current = false;
+      return;
     }
+    fetchRegisterData();
   }, [selectedHostel, selectedYear]);
 
   async function handleRefresh() {
     setIsRefreshing(true);
     try {
-      await Promise.all([fetchConfig(), fetchRegisterData()]);
+      await Promise.all([fetchConfig(), fetchRegisterData(true)]);
       toast.success("Billing data refreshed successfully");
     } catch {
       toast.error("Failed to refresh billing data");
@@ -169,13 +244,15 @@ export function AdminBillingClient({
     });
   }, [registerData, registerSearch]);
 
-  async function fetchRegisterData() {
-    setIsRegisterLoading(true);
+  async function fetchRegisterData(isSilent = false) {
+    if (!isSilent && registerData.length === 0) {
+      setIsRegisterLoading(true);
+    }
     try {
       const res = await fetch(`/api/billing/register?hostelId=${selectedHostel}&year=${selectedYear}`);
       if (!res.ok) throw new Error("Failed to fetch register data");
       const { data } = await res.json();
-      setRegisterData(data);
+      setRegisterData(data || []);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -382,11 +459,97 @@ export function AdminBillingClient({
       if (!res.ok) throw new Error(json.error || "Failed to update bill status");
       toast.success("Bill status updated successfully");
       setIsBillStatusDialogOpen(false);
-      fetchRegisterData();
+      fetchRegisterData(true);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
       setIsUpdatingBill(false);
+    }
+  }
+
+  async function handleSaveFeeStatus(e: React.FormEvent) {
+    e.preventDefault();
+    if (!feeEditTarget || !selectedHostel) return;
+
+    const targetStudentId = feeEditTarget.studentId;
+    const feeType = feeEditTarget.feeType;
+    const targetYear = feeEditTarget.year;
+    const newStatus = feeStatusValue;
+    const newAmount = feeAmountValue !== "" ? parseFloat(feeAmountValue) : feeEditTarget.amount;
+
+    // Snapshot previous state for rollback
+    const prevRegisterData = [...registerData];
+
+    // 1. Instant Optimistic UI Update: 0ms lag!
+    setRegisterData((prev) =>
+      prev.map((student) => {
+        if (student.id !== targetStudentId) return student;
+        if (feeType === "BED_FEE") {
+          return {
+            ...student,
+            bedFee: {
+              id: student.bedFee?.id || null,
+              amount: newAmount,
+              status: newStatus,
+            },
+          };
+        } else {
+          return {
+            ...student,
+            estFee: {
+              id: student.estFee?.id || null,
+              amount: newAmount,
+              status: newStatus,
+            },
+          };
+        }
+      })
+    );
+
+    // 2. Close dialog immediately so admin can keep working
+    setFeeEditTarget(null);
+    toast.success(`${feeType === "BED_FEE" ? "Bed fee" : "Establishment fee"} status updated`);
+
+    // 3. Sync to database in background
+    try {
+      const res = await fetch("/api/billing/bills/month-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hostelId: selectedHostel,
+          userId: targetStudentId,
+          year: targetYear,
+          feeType,
+          status: newStatus,
+          amount: newAmount,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update fee status");
+
+      // Silently sync bill id if returned
+      if (json.bill?.id) {
+        setRegisterData((prev) =>
+          prev.map((student) => {
+            if (student.id !== targetStudentId) return student;
+            if (feeType === "BED_FEE") {
+              return {
+                ...student,
+                bedFee: { ...student.bedFee, id: json.bill.id },
+              };
+            } else {
+              return {
+                ...student,
+                estFee: { ...student.estFee, id: json.bill.id },
+              };
+            }
+          })
+        );
+      }
+    } catch (error: any) {
+      setRegisterData(prevRegisterData);
+      toast.error(error.message || "Failed to update fee status");
     }
   }
 
@@ -424,32 +587,86 @@ export function AdminBillingClient({
   async function handleSaveMonthStatus(e: React.FormEvent) {
     e.preventDefault();
     if (!monthEditTarget || !selectedHostel) return;
-    setIsUpdatingMonth(true);
 
+    const targetStudentId = monthEditTarget.studentId;
+    const targetMonth = monthEditTarget.month;
+    const targetYear = monthEditTarget.year;
+    const newStatus = monthStatusValue;
+    const newAmount = monthAmountValue !== "" 
+      ? parseFloat(monthAmountValue) 
+      : (monthEditTarget.bill?.amount !== undefined ? monthEditTarget.bill.amount : monthEditTarget.baseRent);
+
+    // Snapshot previous state for rollback
+    const prevRegisterData = [...registerData];
+
+    // 1. Instant Optimistic UI Update: 0ms lag!
+    setRegisterData((prev) =>
+      prev.map((student) => {
+        if (student.id !== targetStudentId) return student;
+        const currentMonthData = student.monthly?.[targetMonth];
+        return {
+          ...student,
+          monthly: {
+            ...student.monthly,
+            [targetMonth]: newStatus === "NOT_BILLED" ? null : {
+              id: currentMonthData?.id || null,
+              amount: newAmount,
+              totalAmount: newAmount,
+              status: newStatus,
+              paidDate: newStatus === "PAID" ? new Date().toISOString() : currentMonthData?.paidDate,
+              utrNumber: currentMonthData?.utrNumber,
+              payments: currentMonthData?.payments || [],
+            },
+          },
+        };
+      })
+    );
+
+    // 2. Close modal immediately
+    setMonthEditTarget(null);
+    toast.success("Payment status updated");
+
+    // 3. Sync to database in background
     try {
       const res = await fetch("/api/billing/bills/month-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           hostelId: selectedHostel,
-          userId: monthEditTarget.studentId,
-          month: monthEditTarget.month,
-          year: monthEditTarget.year,
-          status: monthStatusValue,
-          amount: monthAmountValue !== "" ? parseFloat(monthAmountValue) : undefined,
+          userId: targetStudentId,
+          month: targetMonth,
+          year: targetYear,
+          status: newStatus,
+          amount: newAmount,
         }),
       });
 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to update payment status");
 
-      toast.success(json.message || "Payment status updated successfully");
-      setMonthEditTarget(null);
-      fetchRegisterData();
+      // Silently sync bill id if returned
+      if (json.bill?.id) {
+        setRegisterData((prev) =>
+          prev.map((student) => {
+            if (student.id !== targetStudentId) return student;
+            const mData = student.monthly?.[targetMonth];
+            if (!mData) return student;
+            return {
+              ...student,
+              monthly: {
+                ...student.monthly,
+                [targetMonth]: {
+                  ...mData,
+                  id: json.bill.id,
+                },
+              },
+            };
+          })
+        );
+      }
     } catch (error: any) {
+      setRegisterData(prevRegisterData);
       toast.error(error.message || "Failed to update payment status");
-    } finally {
-      setIsUpdatingMonth(false);
     }
   }
 
@@ -858,6 +1075,71 @@ export function AdminBillingClient({
                 </div>
               </div>
             </div>
+
+            {/* Monthly Revenue & Overdue Summary for this Hostel */}
+            {monthlyFinancials && (
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                      <Wallet className="w-3.5 h-3.5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-800">
+                        Monthly Revenue & Overdue Breakdown ({selectedYear})
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Overview of monthly rent collected and overdue balances for {hostels.find(h => h.id === selectedHostel)?.name}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-slate-500 font-medium">
+                      Collection Rate: <strong className="text-emerald-700">{monthlyFinancials.totalRate}%</strong>
+                    </span>
+                    <Link
+                      href="/admin/reports/payments"
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                    >
+                      Full Report
+                      <ArrowUpRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {monthlyFinancials.months.map((m) => (
+                    <div
+                      key={m.month}
+                      className="p-3 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-xs transition-all space-y-1"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-slate-800">{m.monthName}</span>
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${
+                          m.rate >= 80 ? "bg-emerald-100 text-emerald-800" : m.rate > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {m.rate}%
+                        </span>
+                      </div>
+                      <div className="text-[11px] space-y-0.5 pt-1">
+                        <div className="flex justify-between text-emerald-700 font-semibold">
+                          <span>Revenue:</span>
+                          <span>₹{m.collected.toLocaleString("en-IN")}</span>
+                        </div>
+                        <div className="flex justify-between text-rose-600 font-semibold">
+                          <span>Overdue:</span>
+                          <span>₹{m.overdue.toLocaleString("en-IN")}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-500 text-[10px]">
+                          <span>Billed:</span>
+                          <span>₹{m.billed.toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="students" className="mt-5">
@@ -899,10 +1181,10 @@ export function AdminBillingClient({
                   <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1.5fr_1fr] px-5 py-3 border-b border-slate-100 bg-slate-50">
                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</span>
                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Assignment</span>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Rent</span>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Bed Fee</span>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Est. Fee</span>
-                    <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider text-right">Total/Mo</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Rent/Mo</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Bed Fee (yr)</span>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Est. Fee (once)</span>
+                    <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider text-right">Monthly Due</span>
                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">Action</span>
                   </div>
                   {filteredStudents.length > 0 ? (
@@ -922,8 +1204,6 @@ export function AdminBillingClient({
                       const applicableBedFee = bedSpecificFee || roomSpecificFee || hostelSpecificFee;
                       const bedFeeAmount = applicableBedFee ? parseFloat(applicableBedFee.amount) : 0;
 
-                      const totalEst = rentAmount + estFeeAmount + bedFeeAmount;
-
                       return (
                         <div key={student.id} className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1.5fr_1fr] px-5 py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/70 transition-colors items-center">
                           <span className="text-sm font-medium text-slate-800 truncate" title={student.studentProfile?.fullName?.trim() || student.username}>
@@ -932,10 +1212,10 @@ export function AdminBillingClient({
                           <span className="text-xs text-slate-500">
                             {activeBed ? `Rm ${activeBed.room?.roomNumber} / Bd ${activeBed.bedLabel}` : "Unassigned"}
                           </span>
-                          <span className="text-sm font-medium text-slate-700 text-right">{rentAmount.toFixed(0)}</span>
-                          <span className="text-sm font-medium text-slate-700 text-right">{bedFeeAmount.toFixed(0)}</span>
-                          <span className="text-sm font-medium text-slate-700 text-right">{estFeeAmount.toFixed(0)}</span>
-                          <span className="text-sm font-bold text-slate-900 text-right bg-slate-100 rounded px-2 py-0.5 justify-self-end">{totalEst.toFixed(0)}</span>
+                          <span className="text-sm font-medium text-slate-700 text-right">₹{rentAmount.toFixed(0)}</span>
+                          <span className="text-sm font-medium text-slate-700 text-right">{bedFeeAmount > 0 ? `₹${bedFeeAmount.toFixed(0)}` : "-"}</span>
+                          <span className="text-sm font-medium text-slate-700 text-right">{estFeeAmount > 0 ? `₹${estFeeAmount.toFixed(0)}` : "-"}</span>
+                          <span className="text-sm font-bold text-slate-900 text-right bg-slate-100 rounded px-2 py-0.5 justify-self-end">₹{rentAmount.toFixed(0)}/mo</span>
                           <div className="flex justify-center">
                             <Button 
                               variant="ghost" 
@@ -997,20 +1277,20 @@ export function AdminBillingClient({
                           </div>
                           <div className="space-y-2 pt-3 border-t border-slate-100">
                             <div className="flex justify-between items-center">
-                              <span className="text-xs text-slate-500">Rent</span>
-                              <span className="text-sm font-medium text-slate-700">₹{rentAmount.toFixed(0)}</span>
+                              <span className="text-xs text-slate-500">Monthly Rent</span>
+                              <span className="text-sm font-semibold text-slate-800">₹{rentAmount.toFixed(0)}/mo</span>
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-xs text-slate-500">Bed Fee</span>
-                              <span className="text-sm font-medium text-slate-700">₹{bedFeeAmount.toFixed(0)}</span>
+                              <span className="text-sm font-medium text-slate-700">{bedFeeAmount > 0 ? `₹${bedFeeAmount.toFixed(0)}/yr` : "-"}</span>
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-xs text-slate-500">Est. Fee</span>
-                              <span className="text-sm font-medium text-slate-700">₹{estFeeAmount.toFixed(0)}</span>
+                              <span className="text-sm font-medium text-slate-700">{estFeeAmount > 0 ? `₹${estFeeAmount.toFixed(0)} (once)` : "-"}</span>
                             </div>
                             <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                              <span className="text-xs font-semibold text-slate-800">Total/Mo</span>
-                              <span className="text-sm font-bold text-slate-900 bg-slate-100 rounded px-2 py-0.5">₹{totalEst.toFixed(0)}</span>
+                              <span className="text-xs font-semibold text-slate-800">Monthly Due</span>
+                              <span className="text-sm font-bold text-slate-900 bg-slate-100 rounded px-2 py-0.5">₹{rentAmount.toFixed(0)}/mo</span>
                             </div>
                           </div>
                         </div>
@@ -1080,15 +1360,20 @@ export function AdminBillingClient({
               </div>
               
               <div className="p-0">
-                {isRegisterLoading ? (
+                {isRegisterLoading && registerData.length === 0 ? (
                   <TablePageSkeleton rows={5} />
                 ) : (
-                  <div className="overflow-x-auto w-full">
+                  <div className="overflow-auto max-h-[calc(100vh-270px)] min-h-[380px] w-full relative custom-scrollbar border-b border-slate-200">
+                    {isRegisterLoading && (
+                      <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center z-40 pointer-events-none">
+                        <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                      </div>
+                    )}
                     {/* EXCEPTION: Horizontal scroll permitted here due to massive column count */}
-                    <table className="w-full text-xs text-left">
-                      <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 whitespace-nowrap">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead className="sticky top-0 z-20 bg-slate-50 text-slate-500 border-b border-slate-200 whitespace-nowrap shadow-xs">
                         <tr>
-                          <th className="px-3 py-2.5 font-semibold sticky left-0 bg-slate-50 z-10 border-r border-slate-200 uppercase tracking-wider">Student Name</th>
+                          <th className="px-3 py-2.5 font-semibold sticky left-0 top-0 bg-slate-50 z-30 border-r border-slate-200 uppercase tracking-wider">Student Name</th>
                           <th className="px-3 py-2.5 font-semibold uppercase tracking-wider">Joined</th>
                           <th className="px-3 py-2.5 font-semibold uppercase tracking-wider">Left</th>
                           <th className="px-3 py-2.5 font-semibold uppercase tracking-wider">Bed Fee</th>
@@ -1097,7 +1382,7 @@ export function AdminBillingClient({
                           {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(month => (
                             <th key={month} className="px-3 py-2.5 font-semibold uppercase tracking-wider text-center border-l border-slate-100">{month}</th>
                           ))}
-                          <th className="px-3 py-2.5 font-semibold uppercase tracking-wider text-center sticky right-0 bg-slate-50 z-10 border-l border-slate-200">Action</th>
+                          <th className="px-3 py-2.5 font-semibold uppercase tracking-wider text-center sticky right-0 top-0 bg-slate-50 z-30 border-l border-slate-200">Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1114,60 +1399,77 @@ export function AdminBillingClient({
                             const bedFeeAmount = applicableBedFee ? parseFloat(applicableBedFee.amount) : 0;
 
                             return (
-                              <tr key={student.id} className={`border-b border-slate-100 hover:bg-slate-50/50 whitespace-nowrap ${!student.isActive ? "opacity-60 bg-slate-50/30" : ""}`}>
-                                <td className="px-3 py-2.5 font-medium text-slate-800 sticky left-0 bg-white group-hover:bg-slate-50/50 border-r border-slate-100 flex items-center gap-2">
-                                  {!student.isActive && <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-slate-100 text-slate-500 border-slate-200">Left</Badge>}
-                                  {student.name}
+                              <tr key={student.id} className={`group border-b border-slate-100 hover:bg-slate-50/80 whitespace-nowrap ${!student.isActive ? "opacity-60 bg-slate-50/30" : "bg-white"}`}>
+                                <td className="px-3 py-2.5 font-medium text-slate-800 sticky left-0 bg-white group-hover:bg-slate-50 border-r border-slate-100 z-10 whitespace-nowrap">
+                                  <div className="flex items-center gap-2">
+                                    {!student.isActive && <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-slate-100 text-slate-500 border-slate-200">Left</Badge>}
+                                    <span>{student.name}</span>
+                                  </div>
                                 </td>
-                                <td className="px-3 py-2.5 text-slate-600">{format(new Date(student.joiningDate), "dd/MM/yy")}</td>
+                                <td 
+                                  className="px-3 py-2.5 text-slate-600" 
+                                  title={student.joiningDate ? format(new Date(student.joiningDate), "MMM d, yyyy") : ""}
+                                >
+                                  {student.joiningDate ? format(new Date(student.joiningDate), "dd/MM/yy") : "-"}
+                                </td>
                                 <td className="px-3 py-2.5 text-slate-600">{student.leftDate ? format(new Date(student.leftDate), "dd/MM/yy") : "-"}</td>
                                 
                                 {/* Bed Fee */}
                                 <td className="px-3 py-2.5">
-                                  {student.bedFee.amount > 0 ? (
-                                    <button 
-                                      type="button"
-                                      onClick={() => {
-                                        if (student.bedFee.id) {
-                                          setSelectedBillId(student.bedFee.id);
-                                          setBillStatusValue(student.bedFee.status);
-                                          setIsBillStatusDialogOpen(true);
-                                        }
-                                      }}
-                                      className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
-                                    >
-                                      <span className="font-medium text-slate-700">{student.bedFee.amount}</span>
-                                      {student.bedFee.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
-                                      {student.bedFee.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
-                                      {(student.bedFee.status === "GENERATED" || student.bedFee.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500" />}
-                                    </button>
-                                  ) : (
-                                    <span className="text-slate-300 ml-2">-</span>
-                                  )}
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      setFeeEditTarget({
+                                        studentId: student.id,
+                                        studentName: student.name,
+                                        feeType: "BED_FEE",
+                                        title: `Annual Bed Fee (${selectedYear})`,
+                                        amount: student.bedFee?.amount || bedFeeAmount,
+                                        status: student.bedFee?.status && student.bedFee.status !== "NOT_BILLED" ? student.bedFee.status : "PAID",
+                                        year: parseInt(selectedYear, 10),
+                                      });
+                                      setFeeStatusValue(student.bedFee?.status && student.bedFee.status !== "NOT_BILLED" ? student.bedFee.status : "PAID");
+                                      setFeeAmountValue((student.bedFee?.amount || bedFeeAmount || "").toString());
+                                    }}
+                                    className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
+                                    title={`Click to set/update Bed Fee for ${student.name}`}
+                                  >
+                                    <span className="font-medium text-slate-700">
+                                      {student.bedFee?.amount > 0 ? student.bedFee.amount : (bedFeeAmount > 0 ? bedFeeAmount : "-")}
+                                    </span>
+                                    {student.bedFee?.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />}
+                                    {student.bedFee?.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                                    {(student.bedFee?.status === "GENERATED" || student.bedFee?.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                                  </button>
                                 </td>
 
                                 {/* Est Fee */}
                                 <td className="px-3 py-2.5">
-                                  {student.estFee.amount > 0 ? (
-                                    <button 
-                                      type="button"
-                                      onClick={() => {
-                                        if (student.estFee.id) {
-                                          setSelectedBillId(student.estFee.id);
-                                          setBillStatusValue(student.estFee.status);
-                                          setIsBillStatusDialogOpen(true);
-                                        }
-                                      }}
-                                      className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
-                                    >
-                                      <span className="font-medium text-slate-700">{student.estFee.amount}</span>
-                                      {student.estFee.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
-                                      {student.estFee.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
-                                      {(student.estFee.status === "GENERATED" || student.estFee.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500" />}
-                                    </button>
-                                  ) : (
-                                    <span className="text-slate-300 ml-2">-</span>
-                                  )}
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      setFeeEditTarget({
+                                        studentId: student.id,
+                                        studentName: student.name,
+                                        feeType: "ESTABLISHMENT_FEE",
+                                        title: "Establishment Fee (One-Time)",
+                                        amount: student.estFee?.amount || estFeeAmount,
+                                        status: student.estFee?.status && student.estFee.status !== "NOT_BILLED" ? student.estFee.status : "PAID",
+                                        year: 0,
+                                      });
+                                      setFeeStatusValue(student.estFee?.status && student.estFee.status !== "NOT_BILLED" ? student.estFee.status : "PAID");
+                                      setFeeAmountValue((student.estFee?.amount || estFeeAmount || "").toString());
+                                    }}
+                                    className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
+                                    title={`Click to set/update Establishment Fee for ${student.name}`}
+                                  >
+                                    <span className="font-medium text-slate-700">
+                                      {student.estFee?.amount > 0 ? student.estFee.amount : (estFeeAmount > 0 ? estFeeAmount : "-")}
+                                    </span>
+                                    {student.estFee?.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />}
+                                    {student.estFee?.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                                    {(student.estFee?.status === "GENERATED" || student.estFee?.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                                  </button>
                                 </td>
 
                                 {/* Base Rent */}
@@ -1206,7 +1508,7 @@ export function AdminBillingClient({
                                 })}
 
                                 {/* Action */}
-                                <td className="px-2 py-2 text-center sticky right-0 bg-white group-hover:bg-slate-50/50 border-l border-slate-100">
+                                <td className="px-2 py-2 text-center sticky right-0 bg-white group-hover:bg-slate-50 border-l border-slate-100 z-10">
                                   <Button 
                                     variant="ghost" 
                                     size="sm"
@@ -1335,6 +1637,107 @@ export function AdminBillingClient({
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fee Status Dialog (Bed Fee & Establishment Fee) */}
+      <Dialog open={!!feeEditTarget} onOpenChange={(open) => !open && setFeeEditTarget(null)}>
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-sm w-full p-0 overflow-hidden">
+          {feeEditTarget && (
+            <form onSubmit={handleSaveFeeStatus}>
+              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex items-center gap-2 text-purple-600 mb-1">
+                  <KeyRound className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {feeEditTarget.title}
+                  </span>
+                </div>
+                <DialogTitle className="text-base font-bold text-slate-900">
+                  {feeEditTarget.studentName}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                  Set payment status and fee amount for this student.
+                </DialogDescription>
+              </div>
+
+              <div className="px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-700">Payment Status</Label>
+                  <Select value={feeStatusValue} onValueChange={(val) => setFeeStatusValue(val || "PAID")}>
+                    <SelectTrigger className="h-9 border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500/20">
+                      <SelectValue placeholder="Select Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PAID">
+                        <span className="flex items-center gap-2 text-emerald-600 font-medium">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Paid</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="GENERATED">
+                        <span className="flex items-center gap-2 text-slate-600 font-medium">
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Unpaid (Generated)</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="PARTIALLY_PAID">
+                        <span className="flex items-center gap-2 text-amber-600 font-medium">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          <span>Partially Paid</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="OVERDUE">
+                        <span className="flex items-center gap-2 text-rose-600 font-medium">
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Overdue</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="NOT_BILLED">
+                        <span className="flex items-center gap-2 text-slate-400">
+                          <span>Not Billed (-)</span>
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {feeStatusValue !== "NOT_BILLED" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Fee Amount (₹)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Enter fee amount"
+                      value={feeAmountValue}
+                      onChange={(e) => setFeeAmountValue(e.target.value)}
+                      className="h-9 border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500/20"
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setFeeEditTarget(null)}
+                  disabled={isUpdatingFee}
+                  className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isUpdatingFee}
+                  className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg h-9 text-sm cursor-pointer font-medium"
+                >
+                  {isUpdatingFee ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : "Save Status"}
+                </Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 

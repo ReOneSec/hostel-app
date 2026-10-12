@@ -37,9 +37,23 @@ function PaymentUploadForm() {
   const month = searchParams.get("month");
   const year = searchParams.get("year");
   const amountParam = searchParams.get("amount");
-  const billPeriod = month && year
-    ? `${new Date(Number(year), Number(month) - 1).toLocaleString("default", { month: "long", year: "numeric" })} Bill`
-    : null;
+  const billTypeParam = searchParams.get("billType");
+
+  let billPeriod: string | null = null;
+  if (billTypeParam === "ESTABLISHMENT_FEE" || (month === "0" && year === "0")) {
+    billPeriod = "Establishment Fee (One-Time Lifetime)";
+  } else if (billTypeParam === "BED_FEE" || (month === "0" && Number(year) > 0)) {
+    billPeriod = `Annual Bed Fee (${year})`;
+  } else if (month && year && Number(month) > 0) {
+    billPeriod = `${new Date(Number(year), Number(month) - 1).toLocaleString("default", { month: "long", year: "numeric" })} Rent Bill`;
+  }
+
+  const defaultCategories: ("RENT" | "ESTABLISHMENT_FEE" | "BED_FEE" | "MESS_CHARGE" | "LATE_FEE" | "ALL" | "OTHER")[] =
+    billTypeParam === "ESTABLISHMENT_FEE" || (month === "0" && year === "0")
+      ? ["ESTABLISHMENT_FEE"]
+      : billTypeParam === "BED_FEE" || (month === "0" && Number(year) > 0)
+      ? ["BED_FEE"]
+      : ["ALL"];
 
   const {
     register,
@@ -51,7 +65,7 @@ function PaymentUploadForm() {
     resolver: zodResolver(paymentSchema),
     defaultValues: {
       amount: amountParam || "",
-      categories: ["ALL"],
+      categories: defaultCategories,
     }
   });
 
@@ -59,7 +73,12 @@ function PaymentUploadForm() {
     if (amountParam) {
       setValue("amount", amountParam);
     }
-  }, [amountParam, setValue]);
+    if (billTypeParam === "ESTABLISHMENT_FEE" || (month === "0" && year === "0")) {
+      setValue("categories", ["ESTABLISHMENT_FEE"]);
+    } else if (billTypeParam === "BED_FEE" || (month === "0" && Number(year) > 0)) {
+      setValue("categories", ["BED_FEE"]);
+    }
+  }, [amountParam, billTypeParam, month, year, setValue]);
 
   useEffect(() => {
     if (!billId) {

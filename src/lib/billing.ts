@@ -44,16 +44,6 @@ export async function generateBulkBills(month: number, year: number, generatedBy
   });
   const existingBillsMap = new Set(existingBillsList.map(b => `${b.userId}_${b.hostelId}`));
 
-  const estFeeBillsList = await prisma.bill.findMany({
-    where: { userId: { in: studentIds }, establishmentFee: { gt: 0 } }
-  });
-  const estFeeMap = new Set(estFeeBillsList.map(b => `${b.userId}_${b.hostelId}`));
-
-  const bedFeeBillsList = await prisma.bill.findMany({
-    where: { userId: { in: studentIds }, year, bedFee: { gt: 0 } }
-  });
-  const bedFeeMap = new Set(bedFeeBillsList.map(b => `${b.userId}_${b.hostelId}`));
-
   for (const assignment of activeAssignments) {
     const student = assignment.user;
     const hostel = assignment.hostel;
@@ -61,42 +51,12 @@ export async function generateBulkBills(month: number, year: number, generatedBy
     // Check if bill already exists for this month
     if (existingBillsMap.has(`${student.id}_${hostel.id}`)) continue; // Skip if already generated
 
-    // ── Calculate Base Rent (monthly, always applied) ──
+    // ── Calculate Base Rent (monthly room rent ONLY) ──
     const currentRentConfig = student.rentConfigs.find(rc => rc.hostelId === hostel.id);
     const rentAmount = currentRentConfig ? currentRentConfig.amount.toNumber() : 0;
 
-    // ── Calculate Establishment Fee (ONE-TIME per hostel) ──
-    let estFeeAmount = 0;
-    const estFeeConfig = hostel.establishmentFees[0];
-    if (estFeeConfig) {
-      const alreadyChargedEstFee = estFeeMap.has(`${student.id}_${hostel.id}`);
-
-      if (!alreadyChargedEstFee) {
-        estFeeAmount = estFeeConfig.amount.toNumber();
-      }
-    }
-
-    // ── Calculate Bed Fee (YEARLY) ──
-    let bedFeeAmount = 0;
-    const activeBed = student.bedAssignments[0]?.bed;
-    const activeRoom = student.roomAssignments[0]?.roomId;
-
-    if (hostel.bedFees.length > 0) {
-      const bedSpecificFee = activeBed ? hostel.bedFees.find(f => f.bedId === activeBed.id) : null;
-      const roomSpecificFee = activeRoom ? hostel.bedFees.find(f => f.roomId === activeRoom && !f.bedId) : null;
-      const hostelSpecificFee = hostel.bedFees.find(f => !f.bedId && !f.roomId);
-
-      const applicableBedFee = bedSpecificFee || roomSpecificFee || hostelSpecificFee;
-      if (applicableBedFee) {
-        const alreadyChargedBedFee = bedFeeMap.has(`${student.id}_${hostel.id}`);
-
-        if (!alreadyChargedBedFee) {
-          bedFeeAmount = applicableBedFee.amount.toNumber();
-        }
-      }
-    }
-
-    const totalAmount = rentAmount + estFeeAmount + bedFeeAmount;
+    // Monthly rent bills MUST NOT bundle Establishment Fee or Bed Fee
+    const totalAmount = rentAmount;
     
     // Due Date: 7th of the current month, or 7 days from now if already past the 7th
     let dueDate = new Date(year, month - 1, 7);
@@ -110,9 +70,10 @@ export async function generateBulkBills(month: number, year: number, generatedBy
         hostelId: hostel.id,
         month,
         year,
+        billType: "RENT",
         rentAmount,
-        establishmentFee: estFeeAmount,
-        bedFee: bedFeeAmount,
+        establishmentFee: 0,
+        bedFee: 0,
         messCharge: 0,
         lateFee: 0,
         totalAmount,
@@ -159,4 +120,186 @@ export async function generateBulkBills(month: number, year: number, generatedBy
   }
 
   return generatedCount;
+}
+
+/**
+ * Ensures a student has standalone Establishment Fee (lifetime) and Bed Fee (annual) bills.
+ * Called automatically upon student assignment/admission.
+ */
+export async function ensureStudentFeeBills(
+  userId: string,
+  hostelId: string,
+  bedId?: string,
+  generatedBy: string = "SYSTEM"
+) {
+  const hostel = await prisma.hostel.findUnique({
+    where: { id: hostelId },
+    include: {
+      establishmentFees: { where: { effectiveTo: null } },
+      bedFees: { where: { effectiveTo: null } },
+    },
+  });
+
+  if (!hostel) return;
+
+  const currentYear = new Date().getFullYear();
+
+  // 1. Standalone Establishment Fee (One-Time lifetime per hostel: month=0, year=0)
+  const estFeeConfig = hostel.establishmentFees[0];
+  if (estFeeConfig && Number(estFeeConfig.amount) > 0) {
+    const existingEstBill = await prisma.bill.findUnique({
+      where: {
+        userId_hostelId_month_year: {
+          userId,
+          hostelId,
+          month: 0,
+          year: 0,
+        },
+      },
+    });
+
+    if (!existingEstBill) {
+      const estAmount = Number(estFeeConfig.amount);
+      await prisma.bill.create({
+        data: {
+          userId,
+          hostelId,
+          month: 0,
+          year: 0,
+          billType: "ESTABLISHMENT_FEE",
+          rentAmount: 0,
+          establishmentFee: estAmount,
+          bedFee: 0,
+          messCharge: 0,
+          lateFee: 0,
+          totalAmount: estAmount,
+          paidAmount: 0,
+          status: "GENERATED",
+          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          generatedBy,
+        },
+      });
+    }
+  }
+
+  // 2. Standalone Bed Fee (Annual: month=0, year=currentYear)
+  if (bedId && hostel.bedFees.length > 0) {
+    const bed = await prisma.bed.findUnique({ where: { id: bedId } });
+    const bedSpecific = bed ? hostel.bedFees.find((f) => f.bedId === bed.id) : null;
+    const roomSpecific = bed?.roomId ? hostel.bedFees.find((f) => f.roomId === bed.roomId && !f.bedId) : null;
+    const hostelSpecific = hostel.bedFees.find((f) => !f.bedId && !f.roomId);
+    const applicableBedFee = bedSpecific || roomSpecific || hostelSpecific;
+
+    if (applicableBedFee && Number(applicableBedFee.amount) > 0) {
+      const existingBedBill = await prisma.bill.findUnique({
+        where: {
+          userId_hostelId_month_year: {
+            userId,
+            hostelId,
+            month: 0,
+            year: currentYear,
+          },
+        },
+      });
+
+      if (!existingBedBill) {
+        const bedAmount = Number(applicableBedFee.amount);
+        await prisma.bill.create({
+          data: {
+            userId,
+            hostelId,
+            month: 0,
+            year: currentYear,
+            billType: "BED_FEE",
+            rentAmount: 0,
+            establishmentFee: 0,
+            bedFee: bedAmount,
+            messCharge: 0,
+            lateFee: 0,
+            totalAmount: bedAmount,
+            paidAmount: 0,
+            status: "GENERATED",
+            dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+            generatedBy,
+          },
+        });
+      }
+    }
+  }
+}
+
+/**
+ * Bulk generates annual bed fees for a given year.
+ */
+export async function generateAnnualBedBills(
+  year: number,
+  hostelId?: string,
+  generatedBy: string = "SYSTEM"
+): Promise<number> {
+  const whereHostel = hostelId ? { hostelId, status: "ACTIVE" as const } : { status: "ACTIVE" as const };
+  const assignments = await prisma.hostelAssignment.findMany({
+    where: whereHostel,
+    include: {
+      user: {
+        include: {
+          bedAssignments: { where: { status: "ACTIVE" }, include: { bed: true } },
+        },
+      },
+      hostel: {
+        include: {
+          bedFees: { where: { effectiveTo: null } },
+        },
+      },
+    },
+  });
+
+  let count = 0;
+  for (const a of assignments) {
+    const activeBed = a.user.bedAssignments[0]?.bed;
+    if (!activeBed || a.hostel.bedFees.length === 0) continue;
+
+    const bedSpecific = a.hostel.bedFees.find((f) => f.bedId === activeBed.id);
+    const roomSpecific = a.hostel.bedFees.find((f) => f.roomId === activeBed.roomId && !f.bedId);
+    const hostelSpecific = a.hostel.bedFees.find((f) => !f.bedId && !f.roomId);
+    const applicable = bedSpecific || roomSpecific || hostelSpecific;
+
+    if (!applicable || Number(applicable.amount) <= 0) continue;
+
+    const existing = await prisma.bill.findUnique({
+      where: {
+        userId_hostelId_month_year: {
+          userId: a.userId,
+          hostelId: a.hostelId,
+          month: 0,
+          year,
+        },
+      },
+    });
+
+    if (!existing) {
+      const amount = Number(applicable.amount);
+      await prisma.bill.create({
+        data: {
+          userId: a.userId,
+          hostelId: a.hostelId,
+          month: 0,
+          year,
+          billType: "BED_FEE",
+          rentAmount: 0,
+          establishmentFee: 0,
+          bedFee: amount,
+          messCharge: 0,
+          lateFee: 0,
+          totalAmount: amount,
+          paidAmount: 0,
+          status: "GENERATED",
+          dueDate: new Date(year, 0, 31),
+          generatedBy,
+        },
+      });
+      count++;
+    }
+  }
+
+  return count;
 }

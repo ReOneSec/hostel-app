@@ -359,6 +359,7 @@ model Bill {
   totalAmount      Decimal         @db.Decimal(10, 2)
   paidAmount       Decimal         @default(0) @db.Decimal(10, 2)
   status           BillStatus      @default(GENERATED)
+  billType         BillType        @default(RENT)
   dueDate          DateTime
   generatedAt      DateTime        @default(now())
   generatedBy      String?
@@ -674,6 +675,12 @@ enum FeeType {
   RECURRING
   ONE_TIME
   YEARLY
+}
+
+enum BillType {
+  RENT
+  BED_FEE
+  ESTABLISHMENT_FEE
 }
 
 enum BillStatus {

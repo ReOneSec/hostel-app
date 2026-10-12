@@ -159,7 +159,9 @@ export async function getBillingRegister(hostelId: string, year: number) {
           select: {
             id: true,
             username: true,
-            studentProfile: { select: { fullName: true } },
+            joiningDate: true,
+            createdAt: true,
+            studentProfile: { select: { fullName: true, completedAt: true } },
             bedAssignments: {
               where: { status: "ACTIVE" },
               include: { bed: { include: { room: true } } }
@@ -179,7 +181,9 @@ export async function getBillingRegister(hostelId: string, year: number) {
           select: {
             id: true,
             username: true,
-            studentProfile: { select: { fullName: true } },
+            joiningDate: true,
+            createdAt: true,
+            studentProfile: { select: { fullName: true, completedAt: true } },
             bedAssignments: {
               where: { status: "ACTIVE" },
               include: { bed: { include: { room: true } } }
@@ -206,6 +210,8 @@ export async function getBillingRegister(hostelId: string, year: number) {
 
   const usersMap = new Map<string, UserRegisterData>();
   for (const a of assignments) {
+    const studentJoiningDate = a.user.joiningDate || a.user.studentProfile?.completedAt || a.assignedAt || a.user.createdAt;
+
     if (!usersMap.has(a.userId)) {
       usersMap.set(a.userId, {
         id: a.userId,
@@ -213,13 +219,16 @@ export async function getBillingRegister(hostelId: string, year: number) {
         username: a.user.username,
         studentProfile: a.user.studentProfile,
         bedAssignments: a.user.bedAssignments,
-        joiningDate: a.assignedAt,
+        joiningDate: studentJoiningDate,
         leftDate: a.status !== "ACTIVE" ? a.leftAt : null,
         isActive: a.status === "ACTIVE"
       });
     } else {
       const u = usersMap.get(a.userId)!;
-      if (a.assignedAt < u.joiningDate) u.joiningDate = a.assignedAt;
+      // If student does not have an explicit joiningDate on user model, use earliest assigned date
+      if (!a.user.joiningDate && a.assignedAt < u.joiningDate) {
+        u.joiningDate = a.assignedAt;
+      }
       if (a.status === "ACTIVE") {
         u.leftDate = null;
         u.isActive = true;
@@ -234,13 +243,14 @@ export async function getBillingRegister(hostelId: string, year: number) {
   // Also include any active bed assignments in this hostel not already captured in usersMap
   for (const ba of bedAssignmentsInHostel) {
     if (ba.user && !usersMap.has(ba.userId)) {
+      const studentJoiningDate = ba.user.joiningDate || ba.user.studentProfile?.completedAt || ba.assignedAt || ba.user.createdAt;
       usersMap.set(ba.userId, {
         id: ba.userId,
         name: ba.user.studentProfile?.fullName?.trim() || ba.user.username,
         username: ba.user.username,
         studentProfile: ba.user.studentProfile,
         bedAssignments: ba.user.bedAssignments,
-        joiningDate: ba.assignedAt,
+        joiningDate: studentJoiningDate,
         leftDate: null,
         isActive: true
       });
@@ -257,11 +267,20 @@ export async function getBillingRegister(hostelId: string, year: number) {
     }
   }
 
-  // Only need bills query now (rent configs already fetched above)
+  // Only fetch bills for the specified year or lifetime establishment fee bills
   const allBills = await prisma.bill.findMany({
-    where: { hostelId, userId: { in: userIds } },
+    where: {
+      hostelId,
+      userId: { in: userIds },
+      OR: [
+        { year },
+        { billType: "ESTABLISHMENT_FEE" },
+        { month: 0, year: 0 },
+      ],
+    },
     include: {
       payments: {
+        take: 3,
         orderBy: { paymentDate: "desc" },
         select: {
           id: true,
@@ -281,23 +300,25 @@ export async function getBillingRegister(hostelId: string, year: number) {
     const userBills = allBills.filter(b => b.userId === u.id);
     const yearBills = userBills.filter(b => b.year === year);
 
-    const bedFeeBill = yearBills.find(b => Number(b.bedFee) > 0);
+    // Locate standalone Bed Fee bill for this year (billType: BED_FEE or month: 0)
+    const bedFeeBill = yearBills.find(b => b.billType === "BED_FEE" || (b.month === 0 && b.year === year) || Number(b.bedFee) > 0);
     const bedFee = {
       id: bedFeeBill ? bedFeeBill.id : null,
-      amount: bedFeeBill ? Number(bedFeeBill.bedFee) : 0,
+      amount: bedFeeBill ? Number(bedFeeBill.bedFee || bedFeeBill.totalAmount) : 0,
       status: bedFeeBill ? bedFeeBill.status : "NOT_BILLED"
     };
 
-    const estFeeBill = userBills.find(b => Number(b.establishmentFee) > 0);
+    // Locate standalone Establishment Fee bill (lifetime: billType: ESTABLISHMENT_FEE or month: 0, year: 0)
+    const estFeeBill = userBills.find(b => b.billType === "ESTABLISHMENT_FEE" || (b.month === 0 && b.year === 0) || Number(b.establishmentFee) > 0);
     const estFee = {
       id: estFeeBill ? estFeeBill.id : null,
-      amount: estFeeBill ? Number(estFeeBill.establishmentFee) : 0,
+      amount: estFeeBill ? Number(estFeeBill.establishmentFee || estFeeBill.totalAmount) : 0,
       status: estFeeBill ? estFeeBill.status : "NOT_BILLED"
     };
 
     const monthly: Record<number, any> = {};
     for (let m = 1; m <= 12; m++) {
-      const b = yearBills.find(x => x.month === m);
+      const b = yearBills.find(x => x.month === m && x.billType !== "BED_FEE" && x.billType !== "ESTABLISHMENT_FEE");
       if (b) {
         const latestPayment = b.payments?.[0];
         monthly[m] = {

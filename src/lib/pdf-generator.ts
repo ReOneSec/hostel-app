@@ -49,9 +49,14 @@ export function generateInvoicePDF(bill: any, userProfile?: any, saveToFile = tr
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
   ];
-  const billingMonthText = bill.month && bill.year 
-    ? `${monthNames[bill.month - 1] || ""} ${bill.year}`.trim()
-    : "";
+  let billingMonthText = "";
+  if (bill.billType === "ESTABLISHMENT_FEE" || (bill.month === 0 && bill.year === 0)) {
+    billingMonthText = "ONE-TIME ESTABLISHMENT FEE";
+  } else if (bill.billType === "BED_FEE" || (bill.month === 0 && Number(bill.year) > 0)) {
+    billingMonthText = `ANNUAL BED FEE (${bill.year})`;
+  } else if (bill.month && bill.year) {
+    billingMonthText = `${monthNames[bill.month - 1] || ""} ${bill.year}`.trim();
+  }
 
   if (billingMonthText) {
     doc.setFont("helvetica", "bold");
@@ -147,12 +152,23 @@ export function generateInvoicePDF(bill: any, userProfile?: any, saveToFile = tr
   doc.text(roomInfo, hostelX, cardY + 19);
 
   // 3. TABLE OF CHARGES
-  const tableData: string[][] = [
-    ["Room Rent", formatCurrency(bill.rentAmount)],
-    ["Bed Fee", formatCurrency(bill.bedFee)],
-    ["Establishment Fee", formatCurrency(bill.establishmentFee)],
-    ["Mess Charge", formatCurrency(bill.messCharge)],
-  ];
+  const tableData: string[][] = [];
+  if (bill.billType === "ESTABLISHMENT_FEE" || (bill.month === 0 && bill.year === 0)) {
+    tableData.push(["Establishment Fee (One-Time Lifetime)", formatCurrency(bill.establishmentFee || bill.totalAmount)]);
+  } else if (bill.billType === "BED_FEE" || (bill.month === 0 && Number(bill.year) > 0)) {
+    tableData.push([`Annual Bed Fee (${bill.year})`, formatCurrency(bill.bedFee || bill.totalAmount)]);
+  } else {
+    tableData.push(["Room Rent", formatCurrency(bill.rentAmount)]);
+    if (Number(bill.bedFee) > 0) {
+      tableData.push(["Bed Fee", formatCurrency(bill.bedFee)]);
+    }
+    if (Number(bill.establishmentFee) > 0) {
+      tableData.push(["Establishment Fee", formatCurrency(bill.establishmentFee)]);
+    }
+    if (Number(bill.messCharge) > 0) {
+      tableData.push(["Mess Charge", formatCurrency(bill.messCharge)]);
+    }
+  }
 
   if (Number(bill.lateFee) > 0) {
     tableData.push(["Late Fee", formatCurrency(bill.lateFee)]);

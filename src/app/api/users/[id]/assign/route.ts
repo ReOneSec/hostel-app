@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { ensureStudentFeeBills } from "@/lib/billing";
 import { createAuditLog, getIpAddress, getUserAgent } from "@/lib/audit";
 import { z } from "zod";
 
@@ -109,6 +110,13 @@ export async function POST(
 
       return { hostelAssignment, roomAssignment, bedAssignment };
     });
+
+    // Automatically generate standalone Establishment Fee (one-time) and Bed Fee (annual) bills
+    try {
+      await ensureStudentFeeBills(userId, data.hostelId, data.bedId, session.user.id);
+    } catch (feeError) {
+      console.error("[Assign POST] Failed to ensure fee bills:", feeError);
+    }
 
     await createAuditLog({
       userId: session.user.id,

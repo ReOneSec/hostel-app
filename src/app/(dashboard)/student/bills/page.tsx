@@ -16,11 +16,33 @@ import {
   ChevronRight, 
   FileText,
   Clock,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck,
+  KeyRound
 } from "lucide-react";
 import { BillsPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+
+function isEstFee(bill: any) {
+  return bill?.billType === "ESTABLISHMENT_FEE" || (bill?.month === 0 && bill?.year === 0);
+}
+
+function isBedFee(bill: any) {
+  return bill?.billType === "BED_FEE" || (bill?.month === 0 && bill?.year > 0);
+}
+
+function getBillLabel(bill: any) {
+  if (isEstFee(bill)) return "Establishment Fee (One-Time)";
+  if (isBedFee(bill)) return `Annual Bed Fee (${bill.year})`;
+  return `${new Date(bill.year, bill.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })} Rent Bill`;
+}
+
+function getBillShortLabel(bill: any) {
+  if (isEstFee(bill)) return "Est. Fee (One-Time)";
+  if (isBedFee(bill)) return `Bed Fee ${bill.year}`;
+  return new Date(bill.year, bill.month - 1).toLocaleString('default', { month: 'short', year: 'numeric' });
+}
 
 export default function StudentBillsPage() {
   const [bills, setBills] = useState<any[]>([]);
@@ -85,7 +107,8 @@ export default function StudentBillsPage() {
 
   const handlePayNow = (bill: any) => {
     const due = Math.max(0, parseFloat(bill.totalAmount) - parseFloat(bill.paidAmount));
-    router.push(`/student/payments/upload?billId=${bill.id}&amount=${due}&month=${bill.month}&year=${bill.year}`);
+    const typeParam = isEstFee(bill) ? "ESTABLISHMENT_FEE" : isBedFee(bill) ? "BED_FEE" : "RENT";
+    router.push(`/student/payments/upload?billId=${bill.id}&amount=${due}&month=${bill.month}&year=${bill.year}&billType=${typeParam}`);
   };
 
   return (
@@ -111,13 +134,13 @@ export default function StudentBillsPage() {
               <p className="text-xs text-amber-700 mt-0.5">
                 {pendingBills.map((b) => (
                   <span key={b.id} className="mr-3 font-medium">
-                    • {new Date(b.year, b.month - 1).toLocaleString('default', { month: 'short', year: 'numeric' })}: ₹{(parseFloat(b.totalAmount) - parseFloat(b.paidAmount)).toLocaleString('en-IN', { minimumFractionDigits: 0 })} Due
+                    • {getBillShortLabel(b)}: ₹{(parseFloat(b.totalAmount) - parseFloat(b.paidAmount)).toLocaleString('en-IN', { minimumFractionDigits: 0 })} Due
                   </span>
                 ))}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap">
             {pendingBills.map((b) => (
               <Button
                 key={b.id}
@@ -126,7 +149,7 @@ export default function StudentBillsPage() {
                 className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-sm font-semibold cursor-pointer"
               >
                 <CreditCard className="w-3.5 h-3.5 mr-1.5" />
-                Pay {new Date(b.year, b.month - 1).toLocaleString('default', { month: 'short' })}
+                Pay {getBillShortLabel(b)}
               </Button>
             ))}
           </div>
@@ -153,8 +176,22 @@ export default function StudentBillsPage() {
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-blue-600" />
-                        {new Date(selectedBill.year, selectedBill.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })} Bill
+                        {isEstFee(selectedBill) ? (
+                          <>
+                            <ShieldCheck className="w-5 h-5 text-purple-600" />
+                            Establishment Fee (One-Time)
+                          </>
+                        ) : isBedFee(selectedBill) ? (
+                          <>
+                            <KeyRound className="w-5 h-5 text-indigo-600" />
+                            Annual Bed Fee — {selectedBill.year}
+                          </>
+                        ) : (
+                          <>
+                            <Calendar className="w-5 h-5 text-blue-600" />
+                            {new Date(selectedBill.year, selectedBill.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })} Rent Bill
+                          </>
+                        )}
                       </h2>
                       {!isLatestBill && (
                         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
@@ -172,31 +209,35 @@ export default function StudentBillsPage() {
               
               <div className="p-6 space-y-4 relative z-10 bg-white">
                 <div className="space-y-3.5">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-500">Monthly Rent</span>
-                    <span className="font-medium text-slate-900">₹{parseFloat(selectedBill.rentAmount).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-500">Establishment Fee</span>
-                    <span className="font-medium text-slate-900">₹{parseFloat(selectedBill.establishmentFee).toFixed(2)}</span>
-                  </div>
-                  {parseFloat(selectedBill.bedFee) > 0 && (
+                  {isEstFee(selectedBill) ? (
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500">Bed Fee</span>
-                      <span className="font-medium text-slate-900">₹{parseFloat(selectedBill.bedFee).toFixed(2)}</span>
+                      <span className="text-slate-600 font-medium">One-Time Admission Establishment Fee</span>
+                      <span className="font-bold text-slate-900">₹{parseFloat(selectedBill.totalAmount).toFixed(2)}</span>
                     </div>
-                  )}
-                  {parseFloat(selectedBill.messCharge) > 0 && (
-                    <div className="flex justify-between items-center text-sm pt-3.5 border-t border-slate-100">
-                      <span className="text-slate-500">Mess Charges</span>
-                      <span className="font-medium text-slate-900">₹{parseFloat(selectedBill.messCharge).toFixed(2)}</span>
-                    </div>
-                  )}
-                  {parseFloat(selectedBill.lateFee) > 0 && (
+                  ) : isBedFee(selectedBill) ? (
                     <div className="flex justify-between items-center text-sm">
-                      <span className="flex items-center gap-1.5 text-red-500 font-medium"><AlertCircle className="w-4 h-4" /> Late Fee</span>
-                      <span className="font-bold text-red-600">₹{parseFloat(selectedBill.lateFee).toFixed(2)}</span>
+                      <span className="text-slate-600 font-medium">Annual Bed Fee ({selectedBill.year})</span>
+                      <span className="font-bold text-slate-900">₹{parseFloat(selectedBill.totalAmount).toFixed(2)}</span>
                     </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-500">Monthly Room Rent</span>
+                        <span className="font-medium text-slate-900">₹{parseFloat(selectedBill.rentAmount).toFixed(2)}</span>
+                      </div>
+                      {parseFloat(selectedBill.messCharge) > 0 && (
+                        <div className="flex justify-between items-center text-sm pt-3.5 border-t border-slate-100">
+                          <span className="text-slate-500">Mess Charges</span>
+                          <span className="font-medium text-slate-900">₹{parseFloat(selectedBill.messCharge).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {parseFloat(selectedBill.lateFee) > 0 && (
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="flex items-center gap-1.5 text-red-500 font-medium"><AlertCircle className="w-4 h-4" /> Late Fee</span>
+                          <span className="font-bold text-red-600">₹{parseFloat(selectedBill.lateFee).toFixed(2)}</span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
                 
@@ -315,8 +356,15 @@ export default function StudentBillsPage() {
                   >
                     <div className="flex justify-between items-center mb-2">
                       <div className="flex items-center gap-2">
+                        {isEstFee(bill) ? (
+                          <ShieldCheck className="h-4 w-4 text-purple-600 shrink-0" />
+                        ) : isBedFee(bill) ? (
+                          <KeyRound className="h-4 w-4 text-indigo-600 shrink-0" />
+                        ) : (
+                          <Receipt className="h-4 w-4 text-blue-600 shrink-0" />
+                        )}
                         <span className={`font-bold text-sm transition-colors ${isSelected ? "text-blue-700" : "text-slate-900 group-hover:text-blue-600"}`}>
-                          {new Date(bill.year, bill.month - 1).toLocaleString('default', { month: 'short', year: 'numeric' })}
+                          {getBillShortLabel(bill)}
                         </span>
                         {isSelected && (
                           <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-600 text-white">
