@@ -83,3 +83,71 @@ export async function DELETE(
     return errorResponse("Internal server error", 500);
   }
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; roomId: string; bedId: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !["SUPER_ADMIN", "HOSTEL_MANAGER"].includes(session.user.role)) {
+      return errorResponse("Unauthorized", 403, "FORBIDDEN");
+    }
+
+    const { id: hostelId, roomId, bedId } = await params;
+    const body = await req.json();
+
+    const bed = await prisma.bed.findFirst({
+      where: {
+        id: bedId,
+        roomId: roomId,
+        room: {
+          hostelId: hostelId,
+        },
+      },
+    });
+
+    if (!bed) {
+      return errorResponse("Bed not found", 404, "NOT_FOUND");
+    }
+
+    const { bedLabel, isActive } = body;
+
+    // If changing bedLabel, check for duplicate within the same room
+    if (bedLabel && bedLabel !== bed.bedLabel) {
+      const existingBed = await prisma.bed.findUnique({
+        where: {
+          roomId_bedLabel: { roomId, bedLabel },
+        },
+      });
+      if (existingBed) {
+        return errorResponse(`Bed ${bedLabel} already exists in this room`, 409, "CONFLICT");
+      }
+    }
+
+    const updatedBed = await prisma.bed.update({
+      where: { id: bedId },
+      data: {
+        bedLabel: bedLabel !== undefined ? bedLabel : undefined,
+        isActive: isActive !== undefined ? Boolean(isActive) : undefined,
+      },
+    });
+
+    await createAuditLog({
+      userId: session.user.id,
+      action: "BED_UPDATED",
+      entity: "Bed",
+      entityId: updatedBed.id,
+      oldValues: { ...bed },
+      newValues: { ...updatedBed },
+      ipAddress: getIpAddress(req.headers),
+      userAgent: getUserAgent(req.headers),
+    });
+
+    return successResponse(updatedBed);
+  } catch (error) {
+    console.error("[Bed PATCH]", error);
+    return errorResponse("Internal server error", 500, "INTERNAL");
+  }
+}
+

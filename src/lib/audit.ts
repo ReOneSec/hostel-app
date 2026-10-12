@@ -9,7 +9,9 @@ interface AuditLogInput {
   newValues?: Record<string, unknown>;
   ipAddress?: string | null;
   userAgent?: string | null;
+  source?: "app" | "web";
 }
+
 
 /**
  * Safely clones an object into JSON-serializable data.
@@ -48,11 +50,21 @@ export async function createAuditLog({
   newValues,
   ipAddress,
   userAgent,
+  source,
 }: AuditLogInput) {
+
   try {
     // Clone values safely before the async boundary
     const clonedOld = safeJsonClone(oldValues);
     const clonedNew = safeJsonClone(newValues);
+
+    const finalNew = clonedNew
+      ? source
+        ? { ...clonedNew, source }
+        : clonedNew
+      : source
+      ? { source }
+      : undefined;
 
     // Fire-and-forget: don't block the response waiting for the audit insert
     prisma.auditLog
@@ -63,7 +75,7 @@ export async function createAuditLog({
           entity,
           entityId,
           oldValues: clonedOld,
-          newValues: clonedNew,
+          newValues: finalNew,
           ipAddress: ipAddress ?? undefined,
           userAgent: userAgent ?? undefined,
         },
@@ -72,6 +84,7 @@ export async function createAuditLog({
         // Audit logging should never crash the main operation
         console.error("[AuditLog] Failed to create audit log:", error);
       });
+
   } catch (error) {
     console.error("[AuditLog] Failed to prepare audit log:", error);
   }

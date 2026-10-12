@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { sendEmail, paymentStatusEmail } from "@/lib/email";
+import { successResponse, errorResponse } from "@/lib/api-response";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -9,7 +9,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const user = session?.user;
     
     if (!user || !["SUPER_ADMIN", "HOSTEL_MANAGER"].includes(user.role)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return errorResponse("Unauthorized", 403, "FORBIDDEN");
     }
 
     const resolvedParams = await params;
@@ -18,7 +18,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { status, rejectionReason } = body; // status: "APPROVED" | "REJECTED"
 
     if (!status || !["APPROVED", "REJECTED"].includes(status)) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+      return errorResponse("Invalid status", 400, "VALIDATION_ERROR");
     }
 
     const payment = await prisma.payment.findUnique({
@@ -32,11 +32,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     });
 
     if (!payment) {
-      return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+      return errorResponse("Payment not found", 404, "NOT_FOUND");
     }
 
     if (payment.status !== "PENDING_REVIEW") {
-      return NextResponse.json({ error: "Payment has already been processed" }, { status: 400 });
+      return errorResponse("Payment has already been processed", 400, "CONFLICT");
     }
 
     // Process the payment inside a transaction
@@ -97,9 +97,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       type: "PAYMENT_STATUS",
     });
 
-    return NextResponse.json({ data: updatedPayment });
+    return successResponse(updatedPayment);
   } catch (error: any) {
     console.error("Error verifying payment:", error);
-    return NextResponse.json({ error: "Failed to verify payment" }, { status: 500 });
+    return errorResponse("Failed to verify payment", 500, "INTERNAL");
   }
 }
+

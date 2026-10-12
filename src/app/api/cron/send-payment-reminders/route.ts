@@ -1,13 +1,20 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, paymentReminderEmail } from "@/lib/email";
+import { successResponse, errorResponse } from "@/lib/api-response";
 
 export async function GET(req: Request) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return new NextResponse("Forbidden", { status: 403 });
+    const authHeader = req.headers.get("authorization");
+    const cronSecretHeader = req.headers.get("x-cron-secret");
+    const secret = process.env.CRON_SECRET;
+    const isAuthorized = Boolean(
+      secret && (cronSecretHeader === secret || authHeader === `Bearer ${secret}`)
+    );
+
+    if (!isAuthorized) {
+      return errorResponse("Unauthorized cron execution", 401, "UNAUTHORIZED");
     }
+
 
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
@@ -65,15 +72,13 @@ export async function GET(req: Request) {
       });
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `Cron executed. Sent ${emailsSent} payment reminders.` 
+    return successResponse({ 
+      message: `Cron executed. Sent ${emailsSent} payment reminders.`,
+      emailsSent,
     });
   } catch (error: any) {
     console.error("CRON Error sending reminders:", error);
-    return NextResponse.json(
-      { error: "Failed to send reminders via cron" },
-      { status: 500 }
-    );
+    return errorResponse("Failed to send reminders via cron", 500, "INTERNAL");
   }
 }
+

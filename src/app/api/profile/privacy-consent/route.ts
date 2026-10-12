@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { successResponse, errorResponse } from "@/lib/api-response";
 
 export async function POST(req: Request) {
   try {
@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const user = session?.user;
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
     }
 
     // Update privacy consent date using standard Prisma method
@@ -17,12 +17,12 @@ export async function POST(req: Request) {
       data: { privacyConsentAt: new Date() }
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    return successResponse({ 
       privacyConsentAt: new Date().toISOString() 
     });
   } catch (error: any) {
     console.error("Error saving privacy consent:", error);
-    return NextResponse.json({ error: "Failed to save privacy consent" }, { status: 500 });
+    return errorResponse("Failed to save privacy consent", 500, "INTERNAL");
   }
 }
+

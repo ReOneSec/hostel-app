@@ -12,7 +12,9 @@
     "db:migrate": "npx prisma migrate dev",
     "db:studio": "npx prisma studio",
     "db:seed": "npx tsx prisma/seed.ts",
+    "db:lockdown-rls": "npx tsx scripts/lockdown-rls.ts",
     "postinstall": "npx prisma generate"
+
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

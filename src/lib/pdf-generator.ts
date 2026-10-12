@@ -8,7 +8,7 @@ function formatCurrency(val: any): string {
   return `Rs. ${num.toLocaleString("en-IN")}`;
 }
 
-export function generateInvoicePDF(bill: any, userProfile?: any) {
+export function generateInvoicePDF(bill: any, userProfile?: any, saveToFile = true) {
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
@@ -404,8 +404,14 @@ export function generateInvoicePDF(bill: any, userProfile?: any) {
   doc.text("support@mirrorhostels.com", rightX, footerY + 6, { align: "right" });
 
   // Save
-  doc.save(`Invoice_${invoiceNo}.pdf`);
+  if (saveToFile) {
+    try {
+      doc.save(`Invoice_${invoiceNo}.pdf`);
+    } catch {}
+  }
+  return doc;
 }
+
 
 export function generateReceiptPDF(payment: any) {
   const doc = new jsPDF({

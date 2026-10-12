@@ -119,3 +119,46 @@ export async function PATCH(
     return errorResponse("Internal server error", 500);
   }
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || session.user.role !== "SUPER_ADMIN") {
+      return errorResponse("Unauthorized. Super Admin access required.", 403, "FORBIDDEN");
+    }
+
+    const { id } = await params;
+
+    const hostel = await prisma.hostel.findUnique({ where: { id } });
+    if (!hostel) return errorResponse("Hostel not found", 404, "NOT_FOUND");
+
+    const updatedHostel = await prisma.hostel.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    await createAuditLog({
+      userId: session.user.id,
+      action: "HOSTEL_DEACTIVATED",
+      entity: "Hostel",
+      entityId: id,
+      oldValues: { ...hostel },
+      newValues: { ...updatedHostel },
+      ipAddress: getIpAddress(req.headers),
+      userAgent: getUserAgent(req.headers),
+    });
+
+    return successResponse({
+      message: "Hostel deactivated successfully (soft-deleted)",
+      id: updatedHostel.id,
+      isActive: false,
+    });
+  } catch (error) {
+    console.error("[Hostel DELETE]", error);
+    return errorResponse("Internal server error", 500, "INTERNAL");
+  }
+}
+

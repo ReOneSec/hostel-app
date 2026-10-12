@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { successResponse, errorResponse } from "@/lib/api-response";
 
 export async function GET(req: Request) {
   try {
@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     const user = session?.user;
     
     if (!user || !["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"].includes(user.role)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return errorResponse("Unauthorized", 403, "FORBIDDEN");
     }
 
     const payments = await prisma.payment.findMany({
@@ -24,9 +24,10 @@ export async function GET(req: Request) {
       orderBy: { submittedAt: "desc" }
     });
 
-    return NextResponse.json({ data: payments });
+    return successResponse(payments);
   } catch (error: any) {
     console.error("Error fetching student payments:", error);
-    return NextResponse.json({ error: "Failed to fetch payments" }, { status: 500 });
+    return errorResponse("Failed to fetch payments", 500, "INTERNAL");
   }
 }
+

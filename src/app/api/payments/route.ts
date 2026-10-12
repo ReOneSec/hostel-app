@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import {
@@ -8,6 +8,7 @@ import {
   MAX_FILE_SIZE,
 } from "@/lib/storage";
 import { createAuditLog, getIpAddress, getUserAgent } from "@/lib/audit";
+import { successResponse, errorResponse } from "@/lib/api-response";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,31 +16,52 @@ export async function POST(req: NextRequest) {
     const user = session?.user;
     
     if (!user || !["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"].includes(user.role)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return errorResponse("Unauthorized", 403, "FORBIDDEN");
     }
 
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    const billId = formData.get("billId") as string;
-    const amount = formData.get("amount") as string;
-    const transactionId = formData.get("transactionId") as string;
-    const utrNumber = formData.get("utrNumber") as string;
-    const paymentDate = formData.get("paymentDate") as string;
-    const categoriesString = formData.get("categories") as string;
-    let categories = ["ALL"];
-    if (categoriesString) {
-      try {
-        categories = JSON.parse(categoriesString);
-      } catch (e) {}
+    const contentType = req.headers.get("content-type") || "";
+    let billId = "";
+    let amount = "";
+    let transactionId = "";
+    let utrNumber = "";
+    let paymentDate = "";
+    let categories: any[] = ["ALL"];
+    let proofFileUrl: string | null = null;
+    let file: File | null = null;
+
+    if (contentType.includes("application/json")) {
+      const json = await req.json();
+      billId = json.billId;
+      amount = String(json.amount ?? "");
+      transactionId = json.transactionId ?? "";
+      utrNumber = json.utrNumber ?? "";
+      paymentDate = json.paymentDate;
+      if (Array.isArray(json.categories)) categories = json.categories;
+      proofFileUrl = json.proofFileUrl || null;
+    } else {
+      const formData = await req.formData();
+      file = formData.get("file") as File | null;
+      billId = (formData.get("billId") as string) || "";
+      amount = (formData.get("amount") as string) || "";
+      transactionId = (formData.get("transactionId") as string) || "";
+      utrNumber = (formData.get("utrNumber") as string) || "";
+      paymentDate = (formData.get("paymentDate") as string) || "";
+      proofFileUrl = (formData.get("proofFileUrl") as string) || null;
+      const categoriesString = formData.get("categories") as string;
+      if (categoriesString) {
+        try {
+          categories = JSON.parse(categoriesString);
+        } catch {}
+      }
     }
 
-    if (!billId || !amount || !paymentDate || !file) {
-      return NextResponse.json({ error: "Missing required fields including proof image" }, { status: 400 });
+    if (!billId || !amount || !paymentDate || (!file && !proofFileUrl)) {
+      return errorResponse("Missing required fields including proof image or proofFileUrl", 400, "VALIDATION_ERROR");
     }
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      return NextResponse.json({ error: "Invalid payment amount" }, { status: 400 });
+      return errorResponse("Invalid payment amount", 400, "VALIDATION_ERROR");
     }
 
     // Verify the bill belongs to the student
@@ -48,37 +70,34 @@ export async function POST(req: NextRequest) {
     });
 
     if (!bill || bill.userId !== user.id) {
-      return NextResponse.json({ error: "Invalid bill" }, { status: 400 });
+      return errorResponse("Invalid bill", 400, "VALIDATION_ERROR");
     }
 
-    // Validate MIME type server-side
-    if (!validateMimeType(file.type, ALLOWED_IMAGE_TYPES)) {
-      return NextResponse.json(
-        { error: "Invalid file type. Only JPG, PNG, and WebP images are allowed." },
-        { status: 400 }
-      );
-    }
+    // If file is provided, upload it
+    if (file) {
+      if (!validateMimeType(file.type, ALLOWED_IMAGE_TYPES)) {
+        return errorResponse(
+          "Invalid file type. Only JPG, PNG, and WebP images are allowed.",
+          400,
+          "VALIDATION_ERROR"
+        );
+      }
 
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "File size must be under 5MB" }, { status: 400 });
-    }
+      if (file.size > MAX_FILE_SIZE) {
+        return errorResponse("File size must be under 5MB", 400, "VALIDATION_ERROR");
+      }
 
-    // Upload to Supabase Storage
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const path = `${session.user.id}/bill_${billId}_${Date.now()}.${ext}`;
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${session.user.id}/bill_${billId}_${Date.now()}.${ext}`;
 
-    let proofFileUrl: string;
-    try {
-      const result = await uploadFile("payments", path, buffer, file.type);
-      proofFileUrl = result.url;
-    } catch (e) {
-      // If Supabase is not configured, use a placeholder URL
-      proofFileUrl = `/uploads/payments/${path}`;
-      console.warn(
-        "[Payments] Supabase storage not configured, using placeholder URL"
-      );
+      try {
+        const result = await uploadFile("payments", path, buffer, file.type);
+        proofFileUrl = result.url;
+      } catch {
+        proofFileUrl = `/uploads/payments/${path}`;
+        console.warn("[Payments] Storage upload fallback used");
+      }
     }
 
     const payment = await prisma.payment.create({
@@ -109,10 +128,10 @@ export async function POST(req: NextRequest) {
       userAgent: getUserAgent(req.headers),
     });
 
-    return NextResponse.json({ data: payment }, { status: 201 });
+    return successResponse(payment, 201);
   } catch (error: any) {
     console.error("Error submitting payment:", error);
-    return NextResponse.json({ error: "Failed to submit payment" }, { status: 500 });
+    return errorResponse("Failed to submit payment", 500, "INTERNAL");
   }
 }
 
@@ -122,7 +141,7 @@ export async function GET(req: Request) {
     const user = session?.user;
     
     if (!user || !["SUPER_ADMIN", "HOSTEL_MANAGER"].includes(user.role)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return errorResponse("Unauthorized", 403, "FORBIDDEN");
     }
 
     const { searchParams } = new URL(req.url);
@@ -163,9 +182,10 @@ export async function GET(req: Request) {
       orderBy: { submittedAt: "desc" }
     });
 
-    return NextResponse.json({ data: payments });
+    return successResponse(payments);
   } catch (error: any) {
     console.error("Error fetching payments:", error);
-    return NextResponse.json({ error: "Failed to fetch payments" }, { status: 500 });
+    return errorResponse("Failed to fetch payments", 500, "INTERNAL");
   }
 }
+

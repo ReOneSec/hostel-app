@@ -12,11 +12,82 @@ const ROLE_ROUTES: Record<string, string[]> = {
   "/student": ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"],
 };
 
+// Allowed origins for CORS (Mobile Capacitor runtime, localhost dev, production web)
+const ALLOWED_ORIGIN_PATTERNS = [
+  "capacitor://localhost",
+  "https://localhost",
+  "http://localhost",
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://mirrormess.vercel.app",
+];
+
+function getAllowedOrigin(origin: string | null): string | null {
+  if (!origin) return null;
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (configuredAppUrl && origin.toLowerCase() === configuredAppUrl.toLowerCase()) {
+    return origin;
+  }
+  if (ALLOWED_ORIGIN_PATTERNS.includes(origin)) {
+    return origin;
+  }
+  if (origin.endsWith(".vercel.app")) {
+    return origin;
+  }
+  return null;
+}
+
+function setCorsHeaders(headers: Headers, origin: string | null) {
+  const allowedOrigin = getAllowedOrigin(origin);
+  if (allowedOrigin) {
+    headers.set("Access-Control-Allow-Origin", allowedOrigin);
+  }
+  headers.set(
+    "Access-Control-Allow-Headers",
+    "Authorization, Content-Type, x-cron-secret, Accept"
+  );
+  headers.set(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PATCH, DELETE, OPTIONS"
+  );
+  headers.set("Access-Control-Max-Age", "86400");
+}
+
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = ["/login", "/reset-password", "/api/auth", "/verify"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const origin = request.headers.get("origin");
+
+  // Handle API routes (CORS + Rate Limiting)
+  if (pathname.startsWith("/api/")) {
+    if (request.method === "OPTIONS") {
+      const preflightResponse = new NextResponse(null, { status: 204 });
+      setCorsHeaders(preflightResponse.headers, origin);
+      return preflightResponse;
+    }
+
+    // General API rate limiting (300 req/min per IP/client)
+    const ip = getClientIp(request);
+    const rateCheck = checkRateLimit(ip, "api");
+    if (!rateCheck.success) {
+      const rateResponse = NextResponse.json(
+        {
+          success: false,
+          error: "Too many requests. Please try again later.",
+          code: "RATE_LIMITED",
+        },
+        { status: 429 }
+      );
+      setCorsHeaders(rateResponse.headers, origin);
+      rateResponse.headers.set("Retry-After", String(rateCheck.retryAfter));
+      return rateResponse;
+    }
+  }
+
   
   // Use X-Forwarded headers if behind a proxy (like Cloudflare Tunnel)
   const forwardedHost = request.headers.get("x-forwarded-host");
@@ -46,13 +117,18 @@ export async function middleware(request: NextRequest) {
         new URL(getDashboardRoute(role), baseUrl)
       );
     }
+    if (pathname.startsWith("/api/")) {
+      setCorsHeaders(supabaseResponse.headers, origin);
+    }
     return supabaseResponse;
   }
 
   // Allow API routes to handle their own auth (except protected dashboard routes)
   if (pathname.startsWith("/api/")) {
+    setCorsHeaders(supabaseResponse.headers, origin);
     return supabaseResponse;
   }
+
 
   // Not authenticated → redirect to login
   if (!user) {

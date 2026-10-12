@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getBillingRegister } from "@/lib/services/billing";
+import { successResponse, errorResponse } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     const session = await auth();
     const user = session?.user;
     if (!user || (user.role !== "SUPER_ADMIN" && user.role !== "HOSTEL_MANAGER")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
     }
 
     const { searchParams } = new URL(req.url);
@@ -17,17 +17,15 @@ export async function GET(req: Request) {
     const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
 
     if (!hostelId) {
-      return NextResponse.json({ error: "hostelId is required" }, { status: 400 });
+      return errorResponse("hostelId is required", 400, "VALIDATION_ERROR");
     }
 
     const data = await getBillingRegister(hostelId, year);
 
-    return NextResponse.json({ data });
+    return successResponse(data);
   } catch (error: any) {
     console.error("Error fetching register data:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch register data" },
-      { status: 500 }
-    );
+    return errorResponse("Failed to fetch register data", 500, "INTERNAL");
   }
 }
+

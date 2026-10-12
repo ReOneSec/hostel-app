@@ -95,3 +95,83 @@ export async function PATCH(
     return errorResponse("Internal server error", 500);
   }
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; roomId: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !["SUPER_ADMIN", "HOSTEL_MANAGER"].includes(session.user.role)) {
+      return errorResponse("Unauthorized", 403, "FORBIDDEN");
+    }
+
+    const { id: hostelId, roomId } = await params;
+
+    const room = await prisma.room.findUnique({
+      where: { id: roomId, hostelId },
+      include: {
+        beds: {
+          include: {
+            bedAssignments: {
+              where: { status: "ACTIVE" },
+            },
+          },
+        },
+      },
+    });
+
+    if (!room) return errorResponse("Room not found", 404, "NOT_FOUND");
+
+    const hasActiveAssignments = room.beds.some((b) => b.bedAssignments.length > 0);
+    if (hasActiveAssignments) {
+      return errorResponse("Cannot delete room with active bed assignments", 400, "CONFLICT");
+    }
+
+    // Check if room or beds have any historical assignments
+    const anyHistorical = await prisma.bedAssignment.count({
+      where: {
+        bed: {
+          roomId,
+        },
+      },
+    });
+
+    if (anyHistorical > 0) {
+      // Soft delete
+      await prisma.$transaction([
+        prisma.bed.updateMany({
+          where: { roomId },
+          data: { isActive: false },
+        }),
+        prisma.room.update({
+          where: { id: roomId },
+          data: { isActive: false },
+        }),
+      ]);
+    } else {
+      // Hard delete
+      await prisma.$transaction([
+        prisma.bedFee.deleteMany({ where: { roomId } }),
+        prisma.bed.deleteMany({ where: { roomId } }),
+        prisma.room.delete({ where: { id: roomId } }),
+      ]);
+    }
+
+    await createAuditLog({
+      userId: session.user.id,
+      action: "ROOM_DELETED",
+      entity: "Room",
+      entityId: room.id,
+      oldValues: { ...room },
+      ipAddress: getIpAddress(req.headers),
+      userAgent: getUserAgent(req.headers),
+    });
+
+    return successResponse({ message: "Room deleted successfully" });
+  } catch (error) {
+    console.error("[Room DELETE]", error);
+    return errorResponse("Internal server error", 500, "INTERNAL");
+  }
+}
+

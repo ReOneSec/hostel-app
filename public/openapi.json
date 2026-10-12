@@ -1,0 +1,1160 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Mirror Hostels Public API",
+    "version": "1.2.0",
+    "description": "Public API for Mirror Hostels Android client and Web platform. Provides secure Bearer token authentication, user and hostel management, billing, payments, document/selfie uploads, and push notifications.",
+    "contact": {
+      "name": "Mirror Hostels Engineering",
+      "url": "https://mirrormess.vercel.app",
+      "email": "support@mirrorhostels.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://mirrormess.vercel.app/api/v1",
+      "description": "Production API Server (v1)"
+    },
+    {
+      "url": "http://localhost:3000/api/v1",
+      "description": "Local Development Server (v1)"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Supabase JWT access token obtained from /auth/login or /auth/refresh"
+      }
+    },
+    "schemas": {
+      "ApiResponseSuccess": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "success",
+          "data"
+        ]
+      },
+      "ApiResponseError": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "example": "Invalid credentials"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "VALIDATION_ERROR",
+              "UNAUTHORIZED",
+              "FORBIDDEN",
+              "NOT_FOUND",
+              "CONFLICT",
+              "RATE_LIMITED",
+              "INTERNAL"
+            ],
+            "example": "UNAUTHORIZED"
+          }
+        },
+        "required": [
+          "success",
+          "error"
+        ]
+      },
+      "UserSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "cm1234567890abcdef"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "sahabaj@mirror.com"
+          },
+          "username": {
+            "type": "string",
+            "example": "sahabaj"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "SUPER_ADMIN",
+              "HOSTEL_MANAGER",
+              "MONTHLY_MANAGER",
+              "STUDENT"
+            ],
+            "example": "SUPER_ADMIN"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE",
+              "SUSPENDED"
+            ],
+            "example": "ACTIVE"
+          },
+          "isProfileComplete": {
+            "type": "boolean",
+            "example": true
+          },
+          "isFirstLogin": {
+            "type": "boolean",
+            "example": false
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "sahabaj@mirror.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "password123"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accessToken": {
+                "type": "string",
+                "example": "eyJhbGciOi..."
+              },
+              "refreshToken": {
+                "type": "string",
+                "example": "v1.mcG..."
+              },
+              "expiresIn": {
+                "type": "integer",
+                "example": 3600
+              },
+              "user": {
+                "$ref": "#/components/schemas/UserSummary"
+              }
+            }
+          }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": [
+          "refreshToken"
+        ],
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "example": "v1.mcG..."
+          }
+        }
+      },
+      "ForgotPasswordRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "student@mirror.std"
+          }
+        }
+      },
+      "AppConfigResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "minAppVersion": {
+                "type": "string",
+                "example": "1.2.0"
+              },
+              "latestAppVersion": {
+                "type": "string",
+                "example": "1.2.0"
+              },
+              "maintenance": {
+                "type": "boolean",
+                "example": false
+              },
+              "maintenanceMessage": {
+                "type": "string",
+                "example": ""
+              },
+              "features": {
+                "type": "object",
+                "properties": {
+                  "mess": {
+                    "type": "boolean",
+                    "example": false
+                  },
+                  "uploads": {
+                    "type": "boolean",
+                    "example": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "DeviceRegisterRequest": {
+        "type": "object",
+        "required": [
+          "fcmToken"
+        ],
+        "properties": {
+          "fcmToken": {
+            "type": "string",
+            "example": "dK9..."
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "android",
+              "ios",
+              "web"
+            ],
+            "default": "android"
+          }
+        }
+      },
+      "UploadResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "example": "https://res.cloudinary.com/..."
+              },
+              "publicId": {
+                "type": "string",
+                "example": "mirror_hostels/payment-proof/..."
+              },
+              "fileName": {
+                "type": "string",
+                "example": "receipt.jpg"
+              },
+              "fileSize": {
+                "type": "integer",
+                "example": 1048576
+              }
+            }
+          }
+        }
+      },
+      "PaymentSubmitRequest": {
+        "type": "object",
+        "required": [
+          "billId",
+          "amount",
+          "paymentDate"
+        ],
+        "properties": {
+          "billId": {
+            "type": "string",
+            "example": "cmv3yyjai..."
+          },
+          "amount": {
+            "type": "number",
+            "example": 1500
+          },
+          "paymentDate": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-12T10:00:00Z"
+          },
+          "proofFileUrl": {
+            "type": "string",
+            "example": "https://res.cloudinary.com/..."
+          },
+          "transactionId": {
+            "type": "string",
+            "example": "TXN123456"
+          },
+          "utrNumber": {
+            "type": "string",
+            "example": "UTR9876543210"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "RENT",
+                "ESTABLISHMENT_FEE",
+                "BED_FEE",
+                "MESS_CHARGE",
+                "LATE_FEE",
+                "ALL",
+                "OTHER"
+              ]
+            }
+          }
+        }
+      },
+      "PaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "example": 45
+              },
+              "page": {
+                "type": "integer",
+                "example": 1
+              },
+              "perPage": {
+                "type": "integer",
+                "example": 20
+              },
+              "hasMore": {
+                "type": "boolean",
+                "example": true
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Sign in with email and password",
+        "description": "Returns access token, refresh token, and user session details. Rate-limited to 10 requests/min.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful login",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User account inactive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Refresh expired access token",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New token pair issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Log out and revoke current session",
+        "responses": {
+          "200": {
+            "description": "Logged out successfully"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get current user profile and session details",
+        "responses": {
+          "200": {
+            "description": "User details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseSuccess"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Request password reset email",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generic success message (anti-enumeration)"
+          }
+        }
+      }
+    },
+    "/app/config": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Retrieve mobile app configuration and maintenance status",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "App configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppConfigResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/uploads": {
+      "post": {
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "Unified file upload endpoint",
+        "description": "Uploads JPG/PNG/WebP images up to 5MB to server-managed storage. Rate-limited to 20/hour.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "purpose"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "payment-proof",
+                      "document",
+                      "selfie"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid file type or size"
+          },
+          "429": {
+            "description": "Upload rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/devices": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Register device token for push notifications",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Device registered"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Unregister device on logout",
+        "responses": {
+          "200": {
+            "description": "Device unregistered"
+          }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "List user notifications (paginated)",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "perPage",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications/{id}/read": {
+      "patch": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark a notification as read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification marked read"
+          },
+          "404": {
+            "description": "Notification not found"
+          }
+        }
+      }
+    },
+    "/notifications/read-all": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark all notifications as read",
+        "responses": {
+          "200": {
+            "description": "All notifications marked read"
+          }
+        }
+      }
+    },
+    "/student/bills": {
+      "get": {
+        "tags": [
+          "Student"
+        ],
+        "summary": "Get current student billing history and outstanding bills",
+        "responses": {
+          "200": {
+            "description": "List of student bills"
+          }
+        }
+      }
+    },
+    "/student/payments": {
+      "get": {
+        "tags": [
+          "Student"
+        ],
+        "summary": "Get current student payment submissions",
+        "responses": {
+          "200": {
+            "description": "List of student payments"
+          }
+        }
+      }
+    },
+    "/payments": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "List payments for review (Admin/Hostel Manager)",
+        "responses": {
+          "200": {
+            "description": "List of payments"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Submit payment proof for a bill (Student)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentSubmitRequest"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment created and queued for review"
+          }
+        }
+      }
+    },
+    "/payments/{id}/verify": {
+      "patch": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Approve or reject a payment (Admin/Hostel Manager)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "APPROVED",
+                      "REJECTED"
+                    ]
+                  },
+                  "rejectionReason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment updated"
+          }
+        }
+      }
+    },
+    "/billing/bills/{id}": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Get single bill detail with payment history and late fee breakdown",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bill detail"
+          },
+          "404": {
+            "description": "Bill not found"
+          }
+        }
+      }
+    },
+    "/billing/bills/{id}/invoice": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Download PDF invoice for a bill",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF invoice file download",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hostels": {
+      "get": {
+        "tags": [
+          "Hostels"
+        ],
+        "summary": "List all hostels",
+        "responses": {
+          "200": {
+            "description": "Hostels list"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Hostels"
+        ],
+        "summary": "Create a new hostel (Super Admin)",
+        "responses": {
+          "201": {
+            "description": "Hostel created"
+          }
+        }
+      }
+    },
+    "/hostels/{id}": {
+      "get": {
+        "tags": [
+          "Hostels"
+        ],
+        "summary": "Get hostel detail with rooms and beds",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hostel detail"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Hostels"
+        ],
+        "summary": "Update hostel properties (Super Admin)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hostel updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Hostels"
+        ],
+        "summary": "Soft-delete / deactivate hostel (Super Admin)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hostel deactivated"
+          }
+        }
+      }
+    },
+    "/hostels/{id}/rooms/{roomId}": {
+      "patch": {
+        "tags": [
+          "Hostels"
+        ],
+        "summary": "Update room number or room type",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Room updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Hostels"
+        ],
+        "summary": "Delete or deactivate room",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Room deleted"
+          }
+        }
+      }
+    },
+    "/hostels/{id}/rooms/{roomId}/beds/{bedId}": {
+      "patch": {
+        "tags": [
+          "Hostels"
+        ],
+        "summary": "Update bed label or status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bedId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bed updated"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Hostels"
+        ],
+        "summary": "Delete bed",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bedId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bed deleted"
+          }
+        }
+      }
+    },
+    "/admin/dashboard": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get aggregated dashboard statistics (Super Admin)",
+        "responses": {
+          "200": {
+            "description": "Dashboard statistics"
+          }
+        }
+      }
+    },
+    "/audit-logs": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get system audit logs",
+        "responses": {
+          "200": {
+            "description": "Audit logs list"
+          }
+        }
+      }
+    }
+  }
+}
