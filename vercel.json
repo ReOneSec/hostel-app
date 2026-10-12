@@ -2,10 +2,6 @@
   "regions": ["bom1"],
   "crons": [
     {
-      "path": "/api/app/config",
-      "schedule": "*/5 * * * *"
-    },
-    {
       "path": "/api/cron/generate-bills",
       "schedule": "0 9 1 * *"
     },
