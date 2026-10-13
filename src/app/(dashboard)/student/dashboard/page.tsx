@@ -260,7 +260,7 @@ export default function StudentDashboardPage() {
               </div>
             </Link>
             
-            <Link href="/student/profile" className="block">
+            <Link href="/student/documents" className="block">
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex items-center gap-4 hover:shadow-md hover:border-emerald-200 transition-all group cursor-pointer h-full">
                 <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0 group-hover:bg-emerald-100 transition-colors">
                   <FileText className="w-5 h-5 text-emerald-600" />

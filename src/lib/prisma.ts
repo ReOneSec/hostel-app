@@ -8,9 +8,12 @@ const globalForPrisma = globalThis as unknown as {
 if (
   process.env.NODE_ENV !== "production" &&
   globalForPrisma.prisma &&
-  !(globalForPrisma.prisma as any)._runtimeDataModel?.models?.Room?.fields?.some(
+  (!(globalForPrisma.prisma as any)._runtimeDataModel?.models?.Room?.fields?.some(
     (f: any) => f.name === "previousRoomNumber"
-  )
+  ) ||
+  !(globalForPrisma.prisma as any)._runtimeDataModel?.models?.User?.fields?.some(
+    (f: any) => f.name === "canRecaptureSelfie"
+  ))
 ) {
   try {
     (globalForPrisma.prisma as any).$disconnect?.();

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { FormPageSkeleton } from "@/components/skeletons/page-skeletons";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export default function AssignStudentPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
+export default function AssignStudentPage({ params }: { params?: Promise<{ id: string }> }) {
+  const routeParams = useParams();
   const router = useRouter();
+  const id = (routeParams?.id as string) || (params ? use(params)?.id : "");
   
   const [user, setUser] = useState<any>(null);
   const [hostels, setHostels] = useState<any[]>([]);
@@ -31,8 +32,10 @@ export default function AssignStudentPage({ params }: { params: Promise<{ id: st
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (id) {
+      fetchData(id);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (selectedHostel) {
@@ -49,10 +52,13 @@ export default function AssignStudentPage({ params }: { params: Promise<{ id: st
     }
   }, [selectedRoom]);
 
-  async function fetchData() {
+  async function fetchData(targetId?: string) {
+    const fetchId = targetId || id;
+    if (!fetchId) return;
+
     try {
       // Fetch user to check if they have an active assignment
-      const userRes = await fetch(`/api/users/${resolvedParams.id}`);
+      const userRes = await fetch(`/api/users/${fetchId}`);
       if (!userRes.ok) throw new Error("Failed to fetch user");
       const { data: userData } = await userRes.json();
       setUser(userData);

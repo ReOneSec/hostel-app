@@ -21,11 +21,13 @@ import {
   XCircle,
   ExternalLink,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Eye
 } from "lucide-react";
 import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { ImagePreviewModal } from "@/components/ui/image-preview-modal";
 
 export default function DocumentVerificationPage() {
   const [documents, setDocuments] = useState<any[]>([]);
@@ -37,6 +39,7 @@ export default function DocumentVerificationPage() {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<any | null>(null);
 
   useEffect(() => {
     fetchDocuments();
@@ -152,16 +155,17 @@ export default function DocumentVerificationPage() {
                       alt={doc.documentType}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
-                      <a 
-                        href={doc.fileUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="inline-flex items-center justify-center bg-white text-slate-900 rounded-lg h-8 px-3 text-xs font-semibold shadow-sm hover:bg-slate-50 transition-colors gap-1.5"
+                    <div 
+                      onClick={() => setPreviewDoc(doc)}
+                      className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px] cursor-pointer"
+                    >
+                      <button 
+                        type="button"
+                        className="inline-flex items-center justify-center bg-white text-slate-900 rounded-lg h-8 px-3 text-xs font-semibold shadow-sm hover:bg-slate-50 transition-colors gap-1.5 cursor-pointer"
                       >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        View Full Screen
-                      </a>
+                        <Eye className="w-3.5 h-3.5 text-blue-600" />
+                        Preview Document
+                      </button>
                     </div>
                   </div>
                   <div className="p-4 space-y-4 flex-1 flex flex-col min-w-0">
@@ -248,6 +252,17 @@ export default function DocumentVerificationPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* In-Tab Image & Document Preview Modal */}
+      <ImagePreviewModal
+        open={!!previewDoc}
+        onOpenChange={(open) => !open && setPreviewDoc(null)}
+        title={previewDoc?.documentType?.replace(/_/g, " ") || "Document"}
+        subtitle={previewDoc ? `${previewDoc.user?.studentProfile?.fullName || previewDoc.user?.username || "Student"} • Uploaded on ${format(new Date(previewDoc.uploadedAt), "dd MMMM yyyy HH:mm")}` : ""}
+        src={previewDoc?.fileUrl}
+        status={previewDoc?.status}
+        fileName={previewDoc?.fileName || `${previewDoc?.documentType || "document"}.jpg`}
+      />
     </div>
   );
 }

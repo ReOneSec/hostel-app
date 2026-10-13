@@ -30,6 +30,57 @@ export async function POST(req: NextRequest) {
       return errorResponse("No file provided", 400);
     }
 
+    const hasRecaptureField = Boolean(
+      (prisma as any)._runtimeDataModel?.models?.User?.fields?.some(
+        (f: any) => f.name === "canRecaptureSelfie"
+      )
+    );
+
+    // Verify eligibility for selfie recapture
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        role: true,
+        needsSelfieUpdate: true,
+        ...(hasRecaptureField
+          ? {
+              canRecaptureSelfie: true,
+              selfieRecaptureReason: true,
+            }
+          : {}),
+        selfies: {
+          where: { isCurrent: true },
+          take: 1,
+        },
+      },
+    });
+
+    if (!user) {
+      return errorResponse("User not found", 404);
+    }
+
+    let userCanRecapture = Boolean((user as any).canRecaptureSelfie);
+    if (!hasRecaptureField) {
+      try {
+        const [recaptureData] = await prisma.$queryRaw<Array<{ canRecaptureSelfie: boolean }>>`SELECT "canRecaptureSelfie" FROM users WHERE id = ${session.user.id} LIMIT 1`;
+        userCanRecapture = Boolean(recaptureData?.canRecaptureSelfie);
+      } catch {
+        userCanRecapture = false;
+      }
+    }
+
+    const hasExistingSelfie = user.selfies.length > 0;
+    if (user.role === "STUDENT" && hasExistingSelfie) {
+      const isEligible = userCanRecapture || user.needsSelfieUpdate;
+      if (!isEligible) {
+        return errorResponse(
+          "You are not eligible to recapture your selfie. Administrator authorization and a valid documented reason are required.",
+          403
+        );
+      }
+    }
+
     // Validate MIME type
     if (!validateMimeType(file.type, ALLOWED_IMAGE_TYPES)) {
       console.error(`[Selfie Upload] Invalid MIME type: ${file.type}`);
@@ -79,30 +130,51 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // If this was a transfer-triggered selfie, clear the flag
-    if (triggerType === "TRANSFER") {
+    // Always clear recapture permissions and transfer flags after upload
+    if (hasRecaptureField) {
       await prisma.user.update({
         where: { id: session.user.id },
-        data: { needsSelfieUpdate: false },
+        data: {
+          canRecaptureSelfie: false,
+          selfieRecaptureReason: null,
+          selfiePermissionGrantedAt: null,
+          selfiePermissionGrantedBy: null,
+          needsSelfieUpdate: false,
+        },
       });
+    } else {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: {
+          needsSelfieUpdate: false,
+        },
+      });
+      try {
+        await prisma.$executeRaw`UPDATE users SET "canRecaptureSelfie" = false, "selfieRecaptureReason" = NULL, "selfiePermissionGrantedAt" = NULL, "selfiePermissionGrantedBy" = NULL WHERE id = ${session.user.id}`;
+      } catch {}
+    }
 
-      // Update Supabase Auth metadata
-      const { createAdminClient } = await import("@/utils/supabase/admin");
-      const supabaseAdmin = createAdminClient();
-      
-      const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000
-      });
-      
-      const authUser = usersData.users.find(u => u.email === session.user.email);
-      if (authUser) {
-        await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
-          user_metadata: {
-            ...authUser.user_metadata,
-            needsSelfieUpdate: false
-          }
+    if (triggerType === "TRANSFER" || user.needsSelfieUpdate) {
+      try {
+        const { createAdminClient } = await import("@/utils/supabase/admin");
+        const supabaseAdmin = createAdminClient();
+        
+        const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({
+          page: 1,
+          perPage: 1000
         });
+        
+        const authUser = usersData.users.find(u => u.email === session.user.email);
+        if (authUser) {
+          await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
+            user_metadata: {
+              ...authUser.user_metadata,
+              needsSelfieUpdate: false
+            }
+          });
+        }
+      } catch (authErr) {
+        console.warn("[Selfie Upload] Could not update supabase auth metadata:", authErr);
       }
     }
 

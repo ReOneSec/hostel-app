@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { DetailPageSkeleton } from "@/components/skeletons/page-skeletons";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Clock, FileText, Loader2, MapPin, Phone, Shield, User, KeyRound, Building2, Mail, Pencil, CheckCircle2, XCircle, Calendar, CalendarPlus, Trash, Edit, Download } from "lucide-react";
+import { ArrowLeft, Clock, FileText, Loader2, MapPin, Phone, Shield, User, KeyRound, Building2, Mail, Pencil, CheckCircle2, XCircle, Calendar, CalendarPlus, Trash, Edit, Download, Lock, Unlock, Camera, ExternalLink, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { ImagePreviewModal } from "@/components/ui/image-preview-modal";
 
 // Role Badge
 function RoleBadge({ role }: { role: string }) {
@@ -50,11 +51,15 @@ function getInitials(name: string): string {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2);
 }
 
-export default function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
+export default function UserDetailPage({ params }: { params?: Promise<{ id: string }> }) {
+  const routeParams = useParams();
   const router = useRouter();
+  const id = (routeParams?.id as string) || (params ? use(params)?.id : "");
+
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [newRemark, setNewRemark] = useState("");
@@ -71,20 +76,84 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   const [isUpdatingRemark, setIsUpdatingRemark] = useState(false);
   const [isDeletingRemark, setIsDeletingRemark] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchUser();
-  }, []);
+  // Selfie Recapture Permission state
+  const [isGrantSelfieOpen, setIsGrantSelfieOpen] = useState(false);
+  const [selfiePermissionReason, setSelfiePermissionReason] = useState("");
+  const [isUpdatingSelfiePermission, setIsUpdatingSelfiePermission] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{
+    title: string;
+    subtitle?: string;
+    src: string;
+    status?: string;
+    fileName?: string;
+  } | null>(null);
 
-  async function fetchUser() {
+  async function handleToggleSelfiePermission(canRecapture: boolean) {
+    if (canRecapture && (!selfiePermissionReason.trim() || selfiePermissionReason.trim().length < 3)) {
+      toast.error("Please provide a proper reason for granting permission (min 3 chars).");
+      return;
+    }
+
+    setIsUpdatingSelfiePermission(true);
     try {
-      const res = await fetch(`/api/users/${resolvedParams.id}?_t=${Date.now()}`, {
-        cache: "no-store"
+      const res = await fetch(`/api/users/${user.id}/selfie-permission`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          canRecapture,
+          reason: selfiePermissionReason.trim(),
+        }),
       });
-      if (!res.ok) throw new Error("Failed to fetch user");
-      const { data } = await res.json();
-      setUser(data);
-    } catch (error) {
-      toast.error("Could not load user details.");
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update permission");
+
+      toast.success(json.message || "Selfie permission updated successfully");
+      setIsGrantSelfieOpen(false);
+      setSelfiePermissionReason("");
+      await fetchUser(id);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update permission");
+    } finally {
+      setIsUpdatingSelfiePermission(false);
+    }
+  }
+
+  useEffect(() => {
+    if (id) {
+      fetchUser(id);
+    }
+  }, [id]);
+
+  async function fetchUser(targetId?: string) {
+    const fetchId = targetId || id;
+    if (!fetchId) return;
+
+    setIsLoading(true);
+    setErrorStatus(null);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/users/${fetchId}?_t=${Date.now()}`, {
+        cache: "no-store",
+      });
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setErrorStatus(res.status);
+        const msg =
+          json?.error ||
+          (res.status === 403
+            ? "Access Denied: Administrative permissions required."
+            : res.status === 404
+            ? "User not found"
+            : "Could not load user details");
+        setErrorMessage(msg);
+        throw new Error(msg);
+      }
+
+      setUser(json.data);
+    } catch (error: any) {
+      toast.error(error.message || "Could not load user details.");
     } finally {
       setIsLoading(false);
     }
@@ -258,21 +327,95 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   if (!user) {
-    return (
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
-            <User className="w-6 h-6 text-slate-400" />
+    if (errorStatus === 403 || errorStatus === 401) {
+      return (
+        <div className="bg-white rounded-xl border border-rose-200 shadow-sm max-w-xl mx-auto my-12 overflow-hidden">
+          <div className="p-6 sm:p-8 flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 flex items-center justify-center mb-4 text-rose-600 ring-8 ring-rose-50/50">
+              <Shield className="w-7 h-7" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-900 mb-1.5">Access Denied (Admin Permissions Required)</h2>
+            <p className="text-sm text-slate-600 max-w-md mb-2">
+              {errorMessage || "You do not have permission to view this user profile."}
+            </p>
+            <p className="text-xs text-slate-400 max-w-md mb-6 leading-relaxed">
+              This profile is restricted to Super Administrators and authorized Hostel Managers. If you are currently logged in as a student or another user account, please sign in with an administrator account to view details.
+            </p>
+            <div className="flex items-center gap-3 flex-wrap justify-center">
+              <Button
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 cursor-pointer"
+                onClick={() => router.push(`/login?callbackUrl=/admin/users/${id}`)}
+              >
+                Sign In as Administrator
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-slate-200 text-slate-700 rounded-lg cursor-pointer"
+                onClick={() => router.push("/")}
+              >
+                Go to Dashboard
+              </Button>
+            </div>
           </div>
-          <h3 className="text-sm font-semibold text-slate-700 mb-1">User Not Found</h3>
-          <p className="text-xs text-slate-400 max-w-xs mb-5">The user you&apos;re looking for doesn&apos;t exist or has been removed.</p>
-          <Button
-            size="sm"
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-            onClick={() => router.push("/admin/users")}
-          >
-            Return to User List
-          </Button>
+        </div>
+      );
+    }
+
+    if (errorStatus === 404) {
+      return (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm max-w-xl mx-auto my-12 overflow-hidden">
+          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4 text-slate-400">
+              <User className="w-7 h-7" />
+            </div>
+            <h3 className="text-base font-semibold text-slate-800 mb-1">User Not Found</h3>
+            <p className="text-sm text-slate-500 max-w-xs mb-2">The user you&apos;re looking for doesn&apos;t exist or has been removed.</p>
+            {id && (
+              <p className="font-mono text-xs text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-md mb-6">
+                User ID: {id}
+              </p>
+            )}
+            <Button
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer"
+              onClick={() => router.push("/admin/users")}
+            >
+              Return to User List
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-white rounded-xl border border-amber-200 shadow-sm max-w-xl mx-auto my-12 overflow-hidden">
+        <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center mb-4 text-amber-600">
+            <Lock className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-semibold text-slate-800 mb-1">Unable to Load User</h3>
+          <p className="text-sm text-slate-500 max-w-sm mb-6">
+            {errorMessage || "An unexpected error occurred while loading this user."}
+          </p>
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer"
+              onClick={() => fetchUser(id)}
+            >
+              Try Again
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-200 text-slate-700 rounded-lg cursor-pointer"
+              onClick={() => router.push("/admin/users")}
+            >
+              Return to User List
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -481,24 +624,124 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           {/* Selfie */}
           {user.selfies?.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
-                  <User className="w-3.5 h-3.5 text-slate-500" />
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                    <User className="w-3.5 h-3.5 text-slate-500" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-800">Current Selfie</h3>
                 </div>
-                <h3 className="text-sm font-semibold text-slate-800">Current Selfie</h3>
+                {user.canRecaptureSelfie ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 uppercase tracking-wider">
+                    Recapture Allowed
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 uppercase tracking-wider">
+                    Verified
+                  </span>
+                )}
               </div>
-              <div className="p-5">
-                <div className="relative aspect-square w-full rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+              <div className="p-5 space-y-4">
+                <div
+                  onClick={() => setPreviewImage({
+                    title: `Current Selfie - ${displayName}`,
+                    subtitle: `Captured on ${format(new Date(user.selfies[0].capturedAt), "dd MMMM yyyy HH:mm")}`,
+                    src: user.selfies[0].fileUrl,
+                    status: user.canRecaptureSelfie ? "RECAPTURE ALLOWED" : "VERIFIED",
+                    fileName: `${user.username || "user"}-selfie.jpg`
+                  })}
+                  className="relative aspect-square w-full rounded-lg overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer group"
+                  title="Click to preview selfie within this tab"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={user.selfies[0].fileUrl}
                     alt="User selfie"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                   />
+                  <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="bg-white/95 text-slate-900 text-xs font-semibold px-2.5 py-1 rounded-md shadow-sm flex items-center gap-1">
+                      <Eye className="w-3.5 h-3.5" /> View Photo
+                    </span>
+                  </div>
                 </div>
-                <p className="text-xs text-slate-400 text-center mt-3">
-                  Captured: {format(new Date(user.selfies[0].capturedAt), "MMM d, yyyy HH:mm")}
-                </p>
+
+                {/* Timestamp & Geolocation Coordinates with Google Maps Link */}
+                <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 space-y-2 text-xs">
+                  <div className="flex justify-between items-center text-slate-500">
+                    <span>Captured:</span>
+                    <span className="font-medium text-slate-800">
+                      {format(new Date(user.selfies[0].capturedAt), "MMM d, yyyy HH:mm")}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200/60 space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Coordinates:</span>
+                      <span className="font-mono text-slate-900 font-semibold text-[11px]">
+                        {user.selfies[0].latitude != null && user.selfies[0].longitude != null
+                          ? `${Number(user.selfies[0].latitude).toFixed(6)}, ${Number(user.selfies[0].longitude).toFixed(6)}`
+                          : "Not recorded"}
+                      </span>
+                    </div>
+
+                    {user.selfies[0].latitude != null && user.selfies[0].longitude != null && (
+                      <a
+                        href={`https://www.google.com/maps?q=${user.selfies[0].latitude},${user.selfies[0].longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold hover:underline mt-1"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-red-500" />
+                        Open in Google Maps
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Recapture Permission Action Controls */}
+                <div className="pt-2 border-t border-slate-100 space-y-2">
+                  {user.canRecaptureSelfie ? (
+                    <div className="space-y-2">
+                      <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
+                        <span className="font-bold text-amber-900 block flex items-center gap-1.5">
+                          <Unlock className="w-3.5 h-3.5 text-amber-600" />
+                          Recapture Permission Active
+                        </span>
+                        <p className="text-[11px] text-amber-700">
+                          <strong>Reason:</strong> &ldquo;{user.selfieRecaptureReason}&rdquo;
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleSelfiePermission(false)}
+                        disabled={isUpdatingSelfiePermission}
+                        className="w-full text-xs text-red-600 border-red-200 hover:bg-red-50 rounded-lg cursor-pointer"
+                      >
+                        {isUpdatingSelfiePermission ? (
+                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                        ) : (
+                          <Lock className="w-3.5 h-3.5 mr-1.5" />
+                        )}
+                        Revoke Recapture Permission
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setSelfiePermissionReason("");
+                        setIsGrantSelfieOpen(true);
+                      }}
+                      className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm cursor-pointer"
+                    >
+                      <Camera className="w-3.5 h-3.5 mr-1.5" />
+                      Grant Recapture Permission
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -588,14 +831,21 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                             }`}>
                               {doc.status}
                             </span>
-                            <a
-                              href={doc.fileUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage({
+                                title: doc.documentType?.replace(/_/g, " ") || "Document",
+                                subtitle: `${doc.fileName || doc.documentType} • Uploaded on ${doc.uploadedAt ? format(new Date(doc.uploadedAt), "dd MMMM yyyy") : ""}`,
+                                src: doc.fileUrl,
+                                status: doc.status,
+                                fileName: doc.fileName
+                              })}
+                              className="text-xs font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Preview within this tab"
                             >
+                              <Eye className="w-3.5 h-3.5" />
                               View
-                            </a>
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -850,6 +1100,77 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Grant Selfie Recapture Permission Dialog */}
+      <Dialog open={isGrantSelfieOpen} onOpenChange={setIsGrantSelfieOpen}>
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-md w-full p-0 overflow-hidden bg-white">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleToggleSelfiePermission(true);
+            }}
+          >
+            <div className="px-6 py-5 border-b border-slate-100">
+              <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Camera className="w-4 h-4 text-blue-600" />
+                Authorize Selfie Recapture
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500 mt-1">
+                Grant permission for this student to recapture their security selfie. A proper reason is required by security policy.
+              </DialogDescription>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <Label htmlFor="selfieReasonInput" className="text-xs font-semibold text-slate-700 mb-1.5 block">
+                  Proper Reason for Giving Permission *
+                </Label>
+                <Textarea
+                  id="selfieReasonInput"
+                  rows={3}
+                  placeholder="e.g. Previous photo is blurry / Resident changed physical appearance / Face obscured in previous capture"
+                  value={selfiePermissionReason}
+                  onChange={(e) => setSelfiePermissionReason(e.target.value)}
+                  className="border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  required
+                />
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  This reason will be logged in audit trails and displayed to the student on their portal.
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsGrantSelfieOpen(false)}
+                disabled={isUpdatingSelfiePermission}
+                className="text-slate-600 rounded-lg h-9 text-xs cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isUpdatingSelfiePermission || !selfiePermissionReason.trim() || selfiePermissionReason.trim().length < 3}
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-xs cursor-pointer shadow-sm"
+              >
+                {isUpdatingSelfiePermission && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                Grant Recapture Permission
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* In-Tab Image & Document Preview Modal */}
+      <ImagePreviewModal
+        open={!!previewImage}
+        onOpenChange={(open) => !open && setPreviewImage(null)}
+        title={previewImage?.title || ""}
+        subtitle={previewImage?.subtitle}
+        src={previewImage?.src}
+        status={previewImage?.status}
+        fileName={previewImage?.fileName}
+      />
     </div>
   );
 }

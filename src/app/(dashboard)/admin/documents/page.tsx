@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ImagePreviewModal } from "@/components/ui/image-preview-modal";
 
 function DocumentStatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; dot: string; className: string }> = {
@@ -45,6 +46,7 @@ export default function DocumentVerificationPage() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("PENDING");
+  const [previewDoc, setPreviewDoc] = useState<any | null>(null);
 
   const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
@@ -212,7 +214,7 @@ export default function DocumentVerificationPage() {
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs text-slate-500 hover:text-slate-700 cursor-pointer"
-                      onClick={() => window.open(doc.fileUrl, "_blank", "noopener,noreferrer")}
+                      onClick={() => setPreviewDoc(doc)}
                     >
                       <Eye className="w-3.5 h-3.5 mr-1" /> View
                     </Button>
@@ -284,7 +286,7 @@ export default function DocumentVerificationPage() {
                       variant="outline"
                       size="sm"
                       className="flex-1 h-8 text-xs border-slate-200 text-slate-700 cursor-pointer"
-                      onClick={() => window.open(doc.fileUrl, "_blank", "noopener,noreferrer")}
+                      onClick={() => setPreviewDoc(doc)}
                     >
                       <Eye className="w-3.5 h-3.5 mr-1" /> View Document
                     </Button>
@@ -366,6 +368,17 @@ export default function DocumentVerificationPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* In-Tab Image & Document Preview Modal */}
+      <ImagePreviewModal
+        open={!!previewDoc}
+        onOpenChange={(open) => !open && setPreviewDoc(null)}
+        title={previewDoc?.documentType?.replace(/_/g, " ") || "Document"}
+        subtitle={previewDoc ? `${previewDoc.user?.studentProfile?.fullName || previewDoc.user?.username || "Student"} • Uploaded on ${format(new Date(previewDoc.uploadedAt), "dd MMMM yyyy")}` : ""}
+        src={previewDoc?.fileUrl}
+        status={previewDoc?.status}
+        fileName={previewDoc?.fileName || `${previewDoc?.documentType || "document"}.jpg`}
+      />
     </div>
   );
 }

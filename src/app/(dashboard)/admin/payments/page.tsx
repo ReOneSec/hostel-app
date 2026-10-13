@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ImagePreviewModal } from "@/components/ui/image-preview-modal";
 
 function PaymentStatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; dot: string; className: string }> = {
@@ -46,6 +47,13 @@ export default function PaymentVerificationPage() {
   const [payments, setPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("PENDING_REVIEW");
+  const [previewProof, setPreviewProof] = useState<{
+    title: string;
+    subtitle?: string;
+    src: string;
+    status?: string;
+    fileName?: string;
+  } | null>(null);
 
   const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
@@ -227,7 +235,13 @@ export default function PaymentVerificationPage() {
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2 text-xs text-slate-500 hover:text-slate-700 cursor-pointer"
-                        onClick={() => window.open(payment.proofFileUrl!, "_blank", "noopener,noreferrer")}
+                        onClick={() => setPreviewProof({
+                          title: `Payment Proof - ₹${Number(payment.amount).toLocaleString('en-IN')}`,
+                          subtitle: `${payment.user.studentProfile?.fullName || payment.user.username} • Paid on ${format(new Date(payment.paymentDate), "MMM d, yyyy")}`,
+                          src: payment.proofFileUrl!,
+                          status: payment.status,
+                          fileName: `payment-proof-${payment.bill?.month || "bill"}-${payment.bill?.year || "yr"}.jpg`
+                        })}
                       >
                         <Eye className="w-3.5 h-3.5 mr-1" /> Proof
                       </Button>
@@ -301,8 +315,27 @@ export default function PaymentVerificationPage() {
                   </div>
 
                   {/* Actions */}
+                  {payment.proofFileUrl && (
+                    <div className="mt-3 pt-3 border-t border-slate-100">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-8 text-xs border-slate-200 text-slate-700 cursor-pointer"
+                        onClick={() => setPreviewProof({
+                          title: `Payment Proof - ₹${Number(payment.amount).toLocaleString('en-IN')}`,
+                          subtitle: `${payment.user.studentProfile?.fullName || payment.user.username} • Paid on ${format(new Date(payment.paymentDate), "MMM d, yyyy")}`,
+                          src: payment.proofFileUrl!,
+                          status: payment.status,
+                          fileName: `payment-proof-${payment.bill?.month || "bill"}-${payment.bill?.year || "yr"}.jpg`
+                        })}
+                      >
+                        <Eye className="w-3.5 h-3.5 mr-1 text-blue-600" /> View Payment Proof
+                      </Button>
+                    </div>
+                  )}
+
                   {payment.status === "PENDING_REVIEW" && (
-                    <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
+                    <div className="flex gap-2 mt-2">
                       <Button
                         size="sm"
                         className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer"
@@ -381,6 +414,17 @@ export default function PaymentVerificationPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* In-Tab Image & Document Preview Modal */}
+      <ImagePreviewModal
+        open={!!previewProof}
+        onOpenChange={(open) => !open && setPreviewProof(null)}
+        title={previewProof?.title || ""}
+        subtitle={previewProof?.subtitle}
+        src={previewProof?.src}
+        status={previewProof?.status}
+        fileName={previewProof?.fileName}
+      />
     </div>
   );
 }

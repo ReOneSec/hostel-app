@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, Receipt, CreditCard, Download, Clock, XCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, ExternalLink, Receipt, CreditCard, Download, Clock, XCircle, CheckCircle2, Eye } from "lucide-react";
 import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
+import { ImagePreviewModal } from "@/components/ui/image-preview-modal";
 
 type PaymentData = {
   id: string;
@@ -29,6 +30,13 @@ type PaymentData = {
 export default function StudentPaymentsPage() {
   const [payments, setPayments] = useState<PaymentData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [previewProof, setPreviewProof] = useState<{
+    title: string;
+    subtitle?: string;
+    src: string;
+    status?: string;
+    fileName?: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchPayments();
@@ -156,9 +164,15 @@ export default function StudentPaymentsPage() {
                         variant="outline" 
                         size="sm"
                         className="h-8 px-2.5 text-xs border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm cursor-pointer"
-                        onClick={() => window.open(payment.proofFileUrl as string, '_blank')}
+                        onClick={() => setPreviewProof({
+                          title: `Payment Receipt - ₹${Number(payment.amount).toLocaleString('en-IN')}`,
+                          subtitle: `Payment on ${format(new Date(payment.paymentDate), "dd MMMM yyyy")}${payment.transactionId ? ` • Txn: ${payment.transactionId}` : ""}`,
+                          src: payment.proofFileUrl!,
+                          status: payment.status,
+                          fileName: `payment-proof-${payment.bill?.month || "bill"}-${payment.bill?.year || "yr"}.jpg`
+                        })}
                       >
-                        <ExternalLink className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
+                        <Eye className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
                         Proof
                       </Button>
                     ) : (
@@ -185,6 +199,17 @@ export default function StudentPaymentsPage() {
           )}
         </div>
       </div>
+
+      {/* In-Tab Image & Document Preview Modal */}
+      <ImagePreviewModal
+        open={!!previewProof}
+        onOpenChange={(open) => !open && setPreviewProof(null)}
+        title={previewProof?.title || ""}
+        subtitle={previewProof?.subtitle}
+        src={previewProof?.src}
+        status={previewProof?.status}
+        fileName={previewProof?.fileName}
+      />
     </div>
   );
 }

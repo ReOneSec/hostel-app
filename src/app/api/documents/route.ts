@@ -6,7 +6,20 @@ export async function GET(req: Request) {
   try {
     const session = await auth();
     const user = session?.user;
-    if (!user || (user.role !== "SUPER_ADMIN" && user.role !== "HOSTEL_MANAGER")) {
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Students and monthly managers can only view their own documents
+    if (user.role === "STUDENT" || user.role === "MONTHLY_MANAGER") {
+      const documents = await prisma.document.findMany({
+        where: { userId: user.id },
+        orderBy: { uploadedAt: "desc" },
+      });
+      return NextResponse.json({ data: documents });
+    }
+
+    if (user.role !== "SUPER_ADMIN" && user.role !== "HOSTEL_MANAGER") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

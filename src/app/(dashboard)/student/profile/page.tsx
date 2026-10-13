@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, AlertCircle, FileText, Camera, CheckCircle, XCircle, Clock, Download, Edit3, User } from "lucide-react";
+import Link from "next/link";
+import { Loader2, AlertCircle, FileText, Camera, CheckCircle, XCircle, Clock, Download, Edit3, User, ExternalLink, MapPin, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { ImagePreviewModal } from "@/components/ui/image-preview-modal";
 
 export default function StudentProfilePage() {
   const { data: session } = useSession();
@@ -19,6 +21,13 @@ export default function StudentProfilePage() {
   const [formData, setFormData] = useState<any>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{
+    title: string;
+    subtitle?: string;
+    src: string;
+    status?: string;
+    fileName?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -283,16 +292,62 @@ export default function StudentProfilePage() {
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">Your verified profile photo</p>
           </div>
-          <div className="p-6 flex-1 flex items-center justify-center bg-slate-50">
+          <div className="p-6 flex-1 flex flex-col items-center justify-center bg-slate-50 gap-3">
             {userData?.selfies?.length > 0 ? (
-              <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-[250px] aspect-square w-full">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img 
-                  src={userData.selfies[0].fileUrl} 
-                  alt="Profile Selfie" 
-                  className="object-cover w-full h-full"
-                />
-              </div>
+              <>
+                <div
+                  onClick={() => setPreviewImage({
+                    title: "Verified Profile Photo",
+                    subtitle: `Captured on ${userData.selfies[0].capturedAt ? format(new Date(userData.selfies[0].capturedAt), "dd MMMM yyyy, HH:mm") : "N/A"}`,
+                    src: userData.selfies[0].fileUrl,
+                    status: "VERIFIED",
+                    fileName: "verified-selfie.jpg"
+                  })}
+                  className="relative rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-[250px] aspect-square w-full cursor-pointer group"
+                  title="Click to preview photo within this tab"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src={userData.selfies[0].fileUrl} 
+                    alt="Profile Selfie" 
+                    className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
+                  />
+                  <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="bg-white/95 text-slate-900 text-xs font-semibold px-2.5 py-1 rounded-md shadow-sm flex items-center gap-1">
+                      <Eye className="w-3.5 h-3.5" /> View Photo
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full max-w-[250px] bg-white rounded-lg p-2.5 border border-slate-200 text-xs space-y-1.5 shadow-2xs">
+                  <div className="flex justify-between items-center text-slate-500">
+                    <span>Captured:</span>
+                    <span className="font-medium text-slate-800">
+                      {userData.selfies[0].capturedAt ? format(new Date(userData.selfies[0].capturedAt), "dd MMM yyyy, HH:mm") : "N/A"}
+                    </span>
+                  </div>
+                  <div className="pt-1.5 border-t border-slate-100 space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Coordinates:</span>
+                      <span className="font-mono text-slate-900 font-semibold text-[11px]">
+                        {userData.selfies[0].latitude != null && userData.selfies[0].longitude != null
+                          ? `${Number(userData.selfies[0].latitude).toFixed(6)}, ${Number(userData.selfies[0].longitude).toFixed(6)}`
+                          : "Not recorded"}
+                      </span>
+                    </div>
+                    {userData.selfies[0].latitude != null && userData.selfies[0].longitude != null && (
+                      <a
+                        href={`https://www.google.com/maps?q=${userData.selfies[0].latitude},${userData.selfies[0].longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold hover:underline mt-1"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-red-500" />
+                        Open in Google Maps ↗
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="aspect-square max-w-[250px] w-full flex flex-col items-center justify-center bg-white rounded-xl border border-dashed border-slate-300">
                 <Camera className="w-10 h-10 text-slate-300 mb-2" />
@@ -303,33 +358,62 @@ export default function StudentProfilePage() {
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-slate-400" />
-              Uploaded Documents
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">Your identification documents</p>
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-slate-400" />
+                Uploaded Documents
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">Your identification documents</p>
+            </div>
+            <Link
+              href="/student/documents"
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 hover:underline"
+            >
+              Manage Documents <ExternalLink className="w-3 h-3" />
+            </Link>
           </div>
           <div className="p-5 space-y-3 flex-1 bg-slate-50">
             {userData?.documents?.length > 0 ? (
               userData.documents.map((doc: any) => (
                 <div key={doc.id} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-blue-200 transition-colors shadow-sm group">
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="w-9 h-9 bg-blue-50 flex items-center justify-center rounded-md shrink-0">
+                  <div
+                    onClick={() => setPreviewImage({
+                      title: doc.documentType.replace(/_/g, ' '),
+                      subtitle: `${doc.fileName} • Uploaded on ${doc.uploadedAt ? format(new Date(doc.uploadedAt), "dd MMMM yyyy") : ""}`,
+                      src: doc.fileUrl,
+                      status: doc.status,
+                      fileName: doc.fileName
+                    })}
+                    className="flex items-center gap-3 overflow-hidden flex-1 cursor-pointer"
+                    title="Click to preview within this tab"
+                  >
+                    <div className="w-9 h-9 bg-blue-50 flex items-center justify-center rounded-md shrink-0 group-hover:bg-blue-100 transition-colors">
                       <FileText className="w-4 h-4 text-blue-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{doc.documentType.replace(/_/g, ' ')}</p>
+                      <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-blue-600 transition-colors">{doc.documentType.replace(/_/g, ' ')}</p>
                       <p className="text-xs text-slate-400 truncate">{doc.fileName}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 ml-2 shrink-0">
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
                     {(doc.status === "VERIFIED" || doc.status === "APPROVED") && <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 uppercase tracking-wider"><CheckCircle className="w-3 h-3" /> Approved</span>}
                     {doc.status === "PENDING" && <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 uppercase tracking-wider"><Clock className="w-3 h-3" /> Pending</span>}
                     {doc.status === "REJECTED" && <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200 uppercase tracking-wider"><XCircle className="w-3 h-3" /> Rejected</span>}
-                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Download">
-                      <Download className="w-4 h-4" />
-                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImage({
+                        title: doc.documentType.replace(/_/g, ' '),
+                        subtitle: `${doc.fileName} • Uploaded on ${doc.uploadedAt ? format(new Date(doc.uploadedAt), "dd MMMM yyyy") : ""}`,
+                        src: doc.fileUrl,
+                        status: doc.status,
+                        fileName: doc.fileName
+                      })}
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                      title="Preview within this tab"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))
@@ -342,6 +426,17 @@ export default function StudentProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* In-Tab Image & Document Preview Modal */}
+      <ImagePreviewModal
+        open={!!previewImage}
+        onOpenChange={(open) => !open && setPreviewImage(null)}
+        title={previewImage?.title || ""}
+        subtitle={previewImage?.subtitle}
+        src={previewImage?.src}
+        status={previewImage?.status}
+        fileName={previewImage?.fileName}
+      />
     </div>
   );
 }

@@ -18,7 +18,7 @@ interface SelfieCaptureStepProps {
   onCaptured: () => void;
   onPrev?: () => void;
   isCaptured: boolean;
-  triggerType?: "PROFILE_COMPLETION" | "TRANSFER";
+  triggerType?: "PROFILE_COMPLETION" | "TRANSFER" | "ADMIN_AUTHORIZED";
 }
 
 export function SelfieCaptureStep({

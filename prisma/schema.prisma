@@ -17,8 +17,12 @@ model User {
   status                AccountStatus             @default(ACTIVE)
   isProfileComplete     Boolean                   @default(false)
   isFirstLogin          Boolean                   @default(true)
-  needsSelfieUpdate     Boolean                   @default(false)
-  privacyConsentAt      DateTime?
+  needsSelfieUpdate          Boolean                   @default(false)
+  canRecaptureSelfie         Boolean                   @default(false)
+  selfieRecaptureReason      String?
+  selfiePermissionGrantedAt  DateTime?
+  selfiePermissionGrantedBy  String?
+  privacyConsentAt           DateTime?
   joiningDate           DateTime?
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt

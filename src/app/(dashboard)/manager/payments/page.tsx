@@ -13,10 +13,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ExternalLink, Receipt, CheckCircle2, XCircle, Clock, Search, Calendar, User, FileText, CheckCircle } from "lucide-react";
+import { Loader2, ExternalLink, Receipt, CheckCircle2, XCircle, Clock, Search, Calendar, User, FileText, CheckCircle, Eye } from "lucide-react";
 import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { ImagePreviewModal } from "@/components/ui/image-preview-modal";
 
 type PaymentData = {
   id: string;
@@ -43,6 +44,13 @@ export default function ManagerPaymentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPayment, setSelectedPayment] = useState<PaymentData | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [previewProof, setPreviewProof] = useState<{
+    title: string;
+    subtitle?: string;
+    src: string;
+    status?: string;
+    fileName?: string;
+  } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [search, setSearch] = useState("");
   const router = useRouter();
@@ -320,9 +328,20 @@ export default function ManagerPaymentsPage() {
                       Payment Proof
                     </span>
                     {selectedPayment.proofFileUrl && (
-                      <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 cursor-pointer" onClick={() => window.open(selectedPayment.proofFileUrl!, '_blank')}>
-                        <ExternalLink className="w-3 h-3 mr-1" />
-                        Open Full Size
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 cursor-pointer"
+                        onClick={() => setPreviewProof({
+                          title: `Payment Proof - ₹${Number(selectedPayment.amount).toLocaleString('en-IN')}`,
+                          subtitle: `${selectedPayment.user.studentProfile?.fullName || selectedPayment.user.username} • ${format(new Date(selectedPayment.paymentDate), "dd MMMM yyyy")}`,
+                          src: selectedPayment.proofFileUrl!,
+                          status: selectedPayment.status,
+                          fileName: `payment-proof-${selectedPayment.bill?.month || "bill"}-${selectedPayment.bill?.year || "yr"}.jpg`
+                        })}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        Preview Proof
                       </Button>
                     )}
                   </div>
@@ -332,7 +351,15 @@ export default function ManagerPaymentsPage() {
                       <img 
                         src={selectedPayment.proofFileUrl} 
                         alt="Payment Proof" 
-                        className="max-w-full max-h-[400px] object-contain rounded border border-slate-200/50 shadow-sm"
+                        onClick={() => setPreviewProof({
+                          title: `Payment Proof - ₹${Number(selectedPayment.amount).toLocaleString('en-IN')}`,
+                          subtitle: `${selectedPayment.user.studentProfile?.fullName || selectedPayment.user.username} • ${format(new Date(selectedPayment.paymentDate), "dd MMMM yyyy")}`,
+                          src: selectedPayment.proofFileUrl!,
+                          status: selectedPayment.status,
+                          fileName: `payment-proof-${selectedPayment.bill?.month || "bill"}-${selectedPayment.bill?.year || "yr"}.jpg`
+                        })}
+                        className="max-w-full max-h-[400px] object-contain rounded border border-slate-200/50 shadow-sm cursor-pointer hover:opacity-95 transition-opacity"
+                        title="Click to preview within this tab"
                       />
                     ) : (
                       <div className="flex flex-col items-center text-slate-400">
@@ -347,6 +374,17 @@ export default function ManagerPaymentsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* In-Tab Image & Document Preview Modal */}
+      <ImagePreviewModal
+        open={!!previewProof}
+        onOpenChange={(open) => !open && setPreviewProof(null)}
+        title={previewProof?.title || ""}
+        subtitle={previewProof?.subtitle}
+        src={previewProof?.src}
+        status={previewProof?.status}
+        fileName={previewProof?.fileName}
+      />
     </div>
   );
 }
