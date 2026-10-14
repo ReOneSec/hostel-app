@@ -9,6 +9,7 @@ const LIMITS: Record<string, RateLimitConfig> = {
   login: { max: 10, windowMs: 60 * 1000 }, // 10/min per IP
   api: { max: 300, windowMs: 60 * 1000 }, // 300/min per user/IP
   uploads: { max: 20, windowMs: 60 * 60 * 1000 }, // 20/hour per user
+  announcements_compose: { max: 30, windowMs: 60 * 60 * 1000 }, // 30/hour per sender
 };
 
 // In-memory sliding window bucket store
@@ -41,7 +42,7 @@ export interface RateLimitResult {
 
 export function checkRateLimit(
   key: string,
-  type: "login" | "api" | "uploads" = "api"
+  type: keyof typeof LIMITS = "api"
 ): RateLimitResult {
   const config = LIMITS[type];
   const now = Date.now();

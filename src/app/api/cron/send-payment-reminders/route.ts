@@ -55,6 +55,20 @@ export async function GET(req: Request) {
           type: "PAYMENT_REMINDER"
         });
         emailsSent++;
+
+        if (daysLeft <= 2) {
+          try {
+            const { createSystemNotice } = await import("@/lib/services/announcements");
+            await createSystemNotice({
+              targetUserId: bill.user.id,
+              title: `Bill due in ${daysLeft} ${daysLeft === 1 ? "day" : "days"}`,
+              body: `Your bill for ${monthName} ${currentYear} has an outstanding balance of Rs. ${outstandingBalance} due in ${daysLeft} ${daysLeft === 1 ? "day" : "days"}.`,
+              eventKey: `due-reminder-${bill.id}`,
+            });
+          } catch (err) {
+            console.error("[System Notice] Failed to create due reminder announcement:", err);
+          }
+        }
       }
     }
 

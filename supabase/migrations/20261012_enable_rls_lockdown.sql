@@ -38,7 +38,9 @@ DECLARE
         'audit_logs',
         'notifications',
         'profile_edit_requests',
-        'devices'
+        'devices',
+        'announcements',
+        'announcement_reads'
     ];
 BEGIN
     FOREACH t IN ARRAY tables LOOP

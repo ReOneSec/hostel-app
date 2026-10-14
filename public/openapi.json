@@ -66,7 +66,8 @@
               "NOT_FOUND",
               "CONFLICT",
               "RATE_LIMITED",
-              "INTERNAL"
+              "INTERNAL",
+              "PDF_GENERATION_FAILED"
             ],
             "example": "UNAUTHORIZED"
           }
@@ -373,6 +374,184 @@
             }
           }
         }
+      },
+      "AnnouncementItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "GLOBAL",
+              "HOSTEL",
+              "PRIVATE"
+            ]
+          },
+          "hostelId": {
+            "type": "string"
+          },
+          "hostelName": {
+            "type": "string"
+          },
+          "isPinned": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AnnouncementsGroupedResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "global": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AnnouncementItem"
+                }
+              },
+              "hostel": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AnnouncementItem"
+                }
+              },
+              "private": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AnnouncementItem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "AnnouncementComposeRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "body",
+          "audience"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Water shutdown Saturday",
+            "maxLength": 120
+          },
+          "body": {
+            "type": "string",
+            "example": "No water 10am-2pm for maintenance.",
+            "maxLength": 2000
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "GLOBAL",
+              "HOSTEL",
+              "PRIVATE"
+            ]
+          },
+          "hostelId": {
+            "type": "string"
+          },
+          "targetUserId": {
+            "type": "string"
+          },
+          "isPinned": {
+            "type": "boolean",
+            "default": false
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AnnouncementUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "isPinned": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Authentication required or token expired",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiResponseError"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Insufficient permissions to perform this operation",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiResponseError"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Requested resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiResponseError"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error occurred",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiResponseError"
+            }
+          }
+        }
       }
     }
   },
@@ -382,6 +561,258 @@
     }
   ],
   "paths": {
+    "/users/me/admission-form": {
+      "get": {
+        "operationId": "downloadMyAdmissionForm",
+        "summary": "Download the authenticated student's admission form",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Admission-form PDF bytes",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/announcements": {
+      "get": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "Get announcements (scope=mine for student/manager grouped feed)",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mine"
+              ]
+            }
+          },
+          {
+            "name": "audience",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "GLOBAL",
+                "HOSTEL",
+                "PRIVATE"
+              ]
+            }
+          },
+          {
+            "name": "hostelId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeExpired",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Grouped announcements feed or management list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementsGroupedResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "Compose a new announcement (Admin or Hostel Manager)",
+        "description": "Creates a three-tier announcement. Limited to 30/hour per sender.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementComposeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Announcement created"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/announcements/{id}": {
+      "patch": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "Edit, pin/unpin, or extend expiry of an announcement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Announcement updated"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "Delete an announcement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Announcement deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/announcements/{id}/read": {
+      "post": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "Mark an announcement as read (Idempotent)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Marked as read"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/auth/login": {
       "post": {
         "tags": [

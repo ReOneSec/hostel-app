@@ -51,6 +51,8 @@ model User {
   profileEditRequests   ProfileEditRequest[] @relation("UserEditRequests")
   reviewedEditRequests  ProfileEditRequest[] @relation("ReviewedEditRequests")
   remarks               Remark[]
+  targetAnnouncements   Announcement[]     @relation("TargetAnnouncements")
+  announcementReads     AnnouncementRead[]
 
   @@index([role, status])
   @@map("users")
@@ -157,6 +159,7 @@ model Hostel {
   monthlyManagers     MonthlyManagerSession[]
   rentConfigs         RentConfig[]
   rooms               Room[]
+  announcements       Announcement[]
 
   @@map("hostels")
 }
@@ -726,5 +729,48 @@ model Device {
 
   @@index([userId])
   @@map("devices")
+}
+
+enum AnnouncementAudience {
+  GLOBAL
+  HOSTEL
+  PRIVATE
+}
+
+model Announcement {
+  id             String               @id @default(cuid())
+  title          String
+  body           String               @db.Text
+  audience       AnnouncementAudience
+  hostelId       String?
+  targetUserId   String?
+  senderId       String
+  isPinned       Boolean              @default(false)
+  expiresAt      DateTime?
+  idempotencyKey String?              @unique
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  hostel         Hostel?              @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  targetUser     User?                @relation("TargetAnnouncements", fields: [targetUserId], references: [id], onDelete: Cascade)
+  reads          AnnouncementRead[]
+
+  @@index([audience, hostelId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([expiresAt])
+  @@map("announcements")
+}
+
+model AnnouncementRead {
+  id             String       @id @default(cuid())
+  announcementId String
+  userId         String
+  readAt         DateTime     @default(now())
+
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@map("announcement_reads")
 }
 

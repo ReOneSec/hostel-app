@@ -22,6 +22,7 @@ import {
   ClipboardList,
   User,
   UserCog,
+  Megaphone,
 } from "lucide-react";
 import { useState } from "react";
 import type { Role } from "@prisma/client";
@@ -100,6 +101,13 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["SUPER_ADMIN"],
     section: "Operations",
   },
+  {
+    label: "Notices",
+    href: "/admin/notices",
+    icon: Megaphone,
+    roles: ["SUPER_ADMIN", "HOSTEL_MANAGER"],
+    section: "Operations",
+  },
 
   // Manager
   {
@@ -176,6 +184,13 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"],
     section: "Student",
   },
+  {
+    label: "Notices",
+    href: "/student/notices",
+    icon: Megaphone,
+    roles: ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"],
+    section: "Student",
+  },
 ];
 
 // Bottom nav items by role (max 5)
@@ -204,7 +219,7 @@ const BOTTOM_NAV: Record<string, { label: string; href: string; icon: React.Elem
   STUDENT: [
     { label: "Home", href: "/student/dashboard", icon: Home },
     { label: "Bills", href: "/student/bills", icon: Receipt },
-    { label: "Payments", href: "/student/payments", icon: Wallet },
+    { label: "Notices", href: "/student/notices", icon: Megaphone },
     { label: "Mess", href: "/student/mess", icon: UtensilsCrossed },
     { label: "Profile", href: "/student/profile", icon: User },
   ],

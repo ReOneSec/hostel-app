@@ -67,6 +67,18 @@ export async function calculateLateFees(): Promise<number> {
       );
 
       updatedCount++;
+
+      try {
+        const { createSystemNotice } = await import("@/lib/services/announcements");
+        await createSystemNotice({
+          targetUserId: bill.userId,
+          title: "Bill overdue",
+          body: `Your hostel bill is overdue by ${daysLate} ${daysLate === 1 ? "day" : "days"}. Late fees have been applied. Please pay immediately.`,
+          eventKey: `bill-overdue-${bill.id}`,
+        });
+      } catch (err) {
+        console.error("[System Notice] Failed to create overdue announcement:", err);
+      }
     }
   }
 

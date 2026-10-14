@@ -94,6 +94,19 @@ export async function generateBulkBills(month: number, year: number, generatedBy
       type: "BILL_GENERATED"
     }).catch(err => console.error("Failed to send bill email to", student.email, err));
 
+    // Create System Announcement Notice
+    try {
+      const { createSystemNotice } = await import("@/lib/services/announcements");
+      await createSystemNotice({
+        targetUserId: student.id,
+        title: `New bill: ${monthName} ${year}`,
+        body: `Your hostel fee bill of Rs. ${totalAmount.toFixed(0)} for ${monthName} ${year} has been generated. Due date: ${dueDate.toLocaleDateString()}.`,
+        eventKey: `bill-gen-${month}-${year}`,
+      });
+    } catch (noticeErr) {
+      console.error("[System Notice] Failed to create bill announcement:", noticeErr);
+    }
+
     generatedCount++;
   }
 
@@ -179,6 +192,18 @@ export async function ensureStudentFeeBills(
           generatedBy,
         },
       });
+
+      try {
+        const { createSystemNotice } = await import("@/lib/services/announcements");
+        await createSystemNotice({
+          targetUserId: userId,
+          title: "New bill: Establishment Fee",
+          body: `Your one-time establishment fee bill of Rs. ${estAmount.toFixed(0)} has been generated.`,
+          eventKey: `bill-gen-est-${hostelId}`,
+        });
+      } catch (err) {
+        console.error("[System Notice] Failed to create establishment fee announcement:", err);
+      }
     }
   }
 
@@ -223,6 +248,18 @@ export async function ensureStudentFeeBills(
             generatedBy,
           },
         });
+
+        try {
+          const { createSystemNotice } = await import("@/lib/services/announcements");
+          await createSystemNotice({
+            targetUserId: userId,
+            title: `New bill: Annual Bed Fee (${currentYear})`,
+            body: `Your annual bed fee bill of Rs. ${bedAmount.toFixed(0)} for ${currentYear} has been generated.`,
+            eventKey: `bill-gen-bed-${hostelId}-${currentYear}`,
+          });
+        } catch (err) {
+          console.error("[System Notice] Failed to create bed fee announcement:", err);
+        }
       }
     }
   }

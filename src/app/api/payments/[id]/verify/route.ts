@@ -98,6 +98,30 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       type: "PAYMENT_STATUS",
     });
 
+    // Create System Announcement Notice
+    try {
+      const { createSystemNotice } = await import("@/lib/services/announcements");
+      if (status === "APPROVED") {
+        await createSystemNotice({
+          targetUserId: payment.user.id,
+          title: "Payment approved",
+          body: `Your payment of Rs. ${payment.amount} was approved.`,
+          eventKey: `payment-approved-${paymentId}`,
+          dedupKey: `payment-approved:${paymentId}`,
+        });
+      } else {
+        await createSystemNotice({
+          targetUserId: payment.user.id,
+          title: "Payment needs attention",
+          body: `Your payment of Rs. ${payment.amount} was rejected. Reason: ${rejectionReason || "Verification failed"}.`,
+          eventKey: `payment-rejected-${paymentId}`,
+          dedupKey: `payment-rejected:${paymentId}`,
+        });
+      }
+    } catch (noticeErr) {
+      console.error("[System Notice] Failed to create payment status announcement:", noticeErr);
+    }
+
     try {
       revalidateTag("dashboard-stats", "max");
       revalidateTag("report-payments", "max");
