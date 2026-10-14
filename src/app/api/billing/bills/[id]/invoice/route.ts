@@ -76,6 +76,20 @@ export async function GET(
     const pdfBuffer = Buffer.from(pdfArrayBuffer);
     const invoiceNo = bill.id.slice(-8).toUpperCase();
 
+    // Notify student if downloaded by authorized staff (suppress self-download)
+    if (session.user.id !== bill.userId) {
+      try {
+        const { notifyInvoiceDownloaded } = await import("@/lib/notify");
+        await notifyInvoiceDownloaded({
+          billId: bill.id,
+          studentUserId: bill.userId,
+          staffUserId: session.user.id,
+        });
+      } catch (notifyErr) {
+        console.error("[Bill Invoice GET] Failed to trigger invoice download push:", notifyErr);
+      }
+    }
+
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {

@@ -64,7 +64,7 @@ export async function generateBulkBills(month: number, year: number, generatedBy
       dueDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
     }
 
-    await prisma.bill.create({
+    const createdBill = await prisma.bill.create({
       data: {
         userId: student.id,
         hostelId: hostel.id,
@@ -82,6 +82,14 @@ export async function generateBulkBills(month: number, year: number, generatedBy
         generatedBy
       }
     });
+
+    // Send push notification for generated bill
+    try {
+      const { notifyBillGenerated } = await import("@/lib/notify");
+      await notifyBillGenerated(createdBill);
+    } catch (pushErr) {
+      console.error("[Billing] Failed to send bill push notification:", pushErr);
+    }
 
     // Send email notification
     const studentName = student.studentProfile?.fullName || student.username;
@@ -173,7 +181,7 @@ export async function ensureStudentFeeBills(
 
     if (!existingEstBill) {
       const estAmount = Number(estFeeConfig.amount);
-      await prisma.bill.create({
+      const createdEstBill = await prisma.bill.create({
         data: {
           userId,
           hostelId,
@@ -192,6 +200,13 @@ export async function ensureStudentFeeBills(
           generatedBy,
         },
       });
+
+      try {
+        const { notifyBillGenerated } = await import("@/lib/notify");
+        await notifyBillGenerated(createdEstBill);
+      } catch (pushErr) {
+        console.error("[Billing] Failed to send establishment fee bill push:", pushErr);
+      }
 
       try {
         const { createSystemNotice } = await import("@/lib/services/announcements");
@@ -229,7 +244,7 @@ export async function ensureStudentFeeBills(
 
       if (!existingBedBill) {
         const bedAmount = Number(applicableBedFee.amount);
-        await prisma.bill.create({
+        const createdBedBill = await prisma.bill.create({
           data: {
             userId,
             hostelId,
@@ -248,6 +263,13 @@ export async function ensureStudentFeeBills(
             generatedBy,
           },
         });
+
+        try {
+          const { notifyBillGenerated } = await import("@/lib/notify");
+          await notifyBillGenerated(createdBedBill);
+        } catch (pushErr) {
+          console.error("[Billing] Failed to send bed fee bill push:", pushErr);
+        }
 
         try {
           const { createSystemNotice } = await import("@/lib/services/announcements");
@@ -315,7 +337,7 @@ export async function generateAnnualBedBills(
 
     if (!existing) {
       const amount = Number(applicable.amount);
-      await prisma.bill.create({
+      const createdAnnualBill = await prisma.bill.create({
         data: {
           userId: a.userId,
           hostelId: a.hostelId,
@@ -334,6 +356,13 @@ export async function generateAnnualBedBills(
           generatedBy,
         },
       });
+
+      try {
+        const { notifyBillGenerated } = await import("@/lib/notify");
+        await notifyBillGenerated(createdAnnualBill);
+      } catch (pushErr) {
+        console.error("[Billing] Failed to send annual bed fee bill push:", pushErr);
+      }
       count++;
     }
   }

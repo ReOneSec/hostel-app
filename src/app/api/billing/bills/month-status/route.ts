@@ -236,6 +236,14 @@ export async function POST(req: Request) {
         userAgent: getUserAgent(req.headers),
       });
 
+      // Dispatch push notification for newly generated bill
+      try {
+        const { notifyBillGenerated } = await import("@/lib/notify");
+        await notifyBillGenerated(newBill);
+      } catch (pushErr) {
+        console.error("[Month-Status] Failed to send bill push notification:", pushErr);
+      }
+
       try {
         revalidateTag("dashboard-stats", "max");
         revalidateTag("report-payments", "max");

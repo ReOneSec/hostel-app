@@ -321,6 +321,22 @@ export async function composeAnnouncement({
     userAgent,
   });
 
+  // Trigger push notification to eligible recipients
+  try {
+    const { notifyNoticePublished } = await import("@/lib/notify");
+    await notifyNoticePublished({
+      id: announcement.id,
+      title: announcement.title,
+      body: announcement.body,
+      audience: announcement.audience,
+      hostelId: announcement.hostelId,
+      targetUserId: announcement.targetUserId,
+      senderId,
+    });
+  } catch (pushErr) {
+    console.error("[Announcements] Failed to deliver push notification:", pushErr);
+  }
+
   return announcement;
 }
 
