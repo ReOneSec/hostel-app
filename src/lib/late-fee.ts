@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-const LATE_FEE_PER_DAY = 50;
+const LATE_FEE_PER_DAY = 10;
 
 /**
  * Calculates and applies late fees to all overdue bills.
@@ -10,7 +10,7 @@ const LATE_FEE_PER_DAY = 50;
  */
 export async function calculateLateFees(): Promise<number> {
   const today = new Date();
-  
+
   // Find all unpaid bills that are past their due date
   const overdueBills = await prisma.bill.findMany({
     where: {
@@ -53,7 +53,7 @@ export async function calculateLateFees(): Promise<number> {
           }
         })
       );
-      
+
       transactionOperations.push(
         // 2. Update bill totals and status
         prisma.bill.update({
@@ -87,7 +87,7 @@ export async function calculateLateFees(): Promise<number> {
   }
 
   // Find a super admin for audit log
-  const admin = await prisma.user.findFirst({ where: { role: "SUPER_ADMIN" }});
+  const admin = await prisma.user.findFirst({ where: { role: "SUPER_ADMIN" } });
   const auditUserId = admin ? admin.id : "";
 
   if (updatedCount > 0 && auditUserId !== "") {
