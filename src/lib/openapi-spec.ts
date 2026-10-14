@@ -2,7 +2,7 @@ export const openApiSpec = {
   openapi: "3.0.3",
   info: {
     title: "Mirror Hostels Public API",
-    version: "1.5.0",
+    version: "1.6.0",
     description:
       "Public API for Mirror Hostels Android client and Web platform. Provides secure Bearer token authentication, user and hostel management, billing, payments, document/selfie uploads, and push notifications.",
     contact: {
@@ -125,8 +125,8 @@ export const openApiSpec = {
           data: {
             type: "object",
             properties: {
-              minAppVersion: { type: "string", example: "1.2.0" },
-              latestAppVersion: { type: "string", example: "1.2.0" },
+              minAppVersion: { type: "string", example: "1.6.0" },
+              latestAppVersion: { type: "string", example: "1.6.0" },
               maintenance: { type: "boolean", example: false },
               maintenanceMessage: { type: "string", example: "" },
               features: {
