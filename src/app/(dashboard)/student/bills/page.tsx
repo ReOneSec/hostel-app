@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,39 +45,35 @@ function getBillShortLabel(bill: any) {
   return new Date(bill.year, bill.month - 1).toLocaleString('default', { month: 'short', year: 'numeric' });
 }
 
+const billsFetcher = (url: string) =>
+  fetch(url).then((res) => {
+    if (!res.ok) throw new Error("Failed to fetch bills");
+    return res.json();
+  });
+
 export default function StudentBillsPage() {
-  const [bills, setBills] = useState<any[]>([]);
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
+  const { data: resData, error, isLoading } = useSWR("/api/student/bills", billsFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 10000,
+  });
+
+  const bills: any[] = resData?.data || [];
+
   useEffect(() => {
-    fetchBills();
-  }, []);
-
-  async function fetchBills() {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/student/bills");
-      if (!res.ok) throw new Error("Failed to fetch bills");
-      const { data } = await res.json();
-      const list = data || [];
-      setBills(list);
-
-      // Auto-select: default to the first unpaid bill (e.g. September if pending), otherwise the latest bill
-      if (list.length > 0) {
-        setSelectedBillId((prev) => {
-          if (prev && list.some((b: any) => b.id === prev)) return prev;
-          const firstUnpaid = list.find((b: any) => b.status !== "PAID");
-          return firstUnpaid ? firstUnpaid.id : list[0].id;
-        });
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to load bills");
-    } finally {
-      setIsLoading(false);
+    if (bills.length > 0 && !selectedBillId) {
+      const firstUnpaid = bills.find((b: any) => b.status !== "PAID");
+      setSelectedBillId(firstUnpaid ? firstUnpaid.id : bills[0].id);
     }
-  }
+  }, [bills, selectedBillId]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error.message || "Failed to load bills");
+    }
+  }, [error]);
 
   function getStatusBadge(status: string) {
     switch (status) {

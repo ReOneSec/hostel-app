@@ -62,6 +62,7 @@ export function useSession() {
   }, []);
 
   // 3. SWR revalidation in the background without blocking render on browser-side getUser()
+  //    dedupingInterval prevents re-fetching during fast page navigation (FIX 5)
   const { data: dbResponse, error, isLoading, mutate } = useSWR(
     "/api/users/session",
     fetcher,
@@ -69,6 +70,7 @@ export function useSession() {
       revalidateOnFocus: false,
       revalidateIfStale: false,
       shouldRetryOnError: false,
+      dedupingInterval: 10000, // 10s — prevent refetch on fast navigation
     }
   );
 
@@ -87,6 +89,9 @@ export function useSession() {
           needsSelfieUpdate: dbUser.needsSelfieUpdate,
           privacyConsentAt: dbUser.privacyConsentAt ? new Date(dbUser.privacyConsentAt) : null,
           username: dbUser.username || dbUser.email.split("@")[0],
+          hostelId: dbUser.hostelId ?? null,
+          hostelName: dbUser.hostelName ?? null,
+          fullName: dbUser.fullName ?? null,
         },
       };
       setStoredSession(freshSession);
@@ -112,6 +117,9 @@ export function useSession() {
             ? new Date(dbResponse.data.privacyConsentAt)
             : null,
           username: dbResponse.data.username || dbResponse.data.email.split("@")[0],
+          hostelId: dbResponse.data.hostelId ?? null,
+          hostelName: dbResponse.data.hostelName ?? null,
+          fullName: dbResponse.data.fullName ?? null,
         },
       }
     : cachedSession;
@@ -145,3 +153,4 @@ export async function signOut() {
   await supabase.auth.signOut();
   window.location.href = "/login";
 }
+

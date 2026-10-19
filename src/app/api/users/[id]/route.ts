@@ -42,12 +42,6 @@ export async function GET(
       }
     }
 
-    const hasRecaptureField = Boolean(
-      (prisma as any)._runtimeDataModel?.models?.User?.fields?.some(
-        (f: any) => f.name === "canRecaptureSelfie"
-      )
-    );
-
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
@@ -58,14 +52,10 @@ export async function GET(
         status: true,
         isProfileComplete: true,
         needsSelfieUpdate: true,
-        ...(hasRecaptureField
-          ? {
-              canRecaptureSelfie: true,
-              selfieRecaptureReason: true,
-              selfiePermissionGrantedAt: true,
-              selfiePermissionGrantedBy: true,
-            }
-          : {}),
+        canRecaptureSelfie: true,
+        selfieRecaptureReason: true,
+        selfiePermissionGrantedAt: true,
+        selfiePermissionGrantedBy: true,
         privacyConsentAt: true,
         joiningDate: true,
         createdAt: true,
@@ -145,27 +135,6 @@ export async function GET(
     }
 
     const userResponse = { ...user } as any;
-
-    if (!hasRecaptureField) {
-      try {
-        const [recaptureData] = await prisma.$queryRaw<Array<{
-          canRecaptureSelfie: boolean;
-          selfieRecaptureReason: string | null;
-          selfiePermissionGrantedAt: Date | null;
-          selfiePermissionGrantedBy: string | null;
-        }>>`SELECT "canRecaptureSelfie", "selfieRecaptureReason", "selfiePermissionGrantedAt", "selfiePermissionGrantedBy" FROM users WHERE id = ${id} LIMIT 1`;
-
-        userResponse.canRecaptureSelfie = recaptureData?.canRecaptureSelfie ?? false;
-        userResponse.selfieRecaptureReason = recaptureData?.selfieRecaptureReason ?? null;
-        userResponse.selfiePermissionGrantedAt = recaptureData?.selfiePermissionGrantedAt ?? null;
-        userResponse.selfiePermissionGrantedBy = recaptureData?.selfiePermissionGrantedBy ?? null;
-      } catch {
-        userResponse.canRecaptureSelfie = false;
-        userResponse.selfieRecaptureReason = null;
-        userResponse.selfiePermissionGrantedAt = null;
-        userResponse.selfiePermissionGrantedBy = null;
-      }
-    }
 
     const documents = [...userResponse.documents];
 

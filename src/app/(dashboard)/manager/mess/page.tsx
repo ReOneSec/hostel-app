@@ -37,6 +37,7 @@ export default function MessManagerDashboard() {
   });
 
   const [students, setStudents] = useState<any[]>([]);
+  const [myHostelId, setMyHostelId] = useState<string | null>(null);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -44,22 +45,42 @@ export default function MessManagerDashboard() {
     }
   }, [session]);
 
+  async function getOrFetchHostelId(): Promise<string | null> {
+    if (myHostelId) return myHostelId;
+    if (session?.user?.hostelId) {
+      setMyHostelId(session.user.hostelId);
+      return session.user.hostelId;
+    }
+    const resHostel = await fetch("/api/hostels");
+    const hostelsData = await resHostel.json();
+    const id = hostelsData.data?.[0]?.id || null;
+    if (id) setMyHostelId(id);
+    return id;
+  }
+
   async function fetchData() {
     setIsLoading(true);
     try {
-      // Find the hostel ID for this manager
-      const resHostel = await fetch("/api/hostels");
-      const hostelsData = await resHostel.json();
-      const myHostel = hostelsData.data?.[0]?.id; // Simplification, assume managing 1 hostel
+      const targetHostel = await getOrFetchHostelId();
 
-      if (!myHostel) {
+      if (!targetHostel) {
         toast.error("You are not assigned to any hostel");
         return;
       }
 
-      // Fetch config
-      const resConfig = await fetch(`/api/mess/config?hostelId=${myHostel}`);
-      const configData = await resConfig.json();
+      // Fetch config, sessions, and students in parallel
+      const [resConfig, resSessions, resStudents] = await Promise.all([
+        fetch(`/api/mess/config?hostelId=${targetHostel}`),
+        fetch(`/api/mess/sessions?hostelId=${targetHostel}`),
+        fetch(`/api/hostels/${targetHostel}/students`)
+      ]);
+
+      const [configData, sessionsData, studentsData] = await Promise.all([
+        resConfig.json(),
+        resSessions.json(),
+        resStudents.json()
+      ]);
+
       setConfig(configData.data);
       if (configData.data) {
         setConfigForm({
@@ -70,14 +91,8 @@ export default function MessManagerDashboard() {
         });
       }
 
-      // Fetch sessions
-      const resSessions = await fetch(`/api/mess/sessions?hostelId=${myHostel}`);
-      const sessionsData = await resSessions.json();
       setSessions(sessionsData.data || []);
 
-      // Fetch students for monthly manager dropdown
-      const resStudents = await fetch(`/api/hostels/${myHostel}/students`);
-      const studentsData = await resStudents.json();
       const rawStudents = studentsData.data || [];
       const sortedStudents = [...rawStudents].sort((a: any, b: any) => {
         const nameA = a.fullName || a.username || a.email || "";
@@ -96,15 +111,14 @@ export default function MessManagerDashboard() {
   async function updateConfig(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const resHostel = await fetch("/api/hostels");
-      const hostelsData = await resHostel.json();
-      const myHostel = hostelsData.data?.[0]?.id;
+      const targetHostel = await getOrFetchHostelId();
+      if (!targetHostel) throw new Error("No hostel selected");
       
       const res = await fetch("/api/mess/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          hostelId: myHostel,
+          hostelId: targetHostel,
           ...configForm
         })
       });
@@ -127,15 +141,14 @@ export default function MessManagerDashboard() {
         return;
       }
 
-      const resHostel = await fetch("/api/hostels");
-      const hostelsData = await resHostel.json();
-      const myHostel = hostelsData.data?.[0]?.id;
+      const targetHostel = await getOrFetchHostelId();
+      if (!targetHostel) throw new Error("No hostel selected");
       
       const res = await fetch("/api/mess/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          hostelId: myHostel,
+          hostelId: targetHostel,
           month: sessionForm.month,
           year: sessionForm.year,
           monthlyManagerUserId: sessionForm.monthlyManagerUserId || undefined

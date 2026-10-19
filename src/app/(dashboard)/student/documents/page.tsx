@@ -132,23 +132,12 @@ export default function StudentDocumentsPage() {
   async function fetchData() {
     setIsLoading(true);
     try {
-      const [docsRes, userRes] = await Promise.all([
-        fetch("/api/documents"),
-        fetch("/api/users/me"),
-      ]);
-
-      if (docsRes.ok) {
-        const docsJson = await docsRes.json();
-        setDocuments(docsJson.data || []);
-      }
+      const userRes = await fetch("/api/users/me");
 
       if (userRes.ok) {
         const userJson = await userRes.json();
         setUserData(userJson.data || null);
-        // Fallback to documents in user payload if docsRes had no items
-        if (!docsRes.ok && userJson.data?.documents) {
-          setDocuments(userJson.data.documents || []);
-        }
+        setDocuments(userJson.data?.documents || []);
       }
     } catch (err: any) {
       console.error("Failed to load documents data:", err);

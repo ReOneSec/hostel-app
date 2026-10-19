@@ -16,6 +16,9 @@ export interface Session {
     needsSelfieUpdate: boolean;
     privacyConsentAt: Date | null;
     username: string;
+    hostelId: string | null;
+    hostelName: string | null;
+    fullName: string | null;
   };
 }
 
@@ -70,7 +73,8 @@ export const auth = cache(async (): Promise<Session | null> => {
     return null;
   }
 
-  // Single DB lookup — no redundant getUser() call
+  // Single DB lookup with hostel assignment — eliminates separate /api/users/me calls
+  // for pages that only need hostelId (mess pages, monthly-manager pages)
   const dbUser = await prisma.user.findUnique({
     where: { email },
     select: {
@@ -83,6 +87,32 @@ export const auth = cache(async (): Promise<Session | null> => {
       needsSelfieUpdate: true,
       privacyConsentAt: true,
       username: true,
+      studentProfile: {
+        select: { fullName: true },
+      },
+      hostelAssignments: {
+        where: { status: "ACTIVE" },
+        take: 1,
+        select: {
+          hostelId: true,
+          hostel: { select: { name: true } },
+        },
+      },
+      managedHostels: {
+        where: { isActive: true },
+        take: 1,
+        select: {
+          hostelId: true,
+          hostel: { select: { name: true } },
+        },
+      },
+      managedHostelDirect: {
+        take: 1,
+        select: {
+          id: true,
+          name: true,
+        },
+      },
     }
   });
 
@@ -100,6 +130,12 @@ export const auth = cache(async (): Promise<Session | null> => {
     return null;
   }
 
+  const directHostel = dbUser.managedHostelDirect?.[0];
+  const activeAssignment =
+    dbUser.hostelAssignments?.[0] ??
+    dbUser.managedHostels?.[0] ??
+    (directHostel ? { hostelId: directHostel.id, hostel: { name: directHostel.name } } : null);
+
   return {
     user: {
       id: dbUser.id,
@@ -111,6 +147,9 @@ export const auth = cache(async (): Promise<Session | null> => {
       needsSelfieUpdate: dbUser.needsSelfieUpdate,
       privacyConsentAt: dbUser.privacyConsentAt,
       username: dbUser.username,
+      hostelId: activeAssignment?.hostelId ?? null,
+      hostelName: activeAssignment?.hostel?.name ?? null,
+      fullName: dbUser.studentProfile?.fullName ?? null,
     },
   };
 });

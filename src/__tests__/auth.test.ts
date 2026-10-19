@@ -91,7 +91,8 @@ describe('Auth Helper Property Tests', () => {
             const keys = Object.keys(session.user).sort();
             const expectedKeys = [
               'id', 'email', 'role', 'status', 'isFirstLogin', 
-              'isProfileComplete', 'needsSelfieUpdate', 'privacyConsentAt', 'username'
+              'isProfileComplete', 'needsSelfieUpdate', 'privacyConsentAt', 'username',
+              'hostelId', 'hostelName', 'fullName'
             ].sort();
             
             expect(keys).toEqual(expectedKeys);

@@ -66,40 +66,22 @@ export async function POST(
 
     const trimmedReason = canRecapture ? reason.trim() : null;
 
-    const hasRecaptureField = Boolean(
-      (prisma as any)._runtimeDataModel?.models?.User?.fields?.some(
-        (f: any) => f.name === "canRecaptureSelfie"
-      )
-    );
-
-    let updatedUser: any;
-    if (hasRecaptureField) {
-      updatedUser = await prisma.user.update({
-        where: { id: targetUserId },
-        data: {
-          canRecaptureSelfie: !!canRecapture,
-          selfieRecaptureReason: trimmedReason,
-          selfiePermissionGrantedAt: canRecapture ? new Date() : null,
-          selfiePermissionGrantedBy: canRecapture ? session.user.id : null,
-        },
-        select: {
-          id: true,
-          canRecaptureSelfie: true,
-          selfieRecaptureReason: true,
-          selfiePermissionGrantedAt: true,
-          selfiePermissionGrantedBy: true,
-        },
-      });
-    } else {
-      await prisma.$executeRaw`UPDATE users SET "canRecaptureSelfie" = ${!!canRecapture}, "selfieRecaptureReason" = ${trimmedReason}, "selfiePermissionGrantedAt" = ${canRecapture ? new Date() : null}, "selfiePermissionGrantedBy" = ${canRecapture ? session.user.id : null} WHERE id = ${targetUserId}`;
-      updatedUser = {
-        id: targetUserId,
+    const updatedUser = await prisma.user.update({
+      where: { id: targetUserId },
+      data: {
         canRecaptureSelfie: !!canRecapture,
         selfieRecaptureReason: trimmedReason,
         selfiePermissionGrantedAt: canRecapture ? new Date() : null,
         selfiePermissionGrantedBy: canRecapture ? session.user.id : null,
-      };
-    }
+      },
+      select: {
+        id: true,
+        canRecaptureSelfie: true,
+        selfieRecaptureReason: true,
+        selfiePermissionGrantedAt: true,
+        selfiePermissionGrantedBy: true,
+      },
+    });
 
     // Create Audit Log
     await createAuditLog({

@@ -16,32 +16,20 @@ export default function StudentMessDashboard() {
   const [sessions, setSessions] = useState<any[]>([]);
 
   useEffect(() => {
-    if (session?.user?.id) {
-      fetchData();
+    if (session?.user?.hostelId) {
+      fetchData(session.user.hostelId);
+    } else if (session?.user?.id && !session?.user?.hostelId) {
+      // User has no active hostel assignment
+      setIsLoading(false);
     }
   }, [session]);
 
-  async function fetchData() {
+  async function fetchData(hostelId: string) {
     setIsLoading(true);
     try {
-      // Find the hostel ID for this student
-      const resProfile = await fetch("/api/users/me");
-      const profileData = await resProfile.json();
-      
-      const assignments = profileData.data?.hostelAssignments || [];
-      const activeAssignment = assignments.find((a: any) => a.status === "ACTIVE");
-      const myHostel = activeAssignment?.hostelId;
-
-      if (!myHostel) {
-        toast.error("You are not actively assigned to any hostel");
-        return;
-      }
-
-      // Fetch sessions
-      const resSessions = await fetch(`/api/mess/sessions?hostelId=${myHostel}`);
+      const resSessions = await fetch(`/api/mess/sessions?hostelId=${hostelId}`);
       const sessionsData = await resSessions.json();
       setSessions(sessionsData.data || []);
-
     } catch (e) {
       toast.error("Failed to load mess data");
     } finally {

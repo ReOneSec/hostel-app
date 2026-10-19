@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "@/hooks/use-auth";
+import { useUserProfile } from "@/hooks/use-user-profile";
 import { StudentDashboardSkeleton } from "@/components/skeletons/page-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,29 +21,12 @@ import {
   BedDouble
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function StudentDashboardPage() {
   const { data: session } = useSession();
-  const [userData, setUserData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { userData, isLoading } = useUserProfile();
   const router = useRouter();
-
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetch(`/api/users/me`)
-        .then((res) => res.json())
-        .then((json) => {
-          setUserData(json.data);
-          setIsLoading(false);
-        })
-        .catch((err) => {
-          console.error("Failed to fetch user data", err);
-          setIsLoading(false);
-        });
-    }
-  }, [session?.user?.id]);
 
   const pendingBill = userData?.bills?.find((b: any) => b.status !== "PAID");
   const latestBill = pendingBill || userData?.bills?.[0];
@@ -55,7 +39,7 @@ export default function StudentDashboardPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Welcome, {userData?.studentProfile?.fullName || session?.user?.username || "Student"} 👋
+          Welcome, {session?.user?.fullName || userData?.studentProfile?.fullName || session?.user?.username || "Student"} 👋
         </h1>
         <p className="text-sm text-slate-500 mt-0.5">
           Here is your complete hostel overview

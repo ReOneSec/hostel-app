@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/use-auth";
+import { useUserProfile } from "@/hooks/use-user-profile";
 import { ProfilePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +15,8 @@ import { ImagePreviewModal } from "@/components/ui/image-preview-modal";
 
 export default function StudentProfilePage() {
   const { data: session } = useSession();
-  const [userData, setUserData] = useState<any>(null);
+  const { userData, isLoading: isProfileLoading, mutate: mutateUser } = useUserProfile();
   const [pendingRequest, setPendingRequest] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<any>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,33 +30,21 @@ export default function StudentProfilePage() {
   } | null>(null);
 
   useEffect(() => {
+    if (userData?.studentProfile) {
+      setFormData(userData.studentProfile);
+    }
+  }, [userData]);
+
+  useEffect(() => {
     if (session?.user?.id) {
-      fetchData();
+      fetch(`/api/profile/edit-request`)
+        .then((res) => res.json())
+        .then((json) => setPendingRequest(json.data))
+        .catch((err) => console.error("Failed to fetch edit request", err));
     }
   }, [session?.user?.id]);
 
-  async function fetchData() {
-    try {
-      const [userRes, requestRes] = await Promise.all([
-        fetch(`/api/users/me`),
-        fetch(`/api/profile/edit-request`)
-      ]);
-      
-      const userJson = await userRes.json();
-      const requestJson = await requestRes.json();
-
-      setUserData(userJson.data);
-      if (userJson.data?.studentProfile) {
-        setFormData(userJson.data.studentProfile);
-      }
-      setPendingRequest(requestJson.data);
-    } catch (err) {
-      console.error("Failed to fetch data", err);
-      toast.error("Failed to load profile data");
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const isLoading = isProfileLoading;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

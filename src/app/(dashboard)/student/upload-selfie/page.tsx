@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/hooks/use-auth";
+import { useUserProfile } from "@/hooks/use-user-profile";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,28 +25,8 @@ import Link from "next/link";
 export default function StudentUploadSelfiePage() {
   const { data: session, update } = useSession();
   const router = useRouter();
-  const [userData, setUserData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { userData, isLoading, mutate: mutateProfile } = useUserProfile();
   const [isCaptured, setIsCaptured] = useState(false);
-
-  useEffect(() => {
-    fetchUserData();
-  }, []);
-
-  async function fetchUserData() {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/users/me");
-      if (res.ok) {
-        const json = await res.json();
-        setUserData(json.data);
-      }
-    } catch (err) {
-      console.error("Failed to load user info:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   async function handleCaptured() {
     setIsCaptured(true);
@@ -53,6 +34,7 @@ export default function StudentUploadSelfiePage() {
     if (update) {
       await update();
     }
+    await mutateProfile();
     setTimeout(() => {
       router.push("/student/documents");
       router.refresh();
