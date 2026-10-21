@@ -27,9 +27,9 @@ import { NextRequest, NextResponse } from "next/server";
 // OTA updates only the web layer (screens, styling, JS logic).
 // ─────────────────────────────────────────────────────────────────────────────
 const LATEST = {
-  version: "1.13.0",
+  version: "1.13.1",
   url: "https://mirrormess.vercel.app/api/app-update/bundle",
-  checksum: "a8aae930430e8447047be20a57d57dc431a53162da1b68fa1b9120bf767dd8f5",
+  checksum: "c596ecf9e45b3191dfe82c4413fc5342a86c23497c3d2f5bb96f2f9d510849ea",
 };
 
 export async function POST(req: NextRequest) {
