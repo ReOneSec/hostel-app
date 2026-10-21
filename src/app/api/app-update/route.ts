@@ -41,8 +41,8 @@ const LATEST = {
   version: "1.13.5",
   url: "https://mirrormess.vercel.app/api/app-update/bundle",
   checksum: "00511b33d530deea1f893564e48ec11a0eac6fad4a7c4f9181a072b8087795fd",
-  minNativeVersion: "1.13.0",
-  latestNativeVersion: "1.13.0",
+  minNativeVersion: "2.0",
+  latestNativeVersion: "2.0",
 };
 
 export async function POST(req: NextRequest) {
