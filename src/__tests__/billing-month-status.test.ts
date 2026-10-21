@@ -192,4 +192,124 @@ describe('Billing Month Status API', () => {
     expect(json.success).toBe(true);
     expect(json.bill).toBeNull();
   });
+
+  it('updates late fee on an existing bill and updates totalAmount', async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: 'admin1', role: 'SUPER_ADMIN' },
+    } as any);
+
+    vi.mocked(prisma.bill.findUnique).mockResolvedValueOnce({
+      id: 'existing-bill-2',
+      userId: 'u1',
+      hostelId: 'h1',
+      month: 10,
+      year: 2026,
+      rentAmount: 1500 as any,
+      lateFee: 50 as any,
+      messCharge: 0 as any,
+      bedFee: 0 as any,
+      establishmentFee: 0 as any,
+      totalAmount: 1550 as any,
+      paidAmount: 0 as any,
+      status: 'OVERDUE',
+    } as any);
+
+    vi.mocked(prisma.bill.update).mockResolvedValueOnce({
+      id: 'existing-bill-2',
+      status: 'OVERDUE',
+      rentAmount: 1500 as any,
+      lateFee: 100 as any,
+      totalAmount: 1600 as any,
+      paidAmount: 0 as any,
+    } as any);
+
+    const req = new Request('http://localhost/api/billing/bills/month-status', {
+      method: 'POST',
+      body: JSON.stringify({
+        hostelId: 'h1',
+        userId: 'u1',
+        month: 10,
+        year: 2026,
+        status: 'OVERDUE',
+        amount: 1500,
+        lateFee: 100,
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(prisma.bill.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'existing-bill-2' },
+        data: expect.objectContaining({
+          status: 'OVERDUE',
+          rentAmount: 1500,
+          lateFee: 100,
+          totalAmount: 1600,
+        }),
+      })
+    );
+  });
+
+  it('clears lateFeeRecord when late fee is waived to 0', async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: 'admin1', role: 'SUPER_ADMIN' },
+    } as any);
+
+    vi.mocked(prisma.bill.findUnique).mockResolvedValueOnce({
+      id: 'existing-bill-3',
+      userId: 'u1',
+      hostelId: 'h1',
+      month: 10,
+      year: 2026,
+      rentAmount: 1500 as any,
+      lateFee: 80 as any,
+      messCharge: 0 as any,
+      bedFee: 0 as any,
+      establishmentFee: 0 as any,
+      totalAmount: 1580 as any,
+      paidAmount: 0 as any,
+      status: 'OVERDUE',
+    } as any);
+
+    vi.mocked(prisma.bill.update).mockResolvedValueOnce({
+      id: 'existing-bill-3',
+      status: 'PAID',
+      rentAmount: 1500 as any,
+      lateFee: 0 as any,
+      totalAmount: 1500 as any,
+      paidAmount: 1500 as any,
+    } as any);
+
+    const req = new Request('http://localhost/api/billing/bills/month-status', {
+      method: 'POST',
+      body: JSON.stringify({
+        hostelId: 'h1',
+        userId: 'u1',
+        month: 10,
+        year: 2026,
+        status: 'PAID',
+        amount: 1500,
+        lateFee: 0,
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(prisma.lateFeeRecord.deleteMany).toHaveBeenCalledWith({
+      where: { billId: 'existing-bill-3' },
+    });
+    expect(prisma.bill.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'existing-bill-3' },
+        data: expect.objectContaining({
+          status: 'PAID',
+          rentAmount: 1500,
+          lateFee: 0,
+          totalAmount: 1500,
+          paidAmount: 1500,
+        }),
+      })
+    );
+  });
 });

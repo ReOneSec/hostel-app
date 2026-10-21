@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { hostelId, userId, month, year, status, amount, paidAmount, feeType } = body;
+    const { hostelId, userId, month, year, status, amount, paidAmount, feeType, lateFee } = body;
 
     if (!hostelId || !userId || !status) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -90,6 +90,7 @@ export async function POST(req: Request) {
 
     const parsedAmount = amount !== undefined && amount !== "" && !isNaN(Number(amount)) ? parseFloat(amount) : null;
     const parsedPaid = paidAmount !== undefined && paidAmount !== "" && !isNaN(Number(paidAmount)) ? parseFloat(paidAmount) : null;
+    const parsedLateFee = lateFee !== undefined && lateFee !== "" && !isNaN(Number(lateFee)) ? Math.max(0, parseFloat(lateFee)) : null;
 
     if (existingBill) {
       let totalAmount = 0;
@@ -107,11 +108,22 @@ export async function POST(req: Request) {
         updateData.billType = "ESTABLISHMENT_FEE";
       } else {
         const finalRent = parsedAmount !== null ? parsedAmount : Number(existingBill.rentAmount);
-        totalAmount = finalRent + Number(existingBill.messCharge || 0) + Number(existingBill.lateFee || 0);
+        const finalLateFee = parsedLateFee !== null ? parsedLateFee : Number(existingBill.lateFee || 0);
+        totalAmount = finalRent + Number(existingBill.messCharge || 0) + finalLateFee;
         updateData.rentAmount = finalRent;
+        updateData.lateFee = finalLateFee;
         updateData.establishmentFee = 0;
         updateData.bedFee = 0;
         updateData.billType = "RENT";
+
+        // If late fee is adjusted to 0 (waived), clear any automated late fee records
+        if (parsedLateFee === 0) {
+          try {
+            await prisma.lateFeeRecord.deleteMany({ where: { billId: existingBill.id } });
+          } catch (delErr) {
+            console.error("[Month-Status] Failed to delete lateFeeRecords on waive:", delErr);
+          }
+        }
       }
 
       const finalPaid =
@@ -140,11 +152,13 @@ export async function POST(req: Request) {
           status: existingBill.status,
           totalAmount: Number(existingBill.totalAmount),
           paidAmount: Number(existingBill.paidAmount),
+          lateFee: Number(existingBill.lateFee || 0),
         },
         newValues: {
           status: updatedBill.status,
           totalAmount: Number(updatedBill.totalAmount),
           paidAmount: Number(updatedBill.paidAmount),
+          lateFee: Number(updatedBill.lateFee || 0),
         },
         ipAddress: getIpAddress(req.headers),
         userAgent: getUserAgent(req.headers),
@@ -187,7 +201,8 @@ export async function POST(req: Request) {
         }
       }
 
-      const totalAmount = feeAmount;
+      const lateFeeAmount = !isBedFee && !isEstFee && parsedLateFee !== null ? parsedLateFee : 0;
+      const totalAmount = feeAmount + lateFeeAmount;
       const finalPaid =
         status === "PAID"
           ? totalAmount
@@ -208,11 +223,11 @@ export async function POST(req: Request) {
           month: monthNum,
           year: yearNum,
           billType: isBedFee ? "BED_FEE" : isEstFee ? "ESTABLISHMENT_FEE" : "RENT",
-          rentAmount: !isBedFee && !isEstFee ? totalAmount : 0,
+          rentAmount: !isBedFee && !isEstFee ? feeAmount : 0,
           establishmentFee: isEstFee ? totalAmount : 0,
           bedFee: isBedFee ? totalAmount : 0,
           messCharge: 0,
-          lateFee: 0,
+          lateFee: lateFeeAmount,
           totalAmount,
           paidAmount: finalPaid,
           status,

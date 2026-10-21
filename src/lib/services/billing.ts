@@ -324,6 +324,8 @@ export async function getBillingRegister(hostelId: string, year: number) {
         monthly[m] = {
           id: b.id,
           amount: Number(b.rentAmount),
+          lateFee: Number(b.lateFee || 0),
+          messCharge: Number(b.messCharge || 0),
           totalAmount: Number(b.totalAmount),
           status: b.status,
           paidDate: latestPayment?.paymentDate || latestPayment?.verifiedAt || null,

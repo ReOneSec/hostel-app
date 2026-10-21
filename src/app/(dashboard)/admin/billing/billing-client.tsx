@@ -77,6 +77,8 @@ export function AdminBillingClient({
     bill: {
       id: string | null;
       amount: number;
+      lateFee?: number;
+      messCharge?: number;
       status: string;
       paidDate?: any;
       utrNumber?: any;
@@ -85,6 +87,7 @@ export function AdminBillingClient({
   } | null>(null);
   const [monthStatusValue, setMonthStatusValue] = useState<string>("PAID");
   const [monthAmountValue, setMonthAmountValue] = useState<string>("");
+  const [monthLateFeeValue, setMonthLateFeeValue] = useState<string>("0");
   const [isUpdatingMonth, setIsUpdatingMonth] = useState(false);
   
   // Standalone Fee Edit States (Bed Fee & Establishment Fee)
@@ -567,6 +570,8 @@ export function AdminBillingClient({
         ? {
             id: bill.id,
             amount: bill.amount,
+            lateFee: bill.lateFee || 0,
+            messCharge: bill.messCharge || 0,
             status: bill.status,
             paidDate: bill.paidDate,
             utrNumber: bill.utrNumber,
@@ -578,9 +583,11 @@ export function AdminBillingClient({
     if (bill) {
       setMonthStatusValue(bill.status);
       setMonthAmountValue(bill.amount !== undefined ? bill.amount.toString() : "");
+      setMonthLateFeeValue(bill.lateFee !== undefined ? bill.lateFee.toString() : "0");
     } else {
       setMonthStatusValue("PAID");
       setMonthAmountValue(student.baseRent > 0 ? student.baseRent.toString() : "0");
+      setMonthLateFeeValue("0");
     }
   }
 
@@ -592,9 +599,12 @@ export function AdminBillingClient({
     const targetMonth = monthEditTarget.month;
     const targetYear = monthEditTarget.year;
     const newStatus = monthStatusValue;
-    const newAmount = monthAmountValue !== "" 
+    const newRent = monthAmountValue !== "" 
       ? parseFloat(monthAmountValue) 
       : (monthEditTarget.bill?.amount !== undefined ? monthEditTarget.bill.amount : monthEditTarget.baseRent);
+    const newLateFee = monthLateFeeValue !== "" ? Math.max(0, parseFloat(monthLateFeeValue)) : 0;
+    const currentMessCharge = monthEditTarget.bill?.messCharge || 0;
+    const newTotal = newRent + currentMessCharge + newLateFee;
 
     // Snapshot previous state for rollback
     const prevRegisterData = [...registerData];
@@ -610,8 +620,10 @@ export function AdminBillingClient({
             ...student.monthly,
             [targetMonth]: newStatus === "NOT_BILLED" ? null : {
               id: currentMonthData?.id || null,
-              amount: newAmount,
-              totalAmount: newAmount,
+              amount: newRent,
+              lateFee: newLateFee,
+              messCharge: currentMessCharge,
+              totalAmount: newTotal,
               status: newStatus,
               paidDate: newStatus === "PAID" ? new Date().toISOString() : currentMonthData?.paidDate,
               utrNumber: currentMonthData?.utrNumber,
@@ -637,14 +649,15 @@ export function AdminBillingClient({
           month: targetMonth,
           year: targetYear,
           status: newStatus,
-          amount: newAmount,
+          amount: newRent,
+          lateFee: newLateFee,
         }),
       });
 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to update payment status");
 
-      // Silently sync bill id if returned
+      // Silently sync bill id and calculated fields if returned
       if (json.bill?.id) {
         setRegisterData((prev) =>
           prev.map((student) => {
@@ -658,6 +671,8 @@ export function AdminBillingClient({
                 [targetMonth]: {
                   ...mData,
                   id: json.bill.id,
+                  totalAmount: Number(json.bill.totalAmount ?? mData.totalAmount),
+                  lateFee: Number(json.bill.lateFee ?? mData.lateFee),
                 },
               },
             };
@@ -1542,7 +1557,7 @@ export function AdminBillingClient({
 
       {/* Edit Student Fees Dialog */}
       <Dialog open={!!editingStudent} onOpenChange={(open) => !open && setEditingStudent(null)}>
-        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-sm w-full p-0 overflow-hidden">
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl sm:max-w-md w-full p-0 overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100">
             <DialogTitle className="text-base font-bold text-slate-900">Configure Fees</DialogTitle>
             <DialogDescription className="text-xs text-slate-500 mt-0.5">
@@ -1604,7 +1619,7 @@ export function AdminBillingClient({
 
       {/* Bill Status Dialog */}
       <Dialog open={isBillStatusDialogOpen} onOpenChange={setIsBillStatusDialogOpen}>
-        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-sm w-full p-0 overflow-hidden">
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl sm:max-w-md w-full p-0 overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100">
             <DialogTitle className="text-base font-bold text-slate-900">Update Bill Status</DialogTitle>
             <DialogDescription className="text-xs text-slate-500 mt-0.5">
@@ -1642,7 +1657,7 @@ export function AdminBillingClient({
 
       {/* Fee Status Dialog (Bed Fee & Establishment Fee) */}
       <Dialog open={!!feeEditTarget} onOpenChange={(open) => !open && setFeeEditTarget(null)}>
-        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-sm w-full p-0 overflow-hidden">
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl sm:max-w-md w-full p-0 overflow-hidden">
           {feeEditTarget && (
             <form onSubmit={handleSaveFeeStatus}>
               <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
@@ -1743,163 +1758,239 @@ export function AdminBillingClient({
 
       {/* Edit Month Payment Status Dialog */}
       <Dialog open={!!monthEditTarget} onOpenChange={(open) => !open && setMonthEditTarget(null)}>
-        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl max-w-sm w-full p-0 overflow-hidden">
-          {monthEditTarget && (
-            <form onSubmit={handleSaveMonthStatus}>
-              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-                <div className="flex items-center gap-2 text-blue-600 mb-1">
-                  <Receipt className="w-4 h-4" />
-                  <span className="text-xs font-bold uppercase tracking-wider">
-                    {monthEditTarget.monthName} {monthEditTarget.year}
-                  </span>
-                </div>
-                <DialogTitle className="text-base font-bold text-slate-900 truncate">
-                  {monthEditTarget.studentName}
-                </DialogTitle>
-                <DialogDescription className="text-xs text-slate-500 mt-0.5">
-                  Set or update payment status for this month.
-                </DialogDescription>
-              </div>
+        <DialogContent className="rounded-2xl border-slate-200 shadow-2xl sm:max-w-[480px] w-full p-0 overflow-hidden">
+          {monthEditTarget && (() => {
+            const parsedRent = monthAmountValue !== "" ? parseFloat(monthAmountValue) || 0 : (monthEditTarget.bill?.amount ?? monthEditTarget.baseRent);
+            const parsedLateFee = monthLateFeeValue !== "" ? parseFloat(monthLateFeeValue) || 0 : 0;
+            const messCharge = monthEditTarget.bill?.messCharge || 0;
+            const totalCalculated = Math.max(0, parsedRent + parsedLateFee + messCharge);
 
-              <div className="px-6 py-5 space-y-4">
-                {/* Payment Status Dropdown */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">Payment Status</Label>
-                  <Select value={monthStatusValue} onValueChange={(val) => setMonthStatusValue(val || "PAID")}>
-                    <SelectTrigger className="h-9 border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20">
-                      <SelectValue placeholder="Select Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PAID">
-                        <span className="flex items-center gap-2">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-                          <span>Paid</span>
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="GENERATED">
-                        <span className="flex items-center gap-2">
-                          <XCircle className="w-3.5 h-3.5 text-red-500" />
-                          <span>Unpaid (Generated)</span>
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="PARTIALLY_PAID">
-                        <span className="flex items-center gap-2">
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                          <span>Partially Paid</span>
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="OVERDUE">
-                        <span className="flex items-center gap-2">
-                          <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                          <span>Overdue</span>
-                        </span>
-                      </SelectItem>
-                      {monthEditTarget.bill && (
-                        <SelectItem value="NOT_BILLED">
-                          <span className="flex items-center gap-2 text-slate-500">
-                            <span>Unbilled / Remove Record (-)</span>
+            return (
+              <form onSubmit={handleSaveMonthStatus}>
+                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700">
+                      <Receipt className="w-3.5 h-3.5" />
+                      <span className="text-xs font-bold uppercase tracking-wider">
+                        {monthEditTarget.monthName} {monthEditTarget.year}
+                      </span>
+                    </div>
+                  </div>
+                  <DialogTitle className="text-base sm:text-lg font-bold text-slate-900 pr-6 truncate">
+                    {monthEditTarget.studentName}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                    Set or update payment status and fee adjustments for this month.
+                  </DialogDescription>
+                </div>
+
+                <div className="px-6 py-5 space-y-4">
+                  {/* Payment Status Dropdown */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-700">Payment Status</Label>
+                    <Select value={monthStatusValue} onValueChange={(val) => setMonthStatusValue(val || "PAID")}>
+                      <SelectTrigger className="h-9 border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20">
+                        <SelectValue placeholder="Select Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PAID">
+                          <span className="flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                            <span>Paid</span>
                           </span>
                         </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Monthly Amount Field */}
-                {monthStatusValue !== "NOT_BILLED" && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="monthAmount" className="text-xs font-semibold text-slate-700">
-                        Monthly Rent / Bill Amount (₹)
-                      </Label>
-                      {monthEditTarget.baseRent > 0 && (
-                        <span className="text-[11px] text-slate-400">
-                          Base: ₹{monthEditTarget.baseRent}
-                        </span>
-                      )}
-                    </div>
-                    <Input
-                      id="monthAmount"
-                      type="number"
-                      min="0"
-                      step="any"
-                      placeholder="Enter amount"
-                      value={monthAmountValue}
-                      onChange={(e) => setMonthAmountValue(e.target.value)}
-                      className="h-9 border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20"
-                      required
-                    />
+                        <SelectItem value="GENERATED">
+                          <span className="flex items-center gap-2">
+                            <XCircle className="w-3.5 h-3.5 text-red-500" />
+                            <span>Unpaid (Generated)</span>
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="PARTIALLY_PAID">
+                          <span className="flex items-center gap-2">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Partially Paid</span>
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="OVERDUE">
+                          <span className="flex items-center gap-2">
+                            <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Overdue</span>
+                          </span>
+                        </SelectItem>
+                        {monthEditTarget.bill && (
+                          <SelectItem value="NOT_BILLED">
+                            <span className="flex items-center gap-2 text-slate-500">
+                              <span>Unbilled / Remove Record (-)</span>
+                            </span>
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
-                )}
-              </div>
 
-              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-2 bg-slate-50/50">
-                {monthEditTarget.bill ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={async () => {
-                      if (!monthEditTarget?.bill) return;
-                      const targetBill = monthEditTarget.bill;
-                      const hostelObj = hostels.find((h) => h.id === selectedHostel);
-                      const amount = monthAmountValue !== "" ? parseFloat(monthAmountValue) : targetBill.amount || monthEditTarget.baseRent;
-                      const { generateInvoicePDF } = await import("@/lib/pdf-generator");
-                      generateInvoicePDF({
-                        id: targetBill.id,
-                        rentAmount: amount,
-                        bedFee: 0,
-                        establishmentFee: 0,
-                        messCharge: 0,
-                        totalAmount: amount,
-                        paidAmount: monthStatusValue === "PAID" ? amount : 0,
-                        status: monthStatusValue,
-                        month: monthEditTarget.month,
-                        year: monthEditTarget.year,
-                        dueDate: new Date(monthEditTarget.year, monthEditTarget.month - 1, 7),
-                        generatedAt: new Date(monthEditTarget.year, monthEditTarget.month - 1, 1),
-                        hostel: { name: hostelObj?.name || "Mirror Hostels" },
-                        user: {
-                          username: monthEditTarget.studentName,
-                          studentProfile: { fullName: monthEditTarget.studentName },
-                        },
-                      });
-                    }}
-                    className="text-slate-700 border-slate-200 hover:bg-slate-100 rounded-lg h-9 text-xs font-semibold cursor-pointer gap-1.5"
-                  >
-                    <Download className="w-3.5 h-3.5 text-slate-500" />
-                    Download Invoice
-                  </Button>
-                ) : (
-                  <div />
-                )}
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setMonthEditTarget(null)}
-                    disabled={isUpdatingMonth}
-                    className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={isUpdatingMonth}
-                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-sm cursor-pointer"
-                  >
-                    {isUpdatingMonth ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save Payment Status"
-                    )}
-                  </Button>
+                  {monthStatusValue === "NOT_BILLED" ? (
+                    <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-800 leading-relaxed">
+                      Saving will remove this student&apos;s bill record for {monthEditTarget.monthName} {monthEditTarget.year} and clear its payment status.
+                    </div>
+                  ) : (
+                    <>
+                      {/* Rent & Late Fee Inputs in Responsive Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Monthly Rent */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="monthAmount" className="text-xs font-semibold text-slate-700">
+                              Monthly Rent (₹)
+                            </Label>
+                            {monthEditTarget.baseRent > 0 && (
+                              <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                Base: ₹{monthEditTarget.baseRent}
+                              </span>
+                            )}
+                          </div>
+                          <Input
+                            id="monthAmount"
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder="Enter rent"
+                            value={monthAmountValue}
+                            onChange={(e) => setMonthAmountValue(e.target.value)}
+                            className="h-9 border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20"
+                            required
+                          />
+                        </div>
+
+                        {/* Late Fee */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="monthLateFee" className="text-xs font-semibold text-slate-700">
+                              Late Fee (₹)
+                            </Label>
+                            {parsedLateFee > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setMonthLateFeeValue("0")}
+                                className="text-[10px] font-semibold text-amber-600 hover:text-amber-700 hover:underline cursor-pointer"
+                              >
+                                Waive (₹0)
+                              </button>
+                            )}
+                          </div>
+                          <Input
+                            id="monthLateFee"
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder="0"
+                            value={monthLateFeeValue}
+                            onChange={(e) => setMonthLateFeeValue(e.target.value)}
+                            className="h-9 border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Live Breakdown Card */}
+                      <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Room Rent</span>
+                          <span className="font-medium text-slate-800">₹{parsedRent.toLocaleString("en-IN")}</span>
+                        </div>
+                        {parsedLateFee > 0 && (
+                          <div className="flex items-center justify-between text-amber-700">
+                            <span className="flex items-center gap-1 font-medium">
+                              <Clock className="w-3 h-3" /> Late Fee
+                            </span>
+                            <span className="font-semibold">+ ₹{parsedLateFee.toLocaleString("en-IN")}</span>
+                          </div>
+                        )}
+                        {messCharge > 0 && (
+                          <div className="flex items-center justify-between text-slate-600">
+                            <span>Mess Charge</span>
+                            <span className="font-medium text-slate-800">+ ₹{messCharge.toLocaleString("en-IN")}</span>
+                          </div>
+                        )}
+                        <div className="pt-2 mt-1 border-t border-slate-200 flex items-center justify-between font-bold text-slate-900 text-sm">
+                          <span>Total Bill Amount</span>
+                          <span className="text-blue-700 text-base">₹{totalCalculated.toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-            </form>
-          )}
+
+                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-2 bg-slate-50/50">
+                  {monthEditTarget.bill ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={async () => {
+                        if (!monthEditTarget?.bill) return;
+                        const targetBill = monthEditTarget.bill;
+                        const hostelObj = hostels.find((h) => h.id === selectedHostel);
+                        const rent = monthAmountValue !== "" ? parseFloat(monthAmountValue) : targetBill.amount || monthEditTarget.baseRent;
+                        const late = monthLateFeeValue !== "" ? parseFloat(monthLateFeeValue) : (targetBill.lateFee || 0);
+                        const mess = targetBill.messCharge || 0;
+                        const total = rent + mess + late;
+                        const { generateInvoicePDF } = await import("@/lib/pdf-generator");
+                        generateInvoicePDF({
+                          id: targetBill.id,
+                          rentAmount: rent,
+                          bedFee: 0,
+                          establishmentFee: 0,
+                          messCharge: mess,
+                          lateFee: late,
+                          totalAmount: total,
+                          paidAmount: monthStatusValue === "PAID" ? total : 0,
+                          status: monthStatusValue,
+                          month: monthEditTarget.month,
+                          year: monthEditTarget.year,
+                          dueDate: new Date(monthEditTarget.year, monthEditTarget.month - 1, 7),
+                          generatedAt: new Date(monthEditTarget.year, monthEditTarget.month - 1, 1),
+                          hostel: { name: hostelObj?.name || "Mirror Hostels" },
+                          user: {
+                            username: monthEditTarget.studentName,
+                            studentProfile: { fullName: monthEditTarget.studentName },
+                          },
+                        });
+                      }}
+                      className="text-slate-700 border-slate-200 hover:bg-slate-100 rounded-lg h-9 text-xs font-semibold cursor-pointer gap-1.5 shrink-0"
+                    >
+                      <Download className="w-3.5 h-3.5 text-slate-500" />
+                      <span className="hidden sm:inline">Download</span> Invoice
+                    </Button>
+                  ) : (
+                    <div />
+                  )}
+                  <div className="flex items-center gap-2 ml-auto shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setMonthEditTarget(null)}
+                      disabled={isUpdatingMonth}
+                      className="text-slate-600 rounded-lg h-9 text-sm cursor-pointer"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isUpdatingMonth}
+                      className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-sm cursor-pointer whitespace-nowrap shrink-0 px-4 font-medium"
+                    >
+                      {isUpdatingMonth ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Payment Status"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
