@@ -125,8 +125,8 @@ export const openApiSpec = {
           data: {
             type: "object",
             properties: {
-              minAppVersion: { type: "string", example: "1.11.0" },
-              latestAppVersion: { type: "string", example: "1.11.0" },
+              minAppVersion: { type: "string", example: "1.13.0" },
+              latestAppVersion: { type: "string", example: "1.13.0" },
               maintenance: { type: "boolean", example: false },
               maintenanceMessage: { type: "string", example: "" },
               features: {
