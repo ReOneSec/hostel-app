@@ -7,9 +7,10 @@ export async function compressImageClientSide(file: File | Blob): Promise<File |
   }
 
   const options = {
-    maxSizeMB: 0.075, // 75 KB
+    maxSizeMB: 0.05, // <= 50 KB (Item 12, app rule parity)
     maxWidthOrHeight: 1280, // Keep resolution reasonable but highly compressed
     useWebWorker: true,
+    fileType: 'image/jpeg',
     initialQuality: 0.8,
   };
 

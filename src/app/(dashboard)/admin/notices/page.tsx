@@ -651,6 +651,44 @@ export default function AdminNoticesPage() {
           </DialogHeader>
 
           <form onSubmit={handleComposeSubmit} className="space-y-4 pt-2">
+            {/* Quick Templates (Item 9) */}
+            <div className="space-y-1.5 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                Composer Templates
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  {
+                    name: "Rent Due Reminder",
+                    title: `Rent Due Reminder — ${format(new Date(), "MMMM yyyy")}`,
+                    body: `Dear Students,\n\nThis is a reminder that hostel rent and mess fees for ${format(new Date(), "MMMM yyyy")} are due by the 7th of the month. Please upload your payment receipts with the bank UTR reference number promptly.\n\nPlease note that late payment incurs a late fee of ₹10/day after the due date.\n\nThank you,\nHostel Administration`,
+                  },
+                  {
+                    name: "Maintenance & Water Shutdown",
+                    title: "Notice: Scheduled Maintenance & Water Tank Cleaning",
+                    body: `Dear Residents,\n\nPlease be informed that scheduled maintenance and water tank cleaning will take place this Saturday from 10:00 AM to 2:00 PM. Water supply will be temporarily paused during this window.\n\nPlease store adequate water in advance. Thank you for your cooperation.`,
+                  },
+                  {
+                    name: "Mess Schedule Notice",
+                    title: "Mess Schedule & Kitchen Notice",
+                    body: `Dear Residents,\n\nPlease note the updated mess timings and guidelines for meals this week. All students are requested to be present within meal service hours and maintain dining hygiene.\n\nThank you.`,
+                  },
+                ].map((tmpl) => (
+                  <button
+                    key={tmpl.name}
+                    type="button"
+                    onClick={() => {
+                      setComposeTitle(tmpl.title);
+                      setComposeBody(tmpl.body);
+                    }}
+                    className="text-[11px] px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-blue-300 hover:text-blue-600 font-medium transition-colors cursor-pointer"
+                  >
+                    + {tmpl.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Title */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center text-xs">

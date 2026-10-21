@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "@/hooks/use-auth";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Building2, CheckCircle2, Loader2 } from "lucide-react";
@@ -53,12 +53,14 @@ export function ProfileCompletionModal() {
 
   const [isLoaded, setIsLoaded] = useState(false);
 
+  const pathname = usePathname();
+
   useEffect(() => {
     if (session?.user) {
       const isComplete = session.user.isProfileComplete;
       const isStudent = session.user.role === "STUDENT" || session.user.role === "MONTHLY_MANAGER";
       
-      if (isStudent && isComplete === false) {
+      if (isStudent && isComplete === false && pathname !== "/student/complete-profile") {
         setIsOpen(true);
         if (!session.user.privacyConsentAt && currentStep > 0) {
           setCurrentStep(0);
@@ -69,7 +71,7 @@ export function ProfileCompletionModal() {
         setIsOpen(false);
       }
     }
-  }, [session, currentStep]);
+  }, [session, currentStep, pathname]);
 
   // Load saved state on mount or when session loads
   useEffect(() => {

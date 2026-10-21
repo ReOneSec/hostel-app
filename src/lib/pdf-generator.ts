@@ -6,6 +6,7 @@ import {
   admissionFormFilename,
   type AdmissionFormAssets,
 } from "./admission-form-pdf";
+import { billIsOverdue } from "./billing-classification";
 
 // Helper to format currency in INR style
 function formatCurrency(val: any): string {
@@ -283,7 +284,7 @@ export function generateInvoicePDF(bill: any, userProfile?: any, saveToFile = tr
   const badgeHeight = 7.5;
   const isPaid = bill.status === "PAID";
   const isPartial = bill.status === "PARTIALLY_PAID";
-  const isOverdue = bill.status === "OVERDUE";
+  const isOverdue = billIsOverdue(bill);
 
   let badgeBg: [number, number, number] = [236, 253, 245]; // Soft Emerald #ECFDF5
   let badgeBorder: [number, number, number] = [16, 185, 129]; // Emerald #10B981

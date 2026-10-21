@@ -20,6 +20,8 @@ import {
   Building,
   BedDouble
 } from "lucide-react";
+import { format } from "date-fns";
+import { classifyBill, effectiveDueDate } from "@/lib/billing-classification";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -136,20 +138,30 @@ export default function StudentDashboardPage() {
                           ? `${new Date(latestBill.year, latestBill.month - 1).toLocaleString('default', { month: 'short' })} Bill` 
                           : "Current Bill"}
                       </h3>
-                      {latestBill && (
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border uppercase tracking-wider ${
-                          latestBill.status === "PAID" 
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
-                            : "bg-red-50 text-red-700 border-red-200"
-                        }`}>
-                          {latestBill.status}
-                        </span>
-                      )}
+                      {latestBill && (() => {
+                        const c = classifyBill(latestBill);
+                        const badgeStyle =
+                          c.status === "PAID"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : c.status === "OVERDUE"
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : c.status === "PARTIALLY_PAID"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-slate-100 text-slate-700 border-slate-200";
+                        return (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border uppercase tracking-wider ${badgeStyle}`}>
+                            {c.label}
+                          </span>
+                        );
+                      })()}
                     </div>
                     
                     <div className="p-4 flex-1 flex flex-col justify-center bg-white">
                       {latestBill ? (
                         <div className="space-y-3">
+                          <p className="text-[11px] text-slate-400 font-medium -mt-1">
+                            Due by {effectiveDueDate(latestBill) ? format(effectiveDueDate(latestBill)!, "MMM d, yyyy") : "-"}
+                          </p>
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-slate-500">Room Rent</span>
                             <span className="font-medium text-slate-900">₹{parseFloat(latestBill.rentAmount).toFixed(0)}</span>

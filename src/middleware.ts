@@ -135,8 +135,18 @@ export async function middleware(request: NextRequest) {
 
   const role = user.app_metadata?.role || "STUDENT";
   const needsSelfieUpdate = user.user_metadata?.needsSelfieUpdate ?? false;
+  const isProfileComplete = user.user_metadata?.isProfileComplete;
 
-  // Removed Profile Completion Gate. Handled by global persistent Modal now.
+  // Hard profile-completion gate (Item 11, app v1.8.7 parity)
+  // Student with isProfileComplete = false is locked to /student/complete-profile until done
+  if (role === "STUDENT" && isProfileComplete === false) {
+    if (!pathname.startsWith("/student/complete-profile") && !pathname.startsWith("/student/upload-selfie")) {
+      return NextResponse.redirect(
+        new URL("/student/complete-profile", baseUrl)
+      );
+    }
+    return supabaseResponse;
+  }
 
   // Student selfie update gate (after transfer)
   if (role === "STUDENT" && needsSelfieUpdate) {

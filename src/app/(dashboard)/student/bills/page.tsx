@@ -24,6 +24,8 @@ import {
 import { BillsPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import QRCode from "qrcode";
+import { classifyBill, effectiveDueDate } from "@/lib/billing-classification";
 
 function isEstFee(bill: any) {
   return bill?.billType === "ESTABLISHMENT_FEE" || (bill?.month === 0 && bill?.year === 0);
@@ -53,6 +55,7 @@ const billsFetcher = (url: string) =>
 
 export default function StudentBillsPage() {
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const router = useRouter();
 
   const { data: resData, error, isLoading } = useSWR("/api/student/bills", billsFetcher, {
@@ -64,7 +67,10 @@ export default function StudentBillsPage() {
 
   useEffect(() => {
     if (bills.length > 0 && !selectedBillId) {
-      const firstUnpaid = bills.find((b: any) => b.status !== "PAID");
+      const firstUnpaid = bills.find((b: any) => {
+        const c = classifyBill(b);
+        return c.status !== "PAID" && c.status !== "UNBILLED";
+      });
       setSelectedBillId(firstUnpaid ? firstUnpaid.id : bills[0].id);
     }
   }, [bills, selectedBillId]);
@@ -75,32 +81,51 @@ export default function StudentBillsPage() {
     }
   }, [error]);
 
-  function getStatusBadge(status: string) {
-    switch (status) {
+  function getStatusBadge(bill: any) {
+    if (!bill) return null;
+    const c = classifyBill(bill);
+    switch (c.status) {
       case "PAID":
         return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border uppercase tracking-wider bg-emerald-50 text-emerald-700 border-emerald-200">Paid</span>;
       case "PARTIALLY_PAID":
         return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border uppercase tracking-wider bg-amber-50 text-amber-700 border-amber-200">Partial</span>;
       case "OVERDUE":
         return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border uppercase tracking-wider bg-red-50 text-red-700 border-red-200">Overdue</span>;
-      case "GENERATED":
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border uppercase tracking-wider bg-slate-100 text-slate-600 border-slate-200">Unpaid</span>;
       default:
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border uppercase tracking-wider bg-slate-100 text-slate-600 border-slate-200">{status}</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border uppercase tracking-wider bg-slate-100 text-slate-600 border-slate-200">{c.label}</span>;
     }
   }
 
-  if (isLoading) {
-    return <BillsPageSkeleton />;
-  }
-
   const selectedBill = bills.find((b) => b.id === selectedBillId) || bills[0] || null;
-  const pendingBills = bills.filter((b) => b.status !== "PAID");
+  const pendingBills = bills.filter((b) => {
+    const c = classifyBill(b);
+    return c.status !== "PAID" && c.status !== "UNBILLED";
+  });
   const isLatestBill = selectedBill && bills.length > 0 && selectedBill.id === bills[0].id;
 
   const totalAmount = selectedBill ? parseFloat(selectedBill.totalAmount) : 0;
   const paidAmount = selectedBill ? parseFloat(selectedBill.paidAmount) : 0;
   const remainingDue = Math.max(0, totalAmount - paidAmount);
+
+  // Generate dynamic UPI QR whenever selectedBill or remainingDue changes (Item 6)
+  useEffect(() => {
+    if (!selectedBill || remainingDue <= 0) {
+      setQrCodeUrl(null);
+      return;
+    }
+    const studentName = selectedBill?.user?.studentProfile?.fullName || selectedBill?.user?.username || "Student";
+    const monthStr = selectedBill.month
+      ? new Date(selectedBill.year, selectedBill.month - 1).toLocaleString("default", { month: "short", year: "numeric" })
+      : `Annual ${selectedBill.year || ""}`;
+    const note = `Mess Bill ${monthStr} - ${studentName}`.slice(0, 50);
+    const vpa = process.env.NEXT_PUBLIC_UPI_ID || "mirrormess@upi";
+    const upiRef = `TXN${selectedBill.id.replace(/-/g, "").slice(0, 10).toUpperCase()}${Date.now().toString().slice(-4)}`;
+    const upiUrl = `upi://pay?pa=${vpa}&pn=${encodeURIComponent("Mirror Hostels")}&am=${remainingDue.toFixed(2)}&tn=${encodeURIComponent(note)}&tr=${upiRef}&cu=INR`;
+
+    QRCode.toDataURL(upiUrl, { width: 180, margin: 1 })
+      .then((url) => setQrCodeUrl(url))
+      .catch((err) => console.error("Error generating UPI QR code:", err));
+  }, [selectedBill?.id, remainingDue]);
 
   const handlePayNow = (bill: any) => {
     const due = Math.max(0, parseFloat(bill.totalAmount) - parseFloat(bill.paidAmount));
@@ -197,10 +222,10 @@ export default function StudentBillsPage() {
                       )}
                     </div>
                     <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5">
-                      Due by <span className="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">{format(new Date(selectedBill.dueDate), "MMM d, yyyy")}</span>
+                      Due by <span className="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">{effectiveDueDate(selectedBill) ? format(effectiveDueDate(selectedBill)!, "MMM d, yyyy") : "-"}</span>
                     </p>
                   </div>
-                  {getStatusBadge(selectedBill.status)}
+                  {getStatusBadge(selectedBill)}
                 </div>
               </div>
               
@@ -276,6 +301,31 @@ export default function StudentBillsPage() {
                           </span>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Dynamic UPI QR Code (Item 6) */}
+                {remainingDue > 0 && qrCodeUrl && (
+                  <div className="pt-2">
+                    <div className="p-4 bg-gradient-to-br from-blue-50/70 to-indigo-50/40 border border-blue-200/80 rounded-xl flex flex-col sm:flex-row items-center gap-4 shadow-2xs">
+                      <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs shrink-0 flex flex-col items-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={qrCodeUrl} alt="Dynamic UPI QR Code" className="w-32 h-32 block" />
+                        <span className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-wider">Scan to Pay</span>
+                      </div>
+                      <div className="flex-1 text-center sm:text-left space-y-1.5">
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-100/80 text-blue-700 text-[11px] font-bold">
+                          <CreditCard className="w-3 h-3" />
+                          <span>Exact Payable: ₹{remainingDue.toFixed(2)}</span>
+                        </div>
+                        <p className="text-xs text-slate-700 font-medium">
+                          Scan with any UPI app (Google Pay, PhonePe, Paytm, BHIM).
+                        </p>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          After payment, take a screenshot of your bank receipt and click <strong className="text-slate-700">Pay Now / Upload Proof</strong> below to submit your UTR.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -369,7 +419,7 @@ export default function StudentBillsPage() {
                           </span>
                         )}
                       </div>
-                      {getStatusBadge(bill.status)}
+                      {getStatusBadge(bill)}
                     </div>
 
                     <div className="flex justify-between items-center text-xs mb-3">

@@ -5,7 +5,7 @@ import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
-  Check, X, Loader2, Eye, Receipt, Calendar, CreditCard, User, Landmark
+  Check, X, Loader2, Eye, Receipt, Calendar, CreditCard, User, Landmark, Share2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -115,6 +115,28 @@ export default function PaymentVerificationPage() {
     }
   }
 
+  const handleShareMonthlySummaryWhatsApp = () => {
+    const currentMonthName = format(new Date(), "MMMM yyyy");
+    const approvedPayments = payments.filter((p) => p.status === "APPROVED");
+    const pendingPayments = payments.filter((p) => p.status === "PENDING_REVIEW");
+    const rejectedPayments = payments.filter((p) => p.status === "REJECTED");
+
+    const totalApproved = approvedPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const totalPending = pendingPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+    const text = [
+      `*Mirror Hostels — Payment Summary (${currentMonthName})*`,
+      ``,
+      `✅ *Verified / Approved:* Rs. ${totalApproved.toLocaleString("en-IN")} (${approvedPayments.length} payments)`,
+      `⏳ *Pending Review:* Rs. ${totalPending.toLocaleString("en-IN")} (${pendingPayments.length} payments)`,
+      `❌ *Rejected:* ${rejectedPayments.length} payments`,
+      ``,
+      `📅 Generated: ${format(new Date(), "dd MMM yyyy, hh:mm a")}`,
+    ].join("\n");
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -123,23 +145,37 @@ export default function PaymentVerificationPage() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Payment Verification</h1>
           <p className="text-sm text-slate-500 mt-0.5">Review student payments and match UTR numbers.</p>
         </div>
-        <div className="w-full sm:w-48">
-          <Select value={statusFilter} onValueChange={(val) => { if (val) setStatusFilter(val); }}>
-            <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-white text-sm">
-              <SelectValue placeholder="Filter by status">
-                {statusFilter === "PENDING_REVIEW" ? "Pending Review" : 
-                 statusFilter === "APPROVED" ? "Approved" : 
-                 statusFilter === "REJECTED" ? "Rejected" : 
-                 statusFilter === "ALL" ? "All Payments" : null}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="PENDING_REVIEW">Pending Review</SelectItem>
-              <SelectItem value="APPROVED">Approved</SelectItem>
-              <SelectItem value="REJECTED">Rejected</SelectItem>
-              <SelectItem value="ALL">All Payments</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleShareMonthlySummaryWhatsApp}
+            className="h-9 px-3 text-xs rounded-lg border-emerald-200 bg-emerald-50/60 text-emerald-800 hover:bg-emerald-100 cursor-pointer gap-1.5 font-medium shrink-0"
+            title="Share monthly payment collection summary via WhatsApp (Item 8)"
+          >
+            <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>WhatsApp Summary</span>
+          </Button>
+
+          <div className="w-full sm:w-48">
+            <Select value={statusFilter} onValueChange={(val) => { if (val) setStatusFilter(val); }}>
+              <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-white text-sm">
+                <SelectValue placeholder="Filter by status">
+                  {statusFilter === "PENDING_REVIEW" ? "Pending Review" : 
+                   statusFilter === "APPROVED" ? "Approved" : 
+                   statusFilter === "REJECTED" ? "Rejected" : 
+                   statusFilter === "ALL" ? "All Payments" : null}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PENDING_REVIEW">Pending Review</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="ALL">All Payments</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -383,10 +419,33 @@ export default function PaymentVerificationPage() {
             </div>
 
             {verifyStatus === "REJECTED" && (
-              <div>
-                <Label htmlFor="reason" className="text-xs font-semibold text-slate-600 mb-1.5 block">
+              <div className="space-y-2">
+                <Label htmlFor="reason" className="text-xs font-semibold text-slate-600 block">
                   Rejection Reason <span className="text-red-500">*</span>
                 </Label>
+                {/* Quick-pick reason chips (Item 7) */}
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "Blurry / illegible proof",
+                    "Incorrect amount",
+                    "UTR not matching bank records",
+                    "Duplicate submission",
+                    "Account mismatch",
+                  ].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => setRejectionReason(chip)}
+                      className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                        rejectionReason === chip
+                          ? "bg-red-50 border-red-300 text-red-700 font-semibold"
+                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
                 <Textarea
                   id="reason"
                   placeholder="e.g., UTR number does not match bank records, amount is incorrect..."

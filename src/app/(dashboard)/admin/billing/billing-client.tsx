@@ -5,7 +5,7 @@ import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import Link from "next/link";
 import { 
   Loader2, Receipt, CreditCard, CheckCircle2, XCircle, AlertTriangle, Building2, User, KeyRound, Clock, FolderOpen,
-  Search, RefreshCw, Table as TableIcon, Download, Wallet, ArrowUpRight
+  Search, RefreshCw, Table as TableIcon, Download, Wallet, ArrowUpRight, FileSpreadsheet, FileText, Bell
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -16,6 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { classifyBill, classifyFee, billIsOverdue } from "@/lib/billing-classification";
+import { downloadRegisterCSV } from "@/lib/register-csv-export";
+import { generateRegisterPDF } from "@/lib/register-pdf-export";
+import { generateDueReportPDF } from "@/lib/due-report-pdf-export";
 
 export function AdminBillingClient({
   initialHostels,
@@ -107,6 +111,112 @@ export function AdminBillingClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Due Report State (Item 5)
+  const [isDueReportDialogOpen, setIsDueReportDialogOpen] = useState(false);
+  const [dueReportMonth, setDueReportMonth] = useState<string>((new Date().getMonth() + 1).toString());
+  const [dueReportYear, setDueReportYear] = useState<string>(new Date().getFullYear().toString());
+  const [isGeneratingDueReport, setIsGeneratingDueReport] = useState(false);
+
+  // Remind state (Item 10)
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
+
+  const handleExportCSV = () => {
+    if (!registerData || !registerData.length) {
+      toast.error("No register data to export");
+      return;
+    }
+    const hostelObj = hostels.find((h) => h.id === selectedHostel);
+    downloadRegisterCSV({
+      hostelName: hostelObj?.name || "Hostel",
+      year: parseInt(selectedYear, 10),
+      students: registerData,
+    });
+    toast.success("Register CSV downloaded");
+  };
+
+  const handleExportPDF = () => {
+    if (!registerData || !registerData.length) {
+      toast.error("No register data to export");
+      return;
+    }
+    const hostelObj = hostels.find((h) => h.id === selectedHostel);
+    generateRegisterPDF({
+      hostelName: hostelObj?.name || "Hostel",
+      year: parseInt(selectedYear, 10),
+      students: registerData,
+      configData,
+    });
+    toast.success("Register PDF downloaded");
+  };
+
+  const handleGenerateDueReport = async () => {
+    try {
+      setIsGeneratingDueReport(true);
+      const m = parseInt(dueReportMonth, 10);
+      const y = parseInt(dueReportYear, 10);
+      const hostelObj = hostels.find((h) => h.id === selectedHostel);
+      const hostelName = hostelObj?.name || "Hostel";
+
+      let prevYearData: any[] = [];
+      try {
+        const prevRes = await fetch(`/api/billing/register?hostelId=${selectedHostel}&year=${y - 1}`);
+        if (prevRes.ok) {
+          const json = await prevRes.json();
+          prevYearData = json.data || [];
+        }
+      } catch (err) {
+        console.warn("Could not fetch previous year register data:", err);
+      }
+
+      let currentYearData = registerData;
+      if (y !== parseInt(selectedYear, 10)) {
+        const curRes = await fetch(`/api/billing/register?hostelId=${selectedHostel}&year=${y}`);
+        if (curRes.ok) {
+          const json = await curRes.json();
+          currentYearData = json.data || [];
+        }
+      }
+
+      generateDueReportPDF({
+        hostelName,
+        pickedMonth: m,
+        pickedYear: y,
+        currentYearStudents: currentYearData,
+        previousYearStudents: prevYearData,
+      });
+      toast.success("Due report downloaded");
+      setIsDueReportDialogOpen(false);
+    } catch (err: any) {
+      toast.error("Failed to generate due report: " + (err?.message || "Unknown error"));
+    } finally {
+      setIsGeneratingDueReport(false);
+    }
+  };
+
+  const handleSendReminder = async () => {
+    if (!monthEditTarget) return;
+    setIsSendingReminder(true);
+    try {
+      const res = await fetch("/api/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `Payment Reminder: ${monthEditTarget.monthName} ${monthEditTarget.year} Overdue`,
+          body: `Dear ${monthEditTarget.studentName}, your hostel bill for ${monthEditTarget.monthName} ${monthEditTarget.year} is overdue. Please settle your pending amount and upload your payment proof to prevent further late fee accumulation.`,
+          audience: "PRIVATE",
+          targetUserId: monthEditTarget.studentId,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to send reminder");
+      toast.success(`Reminder sent to ${monthEditTarget.studentName}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send reminder");
+    } finally {
+      setIsSendingReminder(false);
+    }
+  };
+
   const monthlyFinancials = useMemo(() => {
     if (!registerData || !registerData.length) return null;
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -122,17 +232,11 @@ export function AdminBillingClient({
         const mData = student.monthly?.[m];
         if (mData) {
           count++;
-          const amt = Number(mData.totalAmount ?? mData.amount ?? 0);
-          billed += amt;
-          if (mData.status === "PAID") {
-            collected += amt;
-          } else if (mData.status === "OVERDUE") {
-            overdue += amt;
-            overdueCount++;
-          } else if (mData.status === "PARTIALLY_PAID") {
-            const paid = Number(mData.paidAmount ?? 0);
-            collected += paid;
-            overdue += Math.max(0, amt - paid);
+          const c = classifyBill(mData);
+          billed += c.totalAmount;
+          collected += c.paidAmount;
+          if (c.status === "OVERDUE" || c.isOverdue) {
+            overdue += c.outstanding;
             overdueCount++;
           }
         }
@@ -1371,6 +1475,44 @@ export function AdminBillingClient({
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportCSV}
+                      className="h-8 px-2.5 text-xs rounded-lg border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer gap-1.5"
+                      title="Export Register to CSV (Excel UTF-8 BOM, numeric months, overdue details)"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="hidden sm:inline">CSV</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportPDF}
+                      className="h-8 px-2.5 text-xs rounded-lg border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer gap-1.5"
+                      title="Export Register PDF (A4 Landscape, B&W status words)"
+                    >
+                      <Download className="w-3.5 h-3.5 text-blue-600" />
+                      <span className="hidden sm:inline">PDF</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsDueReportDialogOpen(true)}
+                      className="h-8 px-2.5 text-xs rounded-lg border-amber-200 bg-amber-50/60 text-amber-900 hover:bg-amber-100 cursor-pointer gap-1.5 font-medium"
+                      title="Generate Student-wise Due Report PDF"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Due PDF</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
               
@@ -1431,60 +1573,68 @@ export function AdminBillingClient({
                                 
                                 {/* Bed Fee */}
                                 <td className="px-3 py-2.5">
-                                  <button 
-                                    type="button"
-                                    onClick={() => {
-                                      setFeeEditTarget({
-                                        studentId: student.id,
-                                        studentName: student.name,
-                                        feeType: "BED_FEE",
-                                        title: `Annual Bed Fee (${selectedYear})`,
-                                        amount: student.bedFee?.amount || bedFeeAmount,
-                                        status: student.bedFee?.status && student.bedFee.status !== "NOT_BILLED" ? student.bedFee.status : "PAID",
-                                        year: parseInt(selectedYear, 10),
-                                      });
-                                      setFeeStatusValue(student.bedFee?.status && student.bedFee.status !== "NOT_BILLED" ? student.bedFee.status : "PAID");
-                                      setFeeAmountValue((student.bedFee?.amount || bedFeeAmount || "").toString());
-                                    }}
-                                    className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
-                                    title={`Click to set/update Bed Fee for ${student.name}`}
-                                  >
-                                    <span className="font-medium text-slate-700">
-                                      {student.bedFee?.amount > 0 ? student.bedFee.amount : (bedFeeAmount > 0 ? bedFeeAmount : "-")}
-                                    </span>
-                                    {student.bedFee?.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />}
-                                    {student.bedFee?.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
-                                    {(student.bedFee?.status === "GENERATED" || student.bedFee?.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
-                                  </button>
+                                  {(() => {
+                                    const bedFeeClass = student.bedFee ? classifyFee(student.bedFee.amount, student.bedFee.status) : null;
+                                    return (
+                                      <button 
+                                        type="button"
+                                        onClick={() => {
+                                          setFeeEditTarget({
+                                            studentId: student.id,
+                                            studentName: student.name,
+                                            feeType: "BED_FEE",
+                                            title: `Annual Bed Fee (${selectedYear})`,
+                                            amount: student.bedFee?.amount || bedFeeAmount,
+                                            status: student.bedFee?.status && student.bedFee.status !== "NOT_BILLED" ? student.bedFee.status : "PAID",
+                                            year: parseInt(selectedYear, 10),
+                                          });
+                                          setFeeStatusValue(student.bedFee?.status && student.bedFee.status !== "NOT_BILLED" ? student.bedFee.status : "PAID");
+                                          setFeeAmountValue((student.bedFee?.amount || bedFeeAmount || "").toString());
+                                        }}
+                                        className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
+                                        title={`Click to set/update Bed Fee for ${student.name}`}
+                                      >
+                                        <span className="font-medium text-slate-700">
+                                          {student.bedFee?.amount > 0 ? student.bedFee.amount : (bedFeeAmount > 0 ? bedFeeAmount : "-")}
+                                        </span>
+                                        {bedFeeClass?.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />}
+                                        {(bedFeeClass?.status === "OVERDUE" || bedFeeClass?.status === "DUE") && <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                                      </button>
+                                    );
+                                  })()}
                                 </td>
 
                                 {/* Est Fee */}
                                 <td className="px-3 py-2.5">
-                                  <button 
-                                    type="button"
-                                    onClick={() => {
-                                      setFeeEditTarget({
-                                        studentId: student.id,
-                                        studentName: student.name,
-                                        feeType: "ESTABLISHMENT_FEE",
-                                        title: "Establishment Fee (One-Time)",
-                                        amount: student.estFee?.amount || estFeeAmount,
-                                        status: student.estFee?.status && student.estFee.status !== "NOT_BILLED" ? student.estFee.status : "PAID",
-                                        year: 0,
-                                      });
-                                      setFeeStatusValue(student.estFee?.status && student.estFee.status !== "NOT_BILLED" ? student.estFee.status : "PAID");
-                                      setFeeAmountValue((student.estFee?.amount || estFeeAmount || "").toString());
-                                    }}
-                                    className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
-                                    title={`Click to set/update Establishment Fee for ${student.name}`}
-                                  >
-                                    <span className="font-medium text-slate-700">
-                                      {student.estFee?.amount > 0 ? student.estFee.amount : (estFeeAmount > 0 ? estFeeAmount : "-")}
-                                    </span>
-                                    {student.estFee?.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />}
-                                    {student.estFee?.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
-                                    {(student.estFee?.status === "GENERATED" || student.estFee?.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
-                                  </button>
+                                  {(() => {
+                                    const estFeeClass = student.estFee ? classifyFee(student.estFee.amount, student.estFee.status) : null;
+                                    return (
+                                      <button 
+                                        type="button"
+                                        onClick={() => {
+                                          setFeeEditTarget({
+                                            studentId: student.id,
+                                            studentName: student.name,
+                                            feeType: "ESTABLISHMENT_FEE",
+                                            title: "Establishment Fee (One-Time)",
+                                            amount: student.estFee?.amount || estFeeAmount,
+                                            status: student.estFee?.status && student.estFee.status !== "NOT_BILLED" ? student.estFee.status : "PAID",
+                                            year: 0,
+                                          });
+                                          setFeeStatusValue(student.estFee?.status && student.estFee.status !== "NOT_BILLED" ? student.estFee.status : "PAID");
+                                          setFeeAmountValue((student.estFee?.amount || estFeeAmount || "").toString());
+                                        }}
+                                        className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 cursor-pointer transition-colors"
+                                        title={`Click to set/update Establishment Fee for ${student.name}`}
+                                      >
+                                        <span className="font-medium text-slate-700">
+                                          {student.estFee?.amount > 0 ? student.estFee.amount : (estFeeAmount > 0 ? estFeeAmount : "-")}
+                                        </span>
+                                        {estFeeClass?.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />}
+                                        {(estFeeClass?.status === "OVERDUE" || estFeeClass?.status === "DUE") && <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                                      </button>
+                                    );
+                                  })()}
                                 </td>
 
                                 {/* Base Rent */}
@@ -1495,6 +1645,7 @@ export function AdminBillingClient({
                                 {/* Months */}
                                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => {
                                   const bill = student.monthly[m];
+                                  const c = bill ? classifyBill(bill) : null;
                                   return (
                                     <td key={m} className="px-1.5 py-1 text-center border-l border-slate-100">
                                       <button 
@@ -1505,14 +1656,15 @@ export function AdminBillingClient({
                                             ? "hover:bg-slate-100 hover:ring-1 hover:ring-slate-300" 
                                             : "text-slate-300 hover:text-blue-600 hover:bg-blue-50/80 hover:ring-1 hover:ring-blue-300"
                                         }`}
-                                        title={`Click to edit ${student.name}'s ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1]} payment status`}
+                                        title={c ? `${c.label} (${c.outstanding > 0 ? `Due Rs ${c.outstanding}` : 'Settled'})` : `Click to record`}
                                       >
                                         {bill ? (
                                           <>
                                             <span className="font-semibold text-slate-700">{bill.amount}</span>
-                                            {bill.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />}
-                                            {bill.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
-                                            {(bill.status === "GENERATED" || bill.status === "OVERDUE") && <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                                            {c?.status === "PAID" && <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />}
+                                            {c?.status === "PARTIALLY_PAID" && <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                                            {c?.status === "OVERDUE" && <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                                            {c?.status === "DUE" && <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
                                           </>
                                         ) : (
                                           <span className="font-mono text-slate-300 group-hover/btn:text-blue-600 group-hover/btn:font-bold">-</span>
@@ -1921,44 +2073,65 @@ export function AdminBillingClient({
 
                 <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-2 bg-slate-50/50">
                   {monthEditTarget.bill ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={async () => {
-                        if (!monthEditTarget?.bill) return;
-                        const targetBill = monthEditTarget.bill;
-                        const hostelObj = hostels.find((h) => h.id === selectedHostel);
-                        const rent = monthAmountValue !== "" ? parseFloat(monthAmountValue) : targetBill.amount || monthEditTarget.baseRent;
-                        const late = monthLateFeeValue !== "" ? parseFloat(monthLateFeeValue) : (targetBill.lateFee || 0);
-                        const mess = targetBill.messCharge || 0;
-                        const total = rent + mess + late;
-                        const { generateInvoicePDF } = await import("@/lib/pdf-generator");
-                        generateInvoicePDF({
-                          id: targetBill.id,
-                          rentAmount: rent,
-                          bedFee: 0,
-                          establishmentFee: 0,
-                          messCharge: mess,
-                          lateFee: late,
-                          totalAmount: total,
-                          paidAmount: monthStatusValue === "PAID" ? total : 0,
-                          status: monthStatusValue,
-                          month: monthEditTarget.month,
-                          year: monthEditTarget.year,
-                          dueDate: new Date(monthEditTarget.year, monthEditTarget.month - 1, 7),
-                          generatedAt: new Date(monthEditTarget.year, monthEditTarget.month - 1, 1),
-                          hostel: { name: hostelObj?.name || "Mirror Hostels" },
-                          user: {
-                            username: monthEditTarget.studentName,
-                            studentProfile: { fullName: monthEditTarget.studentName },
-                          },
-                        });
-                      }}
-                      className="text-slate-700 border-slate-200 hover:bg-slate-100 rounded-lg h-9 text-xs font-semibold cursor-pointer gap-1.5 shrink-0"
-                    >
-                      <Download className="w-3.5 h-3.5 text-slate-500" />
-                      <span className="hidden sm:inline">Download</span> Invoice
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={async () => {
+                          if (!monthEditTarget?.bill) return;
+                          const targetBill = monthEditTarget.bill;
+                          const hostelObj = hostels.find((h) => h.id === selectedHostel);
+                          const rent = monthAmountValue !== "" ? parseFloat(monthAmountValue) : targetBill.amount || monthEditTarget.baseRent;
+                          const late = monthLateFeeValue !== "" ? parseFloat(monthLateFeeValue) : (targetBill.lateFee || 0);
+                          const mess = targetBill.messCharge || 0;
+                          const total = rent + mess + late;
+                          const { generateInvoicePDF } = await import("@/lib/pdf-generator");
+                          generateInvoicePDF({
+                            id: targetBill.id,
+                            rentAmount: rent,
+                            bedFee: 0,
+                            establishmentFee: 0,
+                            messCharge: mess,
+                            lateFee: late,
+                            totalAmount: total,
+                            paidAmount: monthStatusValue === "PAID" ? total : 0,
+                            status: monthStatusValue,
+                            month: monthEditTarget.month,
+                            year: monthEditTarget.year,
+                            dueDate: new Date(monthEditTarget.year, monthEditTarget.month - 1, 7),
+                            generatedAt: new Date(monthEditTarget.year, monthEditTarget.month - 1, 1),
+                            hostel: { name: hostelObj?.name || "Mirror Hostels" },
+                            user: {
+                              username: monthEditTarget.studentName,
+                              studentProfile: { fullName: monthEditTarget.studentName },
+                            },
+                          });
+                        }}
+                        className="text-slate-700 border-slate-200 hover:bg-slate-100 rounded-lg h-9 text-xs font-semibold cursor-pointer gap-1.5 shrink-0"
+                      >
+                        <Download className="w-3.5 h-3.5 text-slate-500" />
+                        <span className="hidden sm:inline">Download</span> Invoice
+                      </Button>
+
+                      {billIsOverdue({
+                        ...monthEditTarget.bill,
+                        month: monthEditTarget.month,
+                        year: monthEditTarget.year,
+                        status: monthStatusValue,
+                      }) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={isSendingReminder}
+                          onClick={handleSendReminder}
+                          className="text-amber-800 border-amber-300 bg-amber-50 hover:bg-amber-100 rounded-lg h-9 text-xs font-semibold cursor-pointer gap-1.5"
+                          title="Send a private payment reminder notice to this student"
+                        >
+                          {isSendingReminder ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5 text-amber-600" />}
+                          Remind
+                        </Button>
+                      )}
+                    </div>
                   ) : (
                     <div />
                   )}
@@ -1991,6 +2164,80 @@ export function AdminBillingClient({
               </form>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Student-wise Due Report Dialog (Item 5) */}
+      <Dialog open={isDueReportDialogOpen} onOpenChange={setIsDueReportDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-900">
+              <FileText className="w-5 h-5 text-amber-600" />
+              Student-Wise Due Report (PDF)
+            </DialogTitle>
+            <DialogDescription>
+              Generates a due report for this hostel up to the selected month. Evaluates current year and previous year dues, sorted highest due first.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-4 py-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">Month Up To</Label>
+              <Select value={dueReportMonth} onValueChange={(v) => v && setDueReportMonth(v)}>
+                <SelectTrigger className="h-9 border-slate-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((name, i) => (
+                    <SelectItem key={i + 1} value={(i + 1).toString()}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">Year</Label>
+              <Select value={dueReportYear} onValueChange={(v) => v && setDueReportYear(v)}>
+                <SelectTrigger className="h-9 border-slate-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsDueReportDialogOpen(false)}
+              disabled={isGeneratingDueReport}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleGenerateDueReport}
+              disabled={isGeneratingDueReport}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-medium gap-1.5"
+            >
+              {isGeneratingDueReport ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Download Due PDF
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

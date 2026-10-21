@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ExternalLink, Receipt, CheckCircle2, XCircle, Clock, Search, Calendar, User, FileText, CheckCircle, Eye } from "lucide-react";
+import { Loader2, ExternalLink, Receipt, CheckCircle2, XCircle, Clock, Search, Calendar, User, FileText, CheckCircle, Eye, Share2 } from "lucide-react";
 import { TablePageSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -110,6 +110,20 @@ export default function ManagerPaymentsPage() {
     }
   }
 
+  const handleShareMonthlySummaryWhatsApp = () => {
+    const currentMonthName = format(new Date(), "MMMM yyyy");
+    const totalPending = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+    const text = [
+      `*Mirror Hostels — Manager Payment Summary (${currentMonthName})*`,
+      ``,
+      `⏳ *Pending Review in Queue:* ${payments.length} payments (Rs. ${totalPending.toLocaleString("en-IN")})`,
+      `📅 Generated: ${format(new Date(), "dd MMM yyyy, hh:mm a")}`,
+    ].join("\n");
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
   const filteredPayments = payments.filter(p => 
     (p.user.studentProfile?.fullName || p.user.username).toLowerCase().includes(search.toLowerCase()) ||
     (p.utrNumber || p.transactionId || "").toLowerCase().includes(search.toLowerCase())
@@ -126,6 +140,18 @@ export default function ManagerPaymentsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleShareMonthlySummaryWhatsApp}
+            className="h-9 px-3 text-xs rounded-lg border-emerald-200 bg-emerald-50/60 text-emerald-800 hover:bg-emerald-100 cursor-pointer gap-1.5 font-medium shrink-0"
+            title="Share monthly payment collection summary via WhatsApp (Item 8)"
+          >
+            <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>WhatsApp Summary</span>
+          </Button>
+
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-amber-50 text-amber-700 border border-amber-200">
             <Clock className="w-4 h-4" />
             {payments.length} Pending
@@ -289,6 +315,29 @@ export default function ManagerPaymentsPage() {
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="rejectionReason" className="text-xs font-semibold text-slate-600 mb-1.5 block">Rejection Reason <span className="text-slate-400 font-normal">(required if rejecting)</span></Label>
+                      {/* Quick reason chips (Item 7) */}
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {[
+                          "Blurry / illegible proof",
+                          "Incorrect amount",
+                          "UTR not matching bank records",
+                          "Duplicate submission",
+                          "Account mismatch",
+                        ].map((chip) => (
+                          <button
+                            key={chip}
+                            type="button"
+                            onClick={() => setRejectionReason(chip)}
+                            className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                              rejectionReason === chip
+                                ? "bg-red-50 border-red-300 text-red-700 font-semibold"
+                                : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                            }`}
+                          >
+                            {chip}
+                          </button>
+                        ))}
+                      </div>
                       <Input
                         id="rejectionReason"
                         placeholder="e.g. Blurry screenshot, UTR mismatch..."
