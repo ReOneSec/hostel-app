@@ -234,7 +234,8 @@ export default function LoginPage() {
             href="/download"
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 transition-colors shadow-sm"
           >
-            <Smartphone className="w-3.5 h-3.5 text-blue-400" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/app-icon.png" alt="Mirror Mess" className="w-4 h-4 rounded-xs object-cover shrink-0" />
             Download Mirror Mess Android App
           </Link>
         </div>
