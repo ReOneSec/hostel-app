@@ -56,7 +56,18 @@ function setCorsHeaders(headers: Headers, origin: string | null) {
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Public routes that don't require authentication
-const PUBLIC_ROUTES = ["/login", "/reset-password", "/api/auth", "/verify"];
+const PUBLIC_ROUTES = [
+  "/login",
+  "/reset-password",
+  "/api/auth",
+  "/verify",
+  "/download",
+  "/privacy",
+  "/privacy-policy",
+  "/terms",
+  "/tos",
+  "/terms-of-service",
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -17,7 +17,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Building2, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
+import Link from "next/link";
+import { Building2, Eye, EyeOff, Loader2, Lock, Mail, Smartphone } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Please enter a valid email address"),
@@ -227,8 +228,30 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
+        {/* Mobile App Download Link */}
+        <div className="mt-4 text-center">
+          <Link
+            href="/download"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 transition-colors shadow-sm"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-blue-400" />
+            Download Mirror Mess Android App
+          </Link>
+        </div>
+
+        {/* Legal links */}
+        <div className="mt-4 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+          <Link href="/privacy" className="hover:text-foreground transition-colors underline-offset-4 hover:underline">
+            Privacy Policy
+          </Link>
+          <span>•</span>
+          <Link href="/terms" className="hover:text-foreground transition-colors underline-offset-4 hover:underline">
+            Terms of Service
+          </Link>
+        </div>
+
         {/* Bottom branding */}
-        <p className="text-center text-xs text-muted-foreground/60 mt-6">
+        <p className="text-center text-xs text-muted-foreground/60 mt-4">
           © {new Date().getFullYear()} Mirror Hostels. All rights reserved.
         </p>
       </div>

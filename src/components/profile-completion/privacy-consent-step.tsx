@@ -99,8 +99,28 @@ export function PrivacyConsentStep({ onConsentGiven }: PrivacyConsentStepProps) 
           onCheckedChange={(checked) => setAgreed(checked as boolean)} 
           className="mt-1"
         />
-        <label htmlFor="consent" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
-          I have read and understand the Privacy & Security terms. I consent to the collection and processing of my personal data for hostel verification and management purposes.
+        <label htmlFor="consent" className="text-sm font-medium leading-relaxed peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+          I have read and understand the{" "}
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:text-primary/80"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Privacy Policy
+          </a>{" "}
+          and{" "}
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:text-primary/80"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Terms of Service
+          </a>
+          . I consent to the collection and processing of my personal data for hostel verification and management purposes.
         </label>
       </div>
 

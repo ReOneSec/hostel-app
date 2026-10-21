@@ -85,4 +85,11 @@ describe('Middleware Property Tests', () => {
       )
     );
   });
+
+  it('P8: Public routes do not trigger role enforcement', () => {
+    const publicPaths = ['/privacy', '/terms', '/tos', '/privacy-policy', '/terms-of-service', '/download'];
+    for (const path of publicPaths) {
+      expect(checkRoleAccess(path, null)).toBeNull();
+    }
+  });
 });

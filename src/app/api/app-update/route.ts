@@ -86,10 +86,13 @@ export async function POST(req: NextRequest) {
 // No auth: the values are public release metadata. Handy for a browser
 // sanity check too — open https://mirrormess.vercel.app/api/app-update
 // and you should see the JSON below.
+import { getApkConfig } from "@/lib/apk-config";
+
 export async function GET() {
+  const apkConfig = getApkConfig();
   return NextResponse.json({
-    minNativeVersion: LATEST.minNativeVersion,
-    latestNativeVersion: LATEST.latestNativeVersion,
-    latestBundleVersion: LATEST.version,
+    minNativeVersion: apkConfig.minNativeVersion || LATEST.minNativeVersion,
+    latestNativeVersion: apkConfig.latestNativeVersion || LATEST.latestNativeVersion,
+    latestBundleVersion: apkConfig.latestBundleVersion || LATEST.version,
   });
 }

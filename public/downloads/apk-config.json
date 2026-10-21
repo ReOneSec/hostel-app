@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "minNativeVersion": "2.0.0",
+  "latestNativeVersion": "2.0",
+  "latestBundleVersion": "1.13.5",
+  "checksum": "5c97a92759576e83b91985f409ebcf5e3fa58f82223c873bbe2a3349d6dd3f12",
+  "fileSize": 7974785,
+  "uploadedAt": "2026-10-21T19:58:34.706Z",
+  "releaseNotes": "Mirror Mess v2.0 with per-bill dynamic UPI QR, 7th-rule overdue billing, and instant OTA bundle updates.",
+  "downloadUrl": "/downloads/mirror-mess.apk",
+  "indusStoreUrl": "https://www.indusappstore.com/apps/com.mirrormess.app",
+  "firebaseTesterUrl": "https://appdistribution.firebase.dev/i/cd048b80c443016e",
+  "fileName": "mirror-hostels-v2.0.0.apk"
+}

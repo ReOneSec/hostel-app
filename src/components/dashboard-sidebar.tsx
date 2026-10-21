@@ -23,6 +23,7 @@ import {
   User,
   UserCog,
   Megaphone,
+  Smartphone,
 } from "lucide-react";
 import { useState } from "react";
 import type { Role } from "@prisma/client";
@@ -108,6 +109,13 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["SUPER_ADMIN", "HOSTEL_MANAGER"],
     section: "Operations",
   },
+  {
+    label: "APK Releases",
+    href: "/admin/apk",
+    icon: Smartphone,
+    roles: ["SUPER_ADMIN"],
+    section: "Operations",
+  },
 
   // Manager
   {
@@ -190,6 +198,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: Megaphone,
     roles: ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER"],
     section: "Student",
+  },
+  {
+    label: "Download App",
+    href: "/download",
+    icon: Smartphone,
+    roles: ["STUDENT", "MONTHLY_MANAGER", "HOSTEL_MANAGER", "SUPER_ADMIN"],
+    section: "App",
   },
 ];
 
