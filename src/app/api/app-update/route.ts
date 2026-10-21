@@ -25,11 +25,24 @@ import { NextRequest, NextResponse } from "next/server";
 //      whatever bundle-data.ts currently holds.
 // Native changes (new plugins, permissions, package) still ship as APKs —
 // OTA updates only the web layer (screens, styling, JS logic).
+//
+// NATIVE VERSION POLICY (v1.13.3): with every release, also set —
+//   minNativeVersion:    oldest native (APK) version allowed to run. A
+//                        device below it is blocked in-app until it
+//                        installs a newer APK.
+//   latestNativeVersion: newest native (APK) version published. A device
+//                        below it (but >= min) sees a dismissible
+//                        "update available" banner; at/above it, nothing.
+// The app reads these via GET on this same route (see below). Bump
+// latestNativeVersion whenever a new APK ships; raise minNativeVersion
+// only when an old native must be retired.
 // ─────────────────────────────────────────────────────────────────────────────
 const LATEST = {
-  version: "1.13.1",
+  version: "1.13.3",
   url: "https://mirrormess.vercel.app/api/app-update/bundle",
-  checksum: "c596ecf9e45b3191dfe82c4413fc5342a86c23497c3d2f5bb96f2f9d510849ea",
+  checksum: "7785f31d89c04b5ff03e9155ae74d9f7b4de686dd70d8515571a844c4f252ee8",
+  minNativeVersion: "1.13.0",
+  latestNativeVersion: "1.13.0",
 };
 
 export async function POST(req: NextRequest) {
@@ -66,13 +79,17 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Handy for a browser sanity check after deploying: open
-// https://mirrormess.vercel.app/api/app-update and you should see the
-// JSON below.
+// Native version policy for the app (v1.13.3): on boot the app GETs this
+// route and compares its real native (APK) version — read from the Capgo
+// updater plugin — against the policy below. Below minNativeVersion it is
+// blocked; below latestNativeVersion it shows a dismissible banner.
+// No auth: the values are public release metadata. Handy for a browser
+// sanity check too — open https://mirrormess.vercel.app/api/app-update
+// and you should see the JSON below.
 export async function GET() {
   return NextResponse.json({
-    version: LATEST.version,
-    url: LATEST.url,
-    checksum: LATEST.checksum,
+    minNativeVersion: LATEST.minNativeVersion,
+    latestNativeVersion: LATEST.latestNativeVersion,
+    latestBundleVersion: LATEST.version,
   });
 }
