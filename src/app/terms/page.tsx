@@ -130,6 +130,14 @@ export default function TermsOfServicePage() {
                 +91 85095 68959
               </a>
               .
+              <br />
+              Developer &amp; Grievance Officer: Sahabaj Alam — Email:{" "}
+              <a
+                href="mailto:contactsahabaj@proton.me"
+                className="text-blue-600 hover:underline font-medium"
+              >
+                contactsahabaj@proton.me
+              </a>
             </div>
           </div>
 
