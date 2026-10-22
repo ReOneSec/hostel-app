@@ -187,6 +187,17 @@ export default function PrivacyPolicyPage() {
               </a>
               .
             </p>
+            <p className="text-sm text-slate-700 leading-relaxed">
+              <strong className="text-slate-900 font-semibold">Developer &amp; Grievance Officer:</strong> Sahabaj Alam
+              <br />
+              Email:{" "}
+              <a
+                href="mailto:contactsahabaj@proton.me"
+                className="text-blue-600 hover:underline font-medium"
+              >
+                contactsahabaj@proton.me
+              </a>
+            </p>
           </section>
         </div>
       </main>
