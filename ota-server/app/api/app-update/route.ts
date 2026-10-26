@@ -52,9 +52,9 @@ import { NextRequest, NextResponse } from "next/server";
 // only when an old native must be retired.
 // ─────────────────────────────────────────────────────────────────────────────
 const LATEST = {
-  version: "2.0.4",
+  version: "2.0.5",
   url: "https://mirrormess.vercel.app/api/app-update/bundle",
-  checksum: "c9a825bd5276e79c645788b7f4567a21069812eda35864113ef1701e7f99bbb2",
+  checksum: "28c8eadfe40e2ba1cbf572881d9960320aa721b940f1ee7547a014d53882da30",
   minNativeVersion: "2.0",
   latestNativeVersion: "2.0",
 };
