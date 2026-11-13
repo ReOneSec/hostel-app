@@ -40,7 +40,7 @@ import { NextRequest, NextResponse } from "next/server";
 const LATEST = {
   version: "2.0.11",
   url: "https://mirrormess.vercel.app/api/app-update/bundle",
-  checksum: "861bcadaf1d468a94902f81e43a0adebac86882f18c1968420ee05e6d5bff852",
+  checksum: "6e8bcf7de2b95322b719e4a66c90b3d068f17204ee2d3296fd62e82c6fbdc81e",
   minNativeVersion: "2.0",
   latestNativeVersion: "2.0",
 };
