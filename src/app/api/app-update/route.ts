@@ -38,9 +38,9 @@ import { NextRequest, NextResponse } from "next/server";
 // only when an old native must be retired.
 // ─────────────────────────────────────────────────────────────────────────────
 const LATEST = {
-  version: "2.0.13",
+  version: "2.0.14",
   url: "https://mirrormess.vercel.app/api/app-update/bundle",
-  checksum: "538564175936f585ac7015b7af2e40aa5e8bafae4320cdb9eaea681a43c30b55",
+  checksum: "3bcc062917e43c3856e7d107fb905f2cf73b0610e01db65827a454ec57f2e978",
   minNativeVersion: "2.0",
   latestNativeVersion: "2.0",
 };
@@ -94,5 +94,8 @@ export async function GET() {
     minNativeVersion: apkConfig.minNativeVersion || LATEST.minNativeVersion,
     latestNativeVersion: apkConfig.latestNativeVersion || LATEST.latestNativeVersion,
     latestBundleVersion: apkConfig.latestBundleVersion || LATEST.version,
+    // The manual "Check for update" download needs this too: the plugin
+    // rejects downloads without a checksum ("Checksum required").
+    checksum: LATEST.checksum,
   });
 }
