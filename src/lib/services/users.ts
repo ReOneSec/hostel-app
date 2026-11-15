@@ -91,6 +91,11 @@ export async function getUsersList(params: {
         bedAssignments: {
           where: { status: "ACTIVE" },
           include: { bed: true }
+        },
+        selfies: {
+          where: { isCurrent: true },
+          select: { id: true, fileUrl: true, capturedAt: true },
+          take: 1,
         }
       },
       orderBy,
